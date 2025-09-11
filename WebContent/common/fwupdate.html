@@ -1,0 +1,224 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
+<meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1" />
+<html>
+  <head>
+    <link rel="stylesheet" type="text/css" href="basic_layout.css" />
+    <style type="text/css"></style>
+  </head>
+  <script type="text/javascript" src="basic_jscript.js"></script>
+  <script type="text/javascript" src="js/jquery-3.7.1.min.js"></script>
+  <script type="text/javascript">
+    var m_count;
+    var ignore = 0;
+    var diable_upload_prog = 0;
+
+    $(document).ajaxError(function (event, request, settings) {
+      var obj = JSON.parse(request.responseText);
+      if (obj.msg) ffunc(obj.msg);
+      if (obj.error === "invalid rights")
+        window.top.location.href = "login.html";
+    });
+
+    function file_onprogress(e) {
+      if (diable_upload_prog == 0) {
+        var p = (100 / e.total) * e.loaded;
+        document.getElementById("progressUpload").value = p;
+        document.getElementById("status_info").textContent =
+          "uploading (" + e.loaded + "/" + e.total + ")";
+        m_count = 0;
+      }
+    }
+
+    function upload_end(e) {
+      if (this.readyState === 4) {
+        document.getElementById("status_info").textContent =
+          "installing Software";
+        //alert(e);
+        $.post(
+          "/api",
+          '{"service":"system","access":"set","command":"install update"}'
+        )
+          .done(done)
+          .fail(fail);
+      }
+    }
+
+    function done(e, s) {
+      document.getElementById("status_info").textContent =
+        "installing Software done";
+    }
+
+    function fail(request, s) {
+      var obj = JSON.parse(request.responseText);
+      if (obj.msg) {
+        document.getElementById("status_info").textContent = obj.msg;
+      } else {
+        document.getElementById("status_info").textContent =
+          "installing Software failed";
+      }
+    }
+
+    function uploadFile() {
+      if (!$("#file")[0].files[0]) return;
+      var xhr = new XMLHttpRequest();
+      var fd = new FormData();
+      fd.append("file", $("#file")[0].files[0]);
+
+      xhr.upload.onprogress = file_onprogress;
+      xhr.onreadystatechange = upload_end;
+      xhr.open("POST", "/upload.cgi");
+      xhr.send(fd);
+    }
+
+    function install() {
+      $.post(
+        "/api",
+        '{"service":"system","access":"set","command":"install update"}',
+        function (e) {}
+      );
+    }
+
+    function reboot() {
+      $.post(
+        "/api",
+        '{"service":"system","access":"set","command":"reboot"}',
+        function (e) {}
+      );
+    }
+
+    function bootAltPart() {
+      $.post(
+        "/api",
+        '{"service":"system","access":"set","command":"boot alternative partition"}',
+        function (e) {}
+      );
+    }
+
+    $(document).ready(function () {
+      $(document).ajaxError(function (data, a1) {
+        if (a1.responseJSON != undefined)
+          $("#infoline").text(a1.responseJSON.msg);
+      });
+
+      $.post(
+        "/api",
+        '{"service":"system","access":"get","command":"slots"}',
+        function (data, status) {
+          if (data["booted"] === "system0") {
+            $("#partition_cell").text("Partition 1");
+            $("#fw_cell").text(data["system0"]);
+            $("#fw_alt_cell").text(data["system1"]);
+          } else if (data["booted"] === "system1") {
+            $("#partition_cell").text("Partition 2");
+            $("#fw_cell").text(data["system1"]);
+            $("#fw_alt_cell").text(data["system0"]);
+          }
+        }
+      );
+
+      //set username
+      var cookies = document.cookie.split("; ");
+      var found = false;
+      for (var i in cookies) {
+        if (cookies[i].split("=")[0].match("user")) {
+          $("#username").text(cookies[i].split("=")[1]);
+          found = true;
+        }
+      }
+
+      if (!found)
+        window.top.location.href =
+          window.top.location.protocol +
+          "//" +
+          window.top.location.host +
+          "/login.html";
+    });
+  </script>
+  <body
+    style="
+      height: 100%;
+      width: 100%;
+      float: left;
+      margin: 0px;
+      font-family: Verdana;
+      overflow: hidden;
+      position: absolute;
+    "
+  >
+    <div id="content" style="height: 100%; overflow: auto; width: 100%">
+      <h2 style="margin-left: 10px">Maintenance &gt; Software</h2>
+      <div class="box2" style="width: calc(50% - 20px)">
+        <a class="headline">Software Update</a>
+        <div class="box_content">
+          <table style="font-size: 80%; width: 100%">
+            <colgroup>
+              <col span="1" , style="width: 40%" />
+              <col span="1" , style="width: 60%" />
+            </colgroup>
+            <tr class="table_row_head">
+              <td>Setting</td>
+              <td>Status</td>
+            </tr>
+            <tr class="table_row_content">
+              <td>Booted Partition</td>
+              <td id="partition_cell"></td>
+            </tr>
+            <tr class="table_row_content">
+              <td>Software Version of Booted Partition</td>
+              <td id="fw_cell"></td>
+            </tr>
+            <tr class="table_row_content">
+              <td>Software Version of Alternate Partition</td>
+              <td>
+                <div id="fw_alt_cell" style="float: left"></div>
+                <input
+                  id="boot_alt_part"
+                  type="button"
+                  value="Boot Alternative Partition"
+                  onclick="bootAltPart();"
+                  style="float: right"
+                />
+              </td>
+            </tr>
+
+            <tr class="table_row_content">
+              <td>Update File</td>
+              <td>
+                <input type="file" id="file" />
+              </td>
+            </tr>
+            <tr class="table_row_content">
+              <td>Update Status</td>
+              <td id="status_info">inactive</td>
+            </tr>
+            <tr class="table_row_content">
+              <td>Progress</td>
+              <td>
+                <progress
+                  id="progressUpload"
+                  disabled="true"
+                  value="0"
+                  style="width: 100%"
+                  max="100"
+                  min="0"
+                ></progress>
+              </td>
+            </tr>
+          </table>
+          <input
+            id="start_button"
+            type="button"
+            value="Start Install"
+            onclick="uploadFile();"
+          />
+          <input
+            id="reset_button"
+            type="button"
+            value="Reboot Device"
+            onclick="reboot();"
+          />
+        </div>
+      </div>
+    </div>
+  </body>
+</html>

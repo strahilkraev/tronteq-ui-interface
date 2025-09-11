@@ -1,0 +1,497 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
+<meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1" />
+<html style="height: 100%">
+  <head>
+    <link rel="stylesheet" type="text/css" href="basic_layout.css" />
+    <style type="text/css"></style>
+  </head>
+  <script type="text/javascript" src="basic_jscript.js"></script>
+  <script type="text/javascript" src="js/jquery-3.7.1.min.js"></script>
+  <style>
+    .tab {
+      overflow: hidden;
+      border: 1px solid #ccc;
+      background-color: #f1f1f1;
+    }
+
+    .tab button {
+      background-color: inherit;
+      float: left;
+      border: none;
+      outline: none;
+      cursor: pointer;
+      padding: 0px 10px;
+      /*transition: 0.3s;*/
+      /*font-size: 17px;*/
+      font-size: 100%;
+    }
+
+    .tab button:hover {
+      background-color: #ddd;
+    }
+
+    .tab button.active {
+      /*background-color: #ccc;*/
+      /*background-color: #EBFFD5;*/
+      background-color: #74b130;
+      /*background-color: #A2A2A2;*/
+    }
+
+    .tabc {
+      display: none;
+      padding: 6px 12px;
+      border: 1px solid #ccc;
+      border-top: none;
+    }
+  </style>
+  <script type="text/javascript">
+    var hostname;
+    var openedVid = -1;
+
+    $(document).ajaxError(function (event, request, settings) {
+      var obj = JSON.parse(request.responseText);
+      if (obj.msg) ffunc(obj.msg);
+      if (obj.error === "invalid rights")
+        window.top.location.href = "login.html";
+    });
+
+    $(document).ready(function () {
+      $("#update_vids")[0].onclick = setVids;
+      $("#update_system_settings")[0].onclick = updateGlobalSettings;
+      setupPortInfo(pre_setup);
+    });
+
+    function pre_setup() {
+      cmd = { service: "system", access: "get", command: "get info" };
+      $.post("/api", JSON.stringify(cmd), function (data, status) {
+        hostname = data["name"];
+        setup();
+      });
+    }
+
+    function updateRIDType() {
+      if ($("#remote_id_type")[0].value == "0") {
+        $("#remote_id")[0].disabled = false;
+      } else {
+        $("#remote_id")[0].disabled = true;
+        $("#remote_id")[0].value = hostname;
+      }
+    }
+
+    function setup() {
+      $("#remote_id_type")[0].onchange = updateRIDType;
+      getVids();
+      getRelaySettings();
+      getRemoteID();
+    }
+
+    function getNetworkAddr(ipaddr, subnetmask) {
+      if (ipaddr.split(".").length != 4 || subnetmask.split(".").length != 4) {
+        return;
+      }
+      resp = "";
+      for (var i = 0; i < 4; i++) {
+        ip = parseInt(ipaddr.split(".")[i]);
+        s = parseInt(subnetmask.split(".")[i]);
+        if (i != 0) {
+          resp = resp + ".";
+        }
+        resp = resp + (ip & s);
+      }
+      return resp;
+    }
+
+    function getVids() {
+      $.post(
+        "/api",
+        '{"service":"dhcp","access":"get","command":"get vids"}',
+        function (data, status) {
+          var tab = $("#VlanSettings")[0];
+          while (tab.rows.length > 1) tab.rows[1].remove();
+          $("#staticLease_p_vid").find("option").remove();
+          data.forEach(function (vid) {
+            var tr = tab.insertRow(-1);
+            tr.className = "table_row_content";
+
+            var t0 = tr.insertCell(0);
+            var t1 = tr.insertCell(1);
+
+            if (vid.vid == 0) {
+              t0.textContent = "Lan";
+            } else {
+              t0.textContent = "VLAN_ID" + vid.vid;
+            }
+
+            var sel = document.createElement("select");
+            sel.id = "vid_sel_" + vid.vid;
+            sel.style.width = "98%";
+            var o1 = document.createElement("option");
+            o1.value = "server";
+            o1.text = "Server";
+            sel.appendChild(o1);
+            var o2 = document.createElement("option");
+            o2.value = "relay";
+            o2.text = "Relay";
+            sel.appendChild(o2);
+            var o3 = document.createElement("option");
+            o3.value = "inserter";
+            o3.text = "Inserter";
+            sel.appendChild(o3);
+            var o4 = document.createElement("option");
+            o4.value = "off";
+            o4.text = "Off";
+            sel.appendChild(o4);
+            sel.value = vid.type;
+            t1.appendChild(sel);
+          });
+        }
+      );
+    }
+
+    function setVids() {
+      para = [];
+      sels = $("[id^=vid_sel_");
+      for (var i = 0; i < sels.length; i++) {
+        var vid = parseInt(sels[i].id.split("_")[2]);
+        var type = sels[i].value;
+        para.push({ vid: vid, type: type });
+      }
+      cmd = {
+        service: "dhcp",
+        access: "set",
+        command: "set vids",
+        parameters: para,
+      };
+      $.post("/api", JSON.stringify(cmd), function (data, status) {
+        createOK(data);
+        setup();
+      }).fail(setup);
+    }
+
+    function getRelaySettings() {
+      cmd = { service: "dhcp", access: "get", command: "relay settings" };
+      $.post("/api", JSON.stringify(cmd), getRelaySettings_cb);
+    }
+
+    function updateRelay(e) {
+      var target = e.target;
+      vid = parseInt(target.id.split("_")[1]);
+      var para = {
+        vid: vid,
+        servers: [
+          {
+            address: $("#vid_" + vid + "_server_addr")[0].value,
+            port: parseInt($("#vid_" + vid + "_server_port")[0].value),
+          },
+        ],
+      };
+
+      p = $("[id^=vid_" + vid + "_cid_port_]");
+      ports = {};
+      for (var i = 0; i < p.length; i++) {
+        ports[p[i].id.split("port_")[1]] = p[i].value;
+      }
+      para["ports"] = ports;
+
+      cmd = {
+        service: "dhcp",
+        access: "set",
+        command: "relay update subnet",
+        parameters: para,
+      };
+      $.post("/api", JSON.stringify(cmd), function (data, status) {
+        createOK(data);
+        getRelaySettings();
+      });
+    }
+
+    function setRemoteID() {
+      para = {};
+      remote_id_type = parseInt($("#remote_id_type")[0].value);
+      para["remote_type"] = remote_id_type;
+      para["remote_id"] = $("#remote_id")[0].value;
+      cmd = {
+        service: "dhcp",
+        access: "set",
+        command: "remote id",
+        parameters: para,
+      };
+      $.post("/api", JSON.stringify(cmd), function (data, status) {
+        createOK(data);
+        getRemoteID();
+      });
+    }
+
+    function getRemoteID() {
+      cmd = { service: "dhcp", access: "get", command: "remote id" };
+      $.post("/api", JSON.stringify(cmd), function (data, status) {
+        $("#remote_id_type")[0].value = data.remote_type;
+        $("#remote_id")[0].value = data.remote_id;
+        updateRIDType();
+      });
+    }
+
+    function setServerOverride() {
+      para = {};
+      if ($("#server_id_override")[0].value == "true") {
+        para["server_id_override"] = true;
+      } else {
+        para["server_id_override"] = false;
+      }
+      cmd = {
+        service: "dhcp",
+        access: "set",
+        command: "server id override",
+        parameters: para,
+      };
+      $.post("/api", JSON.stringify(cmd), function (data, status) {
+        createOK(data);
+        getRelaySettings();
+      });
+    }
+
+    function getRelaySettings_cb(data) {
+      zz = $("#subnets")[0];
+      var firstbt = undefined;
+
+      while (zz.childNodes.length > 0) {
+        zz.removeChild(zz.childNodes[0]);
+      }
+
+      while ($("#subnetbt")[0].childNodes.length > 0) {
+        $("#subnetbt")[0].removeChild($("#subnetbt")[0].childNodes[0]);
+      }
+
+      if (data.server_id_override) {
+        $("#server_id_override")[0].value = "true";
+      } else $("#server_id_override")[0].value = "false";
+
+      if (data.subnets.length == 0) {
+        $("#detail_view")[0].style.visibility = "hidden";
+      } else {
+        $("#detail_view")[0].style.visibility = "";
+      }
+
+      for (var i = 0; i < data.subnets.length; i++) {
+        var div = document.createElement("div");
+        div.className = "tabc";
+        div.id = "sub_" + data.subnets[i].vid;
+
+        var headline = document.createElement("a");
+        headline.textContent = "DHCP Server Settings";
+        headline.className = "headline";
+        div.appendChild(headline);
+
+        var tab = document.createElement("table");
+        tab.style.fontSize = "80%";
+        tab.style.width = "100%";
+        head_row = document.createElement("tr");
+        head_row.className = "table_row_head";
+        head_name = document.createElement("td");
+        head_name.appendChild(document.createTextNode("Option"));
+        head_setting = document.createElement("td");
+        head_setting.appendChild(document.createTextNode("Setting"));
+        head_row.appendChild(head_name);
+        head_row.appendChild(head_setting);
+        tab.appendChild(head_row);
+
+        row_addr = document.createElement("tr");
+        row_addr.className = "table_row_content";
+        addr_name = document.createElement("td");
+        addr_name.appendChild(document.createTextNode("Server IP Address"));
+        addr_setting = document.createElement("td");
+        addr_input = document.createElement("input");
+        addr_input.value = data.subnets[i].servers[0].address;
+        addr_input.id = "vid_" + data.subnets[i].vid + "_server_addr";
+        addr_input.style.width = "98%";
+        addr_setting.appendChild(addr_input);
+        row_addr.appendChild(addr_name);
+        row_addr.appendChild(addr_setting);
+        tab.appendChild(row_addr);
+
+        row_port = document.createElement("tr");
+        row_port.className = "table_row_content";
+        port_name = document.createElement("td");
+        port_name.appendChild(
+          document.createTextNode("Server Protocol Port (default 67)")
+        );
+        port_setting = document.createElement("td");
+        port_input = document.createElement("input");
+        port_input.value = data.subnets[i].servers[0].port;
+        port_input.id = "vid_" + data.subnets[i].vid + "_server_port";
+        port_input.style.width = "98%";
+        port_setting.appendChild(port_input);
+        row_port.appendChild(port_name);
+        row_port.appendChild(port_setting);
+        tab.appendChild(row_port);
+        div.appendChild(tab);
+        div.appendChild(document.createElement("br"));
+
+        headline = document.createElement("a");
+        headline.textContent = "Port Settings";
+        headline.className = "headline";
+        div.appendChild(headline);
+
+        tab = document.createElement("table");
+        tab.style.fontSize = "80%";
+        tab.style.width = "100%";
+        head_row = document.createElement("tr");
+        head_row.className = "table_row_head";
+        head_name = document.createElement("td");
+        head_name.appendChild(document.createTextNode("Option"));
+        head_setting = document.createElement("td");
+        head_setting.appendChild(document.createTextNode("Setting"));
+        head_row.appendChild(head_name);
+        head_row.appendChild(head_setting);
+        tab.appendChild(head_row);
+
+        sorted_ports = getPortsSorted(Object.keys(data.subnets[i].ports));
+
+        //for (var j = 0; j < data.subnets[i].ports.length; j++) {
+        for (key of sorted_ports) {
+          row_cid = document.createElement("tr");
+          row_cid.className = "table_row_content";
+          cid_name = document.createElement("td");
+          cid_name.appendChild(
+            document.createTextNode(key + " Circuit Port ID")
+          );
+          cid_setting = document.createElement("td");
+          cid_input = document.createElement("input");
+          cid_input.value = data.subnets[i].ports[key];
+          cid_input.id = "vid_" + data.subnets[i].vid + "_cid_port_" + key;
+          cid_input.style.width = "98%";
+          cid_setting.appendChild(cid_input);
+          row_cid.appendChild(cid_name);
+          row_cid.appendChild(cid_setting);
+          tab.appendChild(row_cid);
+        }
+        div.appendChild(tab);
+
+        button = document.createElement("button");
+        button.innerText = "Set Subnet VLAN ID " + data.subnets[i].vid;
+        button.id = "set_" + data.subnets[i].vid;
+        button.onclick = updateRelay;
+        div.appendChild(button);
+        div.appendChild(document.createElement("br"));
+
+        $("#subnets")[0].appendChild(div);
+
+        var bt = document.createElement("button");
+        if (data.subnets[i].vid == 0) {
+          bt.textContent = "Lan";
+        } else {
+          bt.textContent = "VLAN_ID" + data.subnets[i].vid;
+        }
+        bt.className = "tablinks";
+        bt.id = "bt_" + data.subnets[i].vid;
+        bt.onclick = openVID;
+        $("#subnetbt")[0].appendChild(bt);
+        if (firstbt == undefined || openedVid == data.subnets[i].vid) {
+          firstbt = bt;
+        }
+      }
+      if (firstbt != undefined) {
+        firstbt.click();
+      }
+    }
+
+    function updateGlobalSettings() {
+      setRemoteID();
+      setServerOverride();
+    }
+
+    function openVID(evt) {
+      var tab = document.getElementsByClassName("tabc");
+      for (var i = 0; i < tab.length; i++) {
+        tab[i].style.display = "none";
+      }
+      var tabl = document.getElementsByClassName("tablinks");
+      for (var i = 0; i < tabl.length; i++) {
+        tabl[i].className = tabl[i].className.replace(" active", "");
+      }
+      // sub_" + data.subnets[i].vid;
+      var vid = evt.currentTarget.id.split("_")[1];
+      openedVid = vid;
+      $("#sub_" + vid)[0].style.display = "block";
+      evt.currentTarget.className += " active";
+    }
+  </script>
+  <body
+    style="
+      height: 100%;
+      width: 100%;
+      float: left;
+      margin: 0px;
+      font-family: Verdana;
+      height: 100%;
+      overflow: hidden;
+      position: absolute;
+    "
+  >
+    <div id="content" style="height: 100%; overflow: auto; width: 100%">
+      <div style="width: 100%; float: left">
+        <h2 style="margin-left: 10px">Settings &gt; DHCP Relay</h2>
+
+        <div class="box2" style="width: calc(25% - 20px)">
+          <a class="headline">DHCP System Settings</a>
+          <table style="font-size: 80%; width: 100%">
+            <tr class="table_row_head">
+              <td>Name</td>
+              <td>Setting</td>
+            </tr>
+            <tr class="table_row_content">
+              <td>Remote ID Type<br />(shared with DHCP Inserter)</td>
+              <td>
+                <select id="remote_id_type" style="width: 100%">
+                  <option value="0">Manual</option>
+                  <option value="1">Hostname</option>
+                </select>
+              </td>
+            </tr>
+            <tr class="table_row_content">
+              <td>Remote ID<br />(shared with DHCP Inserter)</td>
+              <td>
+                <input type="text" id="remote_id" style="width: 98%" />
+              </td>
+            </tr>
+            <tr class="table_row_content">
+              <td>Server ID Override</td>
+              <td>
+                <select id="server_id_override" style="width: 100%">
+                  <option value="true">Enabled</option>
+                  <option value="false">Disabled</option>
+                </select>
+              </td>
+            </tr>
+          </table>
+          <input
+            id="update_system_settings"
+            type="button"
+            value="Set System Settings"
+          />
+          <br />
+          <br />
+          <a class="headline">DHCP per Management Interfaces</a>
+          <div class="box_content">
+            <table style="font-size: 80%; width: 100%" id="VlanSettings">
+              <tr class="table_row_head">
+                <td>Interface</td>
+                <td>Status DHCP</td>
+              </tr>
+            </table>
+          </div>
+          <input
+            id="update_vids"
+            type="button"
+            value="Set DHCP Interface Settings"
+          />
+        </div>
+        <div class="box2" style="width: calc(75% - 20px)" id="detail_view">
+          <a class="headline">Subnet</a>
+          <div id="subnetbt" class="tab"></div>
+          <div id="subnets"></div>
+        </div>
+      </div>
+    </div>
+  </body>
+</html>

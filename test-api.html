@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>ROQ UI API Test</title>
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        margin: 20px;
+      }
+      .test-section {
+        margin: 20px 0;
+        padding: 15px;
+        border: 1px solid #ddd;
+        border-radius: 5px;
+      }
+      .test-button {
+        padding: 10px 15px;
+        margin: 5px;
+        background: #007bff;
+        color: white;
+        border: none;
+        border-radius: 3px;
+        cursor: pointer;
+      }
+      .test-button:hover {
+        background: #0056b3;
+      }
+      .result {
+        margin-top: 10px;
+        padding: 10px;
+        background: #f8f9fa;
+        border-radius: 3px;
+        white-space: pre-wrap;
+      }
+      .error {
+        background: #f8d7da;
+        color: #721c24;
+      }
+      .success {
+        background: #d4edda;
+        color: #155724;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>🔧 ROQ UI Interface - API Test</h1>
+    <p>Test các API endpoints của ROQ UI Interface</p>
+
+    <div class="test-section">
+      <h3>System APIs</h3>
+      <button class="test-button" onclick="testAPI('system', 'get', 'get id')">
+        Get Device ID
+      </button>
+      <button
+        class="test-button"
+        onclick="testAPI('system', 'get', 'get uptime')"
+      >
+        Get Uptime
+      </button>
+      <button
+        class="test-button"
+        onclick="testAPI('system', 'get', 'get config name')"
+      >
+        Get Config Name
+      </button>
+      <button
+        class="test-button"
+        onclick="testAPI('system', 'get', 'get info')"
+      >
+        Get System Info
+      </button>
+      <button
+        class="test-button"
+        onclick="testAPI('system', 'get', 'get supply')"
+      >
+        Get Power Supply
+      </button>
+      <button
+        class="test-button"
+        onclick="testAPI('system', 'get', 'has unsaved changes')"
+      >
+        Check Changes
+      </button>
+      <div id="system-result" class="result"></div>
+    </div>
+
+    <div class="test-section">
+      <h3>User APIs</h3>
+      <button class="test-button" onclick="testAPI('user', 'get', 'logout')">
+        Logout
+      </button>
+      <div id="user-result" class="result"></div>
+    </div>
+
+    <div class="test-section">
+      <h3>Interface APIs</h3>
+      <button
+        class="test-button"
+        onclick="testAPI('interfaces', 'get', 'get ports')"
+      >
+        Get Ports
+      </button>
+      <div id="interfaces-result" class="result"></div>
+    </div>
+
+    <div class="test-section">
+      <h3>PoE APIs</h3>
+      <button class="test-button" onclick="testAPI('poe', 'get', 'get status')">
+        Get PoE Status
+      </button>
+      <div id="poe-result" class="result"></div>
+    </div>
+
+    <div class="test-section">
+      <h3>Custom Test</h3>
+      <input
+        type="text"
+        id="custom-service"
+        placeholder="Service"
+        value="system"
+      />
+      <input type="text" id="custom-access" placeholder="Access" value="get" />
+      <input
+        type="text"
+        id="custom-command"
+        placeholder="Command"
+        value="get id"
+      />
+      <button class="test-button" onclick="testCustomAPI()">
+        Test Custom API
+      </button>
+      <div id="custom-result" class="result"></div>
+    </div>
+
+    <script>
+      function testAPI(service, access, command, parameters = {}) {
+        const requestData = {
+          service: service,
+          access: access,
+          command: command,
+          parameters: parameters,
+        };
+
+        console.log("Sending request:", requestData);
+
+        $.post("/api", JSON.stringify(requestData))
+          .done(function (data) {
+            const resultDiv = document.getElementById(service + "-result");
+            resultDiv.className = "result success";
+            resultDiv.textContent =
+              "✅ Success:\n" + JSON.stringify(data, null, 2);
+          })
+          .fail(function (xhr, status, error) {
+            const resultDiv = document.getElementById(service + "-result");
+            resultDiv.className = "result error";
+            resultDiv.textContent =
+              "❌ Error: " +
+              error +
+              "\nStatus: " +
+              status +
+              "\nResponse: " +
+              xhr.responseText;
+          });
+      }
+
+      function testCustomAPI() {
+        const service = document.getElementById("custom-service").value;
+        const access = document.getElementById("custom-access").value;
+        const command = document.getElementById("custom-command").value;
+
+        testAPI(service, access, command);
+
+        // Update result div
+        const resultDiv = document.getElementById("custom-result");
+        resultDiv.className = "result";
+        resultDiv.textContent = "Testing...";
+      }
+
+      // Test connection on page load
+      $(document).ready(function () {
+        console.log("🔗 Testing API connection...");
+        testAPI("system", "get", "get id");
+      });
+    </script>
+  </body>
+</html>

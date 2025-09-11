@@ -1,0 +1,114 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
+<meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1" />
+<html style="height: 100%">
+  <head>
+    <link rel="stylesheet" type="text/css" href="basic_layout.css" />
+    <style type="text/css"></style>
+  </head>
+  <script type="text/javascript" src="basic_jscript.js"></script>
+  <script type="text/javascript" src="js/jquery-3.7.1.min.js"></script>
+  <script type="text/javascript">
+    function autoRefreshFn({ time = 10000, fn = () => {} }) {
+      setInterval(function () {
+        fn();
+      }, time);
+    }
+    function setupPortInfo(sss) {}
+
+    $(document).ajaxError(function (event, request, settings) {
+      var obj = JSON.parse(request.responseText);
+      if (obj.msg) ffunc(obj.msg);
+      if (obj.error === "invalid rights")
+        window.top.location.href = "login.html";
+    });
+
+    function addcommas(num) {
+      return num.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+    }
+
+    function getResults(data, status) {
+      //$("#tb").empty();
+      var tab = $("#traffic_table")[0];
+      for (var k = 0; k < Order.length; k++) {
+        for (var l = 0; l < data.length; l++) {
+          var i = data[l];
+          if (i["interface"] != Order[k] + 1) continue;
+
+          //var tr = tab.insertRow(i["interface"] + 1);
+          var tr = tab.insertRow(-1);
+          tr.className = "table_row_content";
+          var t0 = tr.insertCell(0);
+          var t1 = tr.insertCell(1);
+          var t2 = tr.insertCell(2);
+          var t3 = tr.insertCell(3);
+          var t4 = tr.insertCell(4);
+          var t5 = tr.insertCell(5);
+          var t6 = tr.insertCell(6);
+          var t7 = tr.insertCell(7);
+          var t8 = tr.insertCell(8);
+          var t9 = tr.insertCell(9);
+          var t10 = tr.insertCell(10);
+
+          t0.textContent = SwitchPortNames[i["interface"] - 1];
+          t1.textContent = addcommas(i["ifInOctets"]);
+          t2.textContent = addcommas(i["ifInUcastPkts"]);
+          t3.textContent = addcommas(i["ifInNUcastPkts"]);
+          t4.textContent = addcommas(i["ifInDiscards"]);
+          t5.textContent = addcommas(i["ifInErrors"]);
+          t6.textContent = addcommas(i["ifOutOctets"]);
+          t7.textContent = addcommas(i["ifOutUcastPkts"]);
+          t8.textContent = addcommas(i["ifOutNUcastPkts"]);
+          t9.textContent = addcommas(i["ifOutDiscards"]);
+          t10.textContent = addcommas(i["ifOutErrors"]);
+        }
+      }
+    }
+    $(document).ready(function () {
+      setupPortInfo(setupDone);
+      autoRefreshFn({ fn: setupDone });
+    });
+
+    function setupDone() {
+      $.post(
+        "/api",
+        '{"service":"interface","access":"get","command":"get counters"}',
+        getResults
+      );
+    }
+  </script>
+  <body
+    style="height:100%;width:100%;float:left;margin: 0px; font-family: Verdana;height 100%; overflow: hidden; position: absolute;"
+  >
+    <div id="content" style="height: 100%; overflow: auto; width: 100%">
+      <h2 style="margin-left: 10px">Status &gt; Traffic</h2>
+
+      <div class="box2" style="width: calc(100% - 20px)">
+        <div class="box_content">
+          <table
+            style="font-size: 80%; text-align: center; width: 100%"
+            id="traffic_table"
+          >
+            <tr class="table_row_head">
+              <td colspan="1" rowspan="2">Port</td>
+              <td colspan="5">Incoming</td>
+              <td colspan="5">Outgoing</td>
+            </tr>
+
+            <tr class="table_row_head">
+              <td>Octets</td>
+              <td>Unicast Packets</td>
+              <td>Non-Unicast Packets</td>
+              <td>Discards</td>
+              <td>Errors</td>
+              <td>Octets</td>
+              <td>Unicast Packets</td>
+              <td>Non-Unicast Packets</td>
+              <td>Discards</td>
+              <td>Errors</td>
+            </tr>
+          </table>
+        </div>
+      </div>
+    </div>
+  </body>
+</html>

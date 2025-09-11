@@ -1,0 +1,107 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
+<meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1" />
+<html style="height: 100%">
+  <head>
+    <link rel="stylesheet" type="text/css" href="basic_layout.css" />
+    <style type="text/css"></style>
+  </head>
+  <script type="text/javascript" src="basic_jscript.js"></script>
+  <script type="text/javascript" src="js/jquery-3.7.1.min.js"></script>
+  <script type="text/javascript">
+    $(document).ajaxError(function (event, request, settings) {
+      var obj = JSON.parse(request.responseText);
+      if (obj.msg) ffunc(obj.msg);
+      if (obj.error === "invalid rights")
+        window.top.location.href = "login.html";
+    });
+
+    $(document).ready(function () {
+      getBondsStatus();
+      autoRefreshFn({ fn: getBondsStatus });
+    });
+
+    function getBondsStatus() {
+      $.post(
+        "/api",
+        '{"service":"vlan","access":"get","command":"get bonds status"}',
+        function (data, status) {
+          var table = $("#bond_table")[0];
+
+          for (key of Object.keys(data)) {
+            first = true;
+            row = table.insertRow(-1);
+            row.className = "table_row_content";
+            cell_bond = row.insertCell(-1);
+            cell_bond.rowSpan = Math.max(
+              Object.keys(data[key].lower_interfaces).length,
+              1
+            );
+            cell_bond.innerText = key;
+
+            cell_bond_status = row.insertCell(-1);
+            cell_bond_status.rowSpan = Math.max(
+              Object.keys(data[key].lower_interfaces).length,
+              1
+            );
+            cell_bond_status.innerText = data[key].status;
+
+            for (bond_port of Object.keys(data[key].lower_interfaces)) {
+              if (!first) {
+                row = table.insertRow(-1);
+                row.className = "table_row_content";
+              } else {
+                first = false;
+              }
+              port_name = row.insertCell(-1);
+              port_name.innerText = bond_port;
+
+              port_name_status = row.insertCell(-1);
+              port_name_status.innerText =
+                data[key].lower_interfaces[bond_port].state;
+            }
+            if (Object.keys(data[key].lower_interfaces).length == 0) {
+              port_name = row.insertCell(-1);
+              port_name.innerText = "-";
+              port_name_status = row.insertCell(-1);
+              port_name_status.innerText = "-";
+            }
+          }
+        }
+      );
+    }
+  </script>
+  <body
+    style="
+      height: 100%;
+      width: 100%;
+      float: left;
+      margin: 0px;
+      font-family: Verdana;
+      height: 100%;
+      overflow: hidden;
+      position: absolute;
+    "
+  >
+    <div id="content" style="height: 100%; overflow: auto; width: 100%">
+      <div style="width: 100%; float: left">
+        <h2 style="margin-left: 10px">Status &gt; LACP</h2>
+
+        <div class="box2" style="width: calc(100% - 20px)">
+          <div class="box_content">
+            <table
+              style="font-size: 80%; text-align: center; width: 100%"
+              id="bond_table"
+            >
+              <tr class="table_row_head">
+                <td>Bond</td>
+                <td>Bond Status</td>
+                <td>Port</td>
+                <td>Port Status</td>
+              </tr>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  </body>
+</html>

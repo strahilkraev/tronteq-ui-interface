@@ -1,0 +1,144 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
+<meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1" />
+<html>
+  <head>
+    <link rel="stylesheet" type="text/css" href="basic_layout.css" />
+    <style type="text/css"></style>
+  </head>
+  <script type="text/javascript" src="basic_jscript.js"></script>
+  <script type="text/javascript" src="js/jquery-3.7.1.min.js"></script>
+  <script type="text/javascript">
+    $(document).ajaxError(function (event, request, settings) {
+      var obj = JSON.parse(request.responseText);
+      if (obj.msg) ffunc(obj.msg);
+      if (obj.error === "invalid rights")
+        window.top.location.href = "login.html";
+    });
+
+    function loadSettings() {
+      $.post(
+        "/api",
+        '{"service":"ntp","access":"get","command":"get config"}',
+        function (data) {
+          $("#interval").val(data.queryInterval);
+          $("#server").val(data.server);
+          $("#enabled").prop("checked", data.enable);
+        }
+      );
+    }
+
+    function setNTP() {
+      var obj = {
+        service: "ntp",
+        access: "set",
+        command: "set config",
+        parameters: {},
+      };
+      obj.parameters.enable = $("#enabled").prop("checked");
+      obj.parameters.server = $("#server").val();
+      obj.parameters.queryInterval = parseInt($("#interval").val());
+
+      $.post("/api", JSON.stringify(obj), function (data, status) {
+        createOK(data);
+      });
+    }
+
+    function getTime() {
+      $.post(
+        "/api",
+        '{"service":"system","access":"get","command":"get time"}',
+        function (data) {
+          $("#time").text(data.time);
+        }
+      );
+    }
+
+    window.onload = function () {
+      loadSettings();
+      getTime();
+      $("#setNtp").click(function () {
+        setNTP();
+      });
+      $("#getTime").click(function () {
+        getTime();
+      });
+    };
+  </script>
+  <body
+    style="
+      height: 100%;
+      width: 100%;
+      float: left;
+      margin: 0px;
+      font-family: Verdana;
+      overflow: hidden;
+      position: absolute;
+    "
+  >
+    <div id="content" style="height: 100%; overflow: auto; width: 100%">
+      <h2 style="margin-left: 10px">Settings &gt; NTP Client</h2>
+      <div class="box2" style="width: calc(50% - 20px)">
+        <table
+          class="table"
+          style="font-size: 80%; width: 100%; text-align: center"
+        >
+          <tr class="table_row_head">
+            <td class="table_cell">Option</td>
+            <td>Setting</td>
+          </tr>
+          <tr class="table_row_content">
+            <td>Enable NTP Client</td>
+            <td>
+              <input type="checkbox" id="enabled" />
+            </td>
+          </tr>
+          <tr class="table_row_content">
+            <td>NTP Server</td>
+            <td>
+              <input id="server" style="width: 97%" />
+            </td>
+          </tr>
+          <tr class="table_row_content">
+            <td>Query Interval</td>
+            <td>
+              <select id="interval" style="width: 97%">
+                <option value="3">8 seconds</option>
+                <option value="4">16 seconds</option>
+                <option value="5">32 seconds</option>
+                <option value="6">1 minute</option>
+                <option value="7">2 minutes</option>
+                <option value="8">4 minutes</option>
+                <option value="9">8 minutes</option>
+                <option value="10">17 minutes</option>
+                <option value="11">34 minutes</option>
+                <option value="12">68 minutes</option>
+                <option value="13">136 minutes</option>
+                <option value="14">273 minutes</option>
+                <option value="15">546 minutes</option>
+                <option value="16">1092 minutes</option>
+              </select>
+            </td>
+          </tr>
+        </table>
+        <input id="setNtp" value="Set" type="button" />
+      </div>
+
+      <div class="box2" style="width: calc(25% - 20px)">
+        <table
+          class="table"
+          style="font-size: 80%; width: 100%; text-align: center"
+        >
+          <tr class="table_row_head">
+            <td class="table_cell">Option</td>
+            <td>Value</td>
+          </tr>
+          <tr class="table_row_content">
+            <td>Time</td>
+            <td id="time"></td>
+          </tr>
+        </table>
+        <input id="getTime" value="Query Time" type="button" />
+      </div>
+    </div>
+  </body>
+</html>

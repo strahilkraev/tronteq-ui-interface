@@ -1,0 +1,1111 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="UTF-8" />
+    <title>Wizard</title>
+    <link rel="stylesheet" type="text/css" href="basic_layout.css" />
+  </head>
+  <script type="text/javascript" src="basic_jscript.js"></script>
+  <script type="text/javascript" src="js/jquery-3.7.1.min.js"></script>
+  <script type="text/javascript">
+    $(document).ajaxError(function (event, request, settings) {
+      var obj = JSON.parse(request.responseText);
+      if (obj.msg) ffunc(obj.msg);
+      if (obj.error === "invalid rights" || obj.error === "invalid session")
+        window.top.location.href = "login.html";
+    });
+    //def_cfg.vlan.bridges[0] must be brlan
+    //var def_cfg = {"dhcp":{"version":1,"config":{"state":false,"subnetmask":"255.255.255.0","gateway":"192.168.1.1","dns":[],"domain":"device","lease time":865000,"bridge":{"wan":false,"vid":0}},"static leases":[],"port based":[],"pool":{"pool start":"192.168.1.100","pool end":"192.168.1.200"}},"igmp":{"version":2,"bridges":[{"bridge":{"wan":false,"vid":0},"snooper":true,"querier":false,"version":2,"interval":12500,"timeout":26000}],"ports":[false,false,false,false,false,false,false,false,false,false]},"interface":{"version":1,"interfaces":[{"interface":1,"name":"Interface 1","up":true,"autoneg":true,"speed":1000,"duplex":true},{"interface":2,"name":"Interface 2","up":true,"autoneg":true,"speed":100,"duplex":true},{"interface":3,"name":"Interface 3","up":true,"autoneg":true,"speed":100,"duplex":true},{"interface":4,"name":"Interface 4","up":true,"autoneg":true,"speed":100,"duplex":true},{"interface":5,"name":"Interface 5","up":true,"autoneg":true,"speed":100,"duplex":true},{"interface":6,"name":"Interface 6","up":true,"autoneg":true,"speed":1000,"duplex":true},{"interface":7,"name":"Interface 7","up":true,"autoneg":true,"speed":100,"duplex":true},{"interface":8,"name":"Interface 8","up":true,"autoneg":true,"speed":100,"duplex":true},{"interface":9,"name":"Interface 9","up":true,"autoneg":true,"speed":100,"duplex":true},{"interface":10,"name":"Interface 10","up":true,"autoneg":true,"speed":100,"duplex":true}],"bsp":false},"lldp":{"version":1,"interfaces":[{"interface":1,"tx":true},{"interface":2,"tx":true},{"interface":3,"tx":true},{"interface":4,"tx":true},{"interface":5,"tx":true},{"interface":6,"tx":true},{"interface":7,"tx":true},{"interface":8,"tx":true},{"interface":9,"tx":true},{"interface":10,"tx":true}]},"mirroring":{"version":1,"src":[{"interface":1,"state":"normal"},{"interface":2,"state":"normal"},{"interface":3,"state":"normal"},{"interface":4,"state":"normal"},{"interface":5,"state":"normal"},{"interface":6,"state":"normal"},{"interface":7,"state":"normal"},{"interface":8,"state":"normal"},{"interface":9,"state":"normal"},{"interface":10,"state":"normal"}],"dest":-1},"multicast":{"version":1,"flood":true},"poe":{"version":1,"interfaces":[{"enable":true,"limit":4,"limit_pwr":0,"name":"P1","prio":3},{"enable":true,"limit":4,"limit_pwr":0,"name":"P2","prio":3},{"enable":true,"limit":4,"limit_pwr":0,"name":"P3","prio":3},{"enable":true,"limit":4,"limit_pwr":0,"name":"P4","prio":3},{"enable":true,"limit":4,"limit_pwr":0,"name":"P5","prio":3},{"enable":true,"limit":4,"limit_pwr":0,"name":"P6","prio":3},{"enable":true,"limit":4,"limit_pwr":0,"name":"P7","prio":3},{"enable":true,"limit":4,"limit_pwr":0,"name":"P8","prio":3}]},"qos":{"version":1,"pcp->queue":[1,0,2,3,4,5,6,7],"dscp->queue":[0,0,0,0,0,0,0,0,1,1,1,1,1,1,1,1,2,2,2,2,2,2,2,2,3,3,3,3,3,3,3,3,4,4,4,4,4,4,4,4,5,5,5,5,5,5,5,5,6,6,6,6,6,6,6,6,7,7,7,7,7,7,7,7],"dscp->pcp":[1,1,1,1,1,1,1,1,0,0,0,0,0,0,0,0,2,2,2,2,2,2,2,2,3,3,3,3,3,3,3,3,4,4,4,4,4,4,4,4,5,5,5,5,5,5,5,5,6,6,6,6,6,6,6,6,7,7,7,7,7,7,7,7],"defaults":[{"interface":1,"prio choice":"default","queue":1,"pcp":0},{"interface":2,"prio choice":"default","queue":1,"pcp":0},{"interface":3,"prio choice":"default","queue":1,"pcp":0},{"interface":4,"prio choice":"default","queue":1,"pcp":0},{"interface":5,"prio choice":"default","queue":1,"pcp":0},{"interface":6,"prio choice":"default","queue":1,"pcp":0},{"interface":7,"prio choice":"default","queue":1,"pcp":0},{"interface":8,"prio choice":"default","queue":1,"pcp":0},{"interface":9,"prio choice":"default","queue":1,"pcp":0},{"interface":10,"prio choice":"default","queue":1,"pcp":0}]},"system":{"version":1,"info":{"description":"description","contact":"contact","location":"location"}},"trap":{"version":1,"trap":{"version":"v1","community":"trap","destination":"192.168.1.1"}},"user":{"version":1,"users":[{"level":0,"name":"admin","password":"0614862976da6450e770d00f6d75d890b3e0585d3cc75204c20507804ad5da654f65e1fe32b0d2cc83c97d5b159f0b196ac723caea2a7433360f1f4f8da95524","salt":"ee26b0dd4af7e749aa1a8ee3c10ae9923f618980772e473f8819a5d4940e0db27ac185f8a0e1d5f84f88bc887fd67b143732c304cc5fa9ad8e6f57f50028a8ff"}]},"vlan":{"version":1,"vids":[],"zones":[{"interface":1,"wan":false},{"interface":2,"wan":false},{"interface":3,"wan":false},{"interface":4,"wan":false},{"interface":5,"wan":false},{"interface":6,"wan":false},{"interface":7,"wan":false},{"interface":8,"wan":false},{"interface":9,"wan":false},{"interface":10,"wan":false}],"interfaces":[{"interface":1,"tags":0},{"interface":2,"tags":0},{"interface":3,"tags":0},{"interface":4,"tags":0},{"interface":5,"tags":0},{"interface":6,"tags":0},{"interface":7,"tags":0},{"interface":8,"tags":0},{"interface":9,"tags":0},{"interface":10,"tags":0}],"vid members":[],"bridges":[{"wan":false,"vid":0,"ip":"192.168.1.1","sm":"255.255.255.0","gw":""}]}};
+    var def_cfg = {
+      dhcp: {
+        version: 1,
+        config: {
+          state: false,
+          subnetmask: "255.255.255.0",
+          gateway: "192.168.1.1",
+          dns: [],
+          domain: "device",
+          "lease time": 865000,
+          bridge: { wan: false, vid: 0 },
+        },
+        "static leases": [],
+        "port based": [],
+        pool: { "pool start": "192.168.1.100", "pool end": "192.168.1.200" },
+      },
+      igmp: {
+        version: 2,
+        bridges: [
+          {
+            bridge: { wan: false, vid: 0 },
+            snooper: true,
+            querier: false,
+            version: 2,
+            interval: 12500,
+            timeout: 26000,
+          },
+        ],
+        ports: [
+          false,
+          false,
+          false,
+          false,
+          false,
+          false,
+          false,
+          false,
+          false,
+          false,
+        ],
+      },
+      interface: {
+        version: 1,
+        interfaces: [
+          {
+            interface: 1,
+            name: "Interface 1",
+            up: true,
+            autoneg: true,
+            speed: 1000,
+            duplex: true,
+          },
+          {
+            interface: 2,
+            name: "Interface 2",
+            up: true,
+            autoneg: true,
+            speed: 100,
+            duplex: true,
+          },
+          {
+            interface: 3,
+            name: "Interface 3",
+            up: true,
+            autoneg: true,
+            speed: 100,
+            duplex: true,
+          },
+          {
+            interface: 4,
+            name: "Interface 4",
+            up: true,
+            autoneg: true,
+            speed: 100,
+            duplex: true,
+          },
+          {
+            interface: 5,
+            name: "Interface 5",
+            up: true,
+            autoneg: true,
+            speed: 100,
+            duplex: true,
+          },
+          {
+            interface: 6,
+            name: "Interface 6",
+            up: true,
+            autoneg: true,
+            speed: 1000,
+            duplex: true,
+          },
+          {
+            interface: 7,
+            name: "Interface 7",
+            up: true,
+            autoneg: true,
+            speed: 100,
+            duplex: true,
+          },
+          {
+            interface: 8,
+            name: "Interface 8",
+            up: true,
+            autoneg: true,
+            speed: 100,
+            duplex: true,
+          },
+          {
+            interface: 9,
+            name: "Interface 9",
+            up: true,
+            autoneg: true,
+            speed: 100,
+            duplex: true,
+          },
+          {
+            interface: 10,
+            name: "Interface 10",
+            up: true,
+            autoneg: true,
+            speed: 100,
+            duplex: true,
+          },
+        ],
+        bsp: false,
+      },
+      lldp: {
+        version: 1,
+        interfaces: [
+          { interface: 1, tx: true },
+          { interface: 2, tx: true },
+          { interface: 3, tx: true },
+          { interface: 4, tx: true },
+          { interface: 5, tx: true },
+          { interface: 6, tx: true },
+          { interface: 7, tx: true },
+          { interface: 8, tx: true },
+          { interface: 9, tx: true },
+          { interface: 10, tx: true },
+        ],
+      },
+      mirroring: {
+        version: 1,
+        src: [
+          { interface: 1, state: "normal" },
+          { interface: 2, state: "normal" },
+          { interface: 3, state: "normal" },
+          { interface: 4, state: "normal" },
+          { interface: 5, state: "normal" },
+          { interface: 6, state: "normal" },
+          { interface: 7, state: "normal" },
+          { interface: 8, state: "normal" },
+          { interface: 9, state: "normal" },
+          { interface: 10, state: "normal" },
+        ],
+        dest: -1,
+      },
+      multicast: { version: 1, flood: true },
+      qos: {
+        version: 1,
+        "pcp->queue": [1, 0, 2, 3, 4, 5, 6, 7],
+        "dscp->queue": [
+          0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 2, 2,
+          2, 3, 3, 3, 3, 3, 3, 3, 3, 4, 4, 4, 4, 4, 4, 4, 4, 5, 5, 5, 5, 5, 5,
+          5, 5, 6, 6, 6, 6, 6, 6, 6, 6, 7, 7, 7, 7, 7, 7, 7, 7,
+        ],
+        "dscp->pcp": [
+          1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 2, 2, 2, 2, 2, 2, 2,
+          2, 3, 3, 3, 3, 3, 3, 3, 3, 4, 4, 4, 4, 4, 4, 4, 4, 5, 5, 5, 5, 5, 5,
+          5, 5, 6, 6, 6, 6, 6, 6, 6, 6, 7, 7, 7, 7, 7, 7, 7, 7,
+        ],
+        defaults: [
+          { interface: 1, "prio choice": "default", queue: 1, pcp: 0 },
+          { interface: 2, "prio choice": "default", queue: 1, pcp: 0 },
+          { interface: 3, "prio choice": "default", queue: 1, pcp: 0 },
+          { interface: 4, "prio choice": "default", queue: 1, pcp: 0 },
+          { interface: 5, "prio choice": "default", queue: 1, pcp: 0 },
+          { interface: 6, "prio choice": "default", queue: 1, pcp: 0 },
+          { interface: 7, "prio choice": "default", queue: 1, pcp: 0 },
+          { interface: 8, "prio choice": "default", queue: 1, pcp: 0 },
+          { interface: 9, "prio choice": "default", queue: 1, pcp: 0 },
+          { interface: 10, "prio choice": "default", queue: 1, pcp: 0 },
+        ],
+      },
+      system: {
+        version: 1,
+        info: {
+          description: "description",
+          contact: "contact",
+          location: "location",
+        },
+      },
+      user: {
+        version: 1,
+        users: [
+          {
+            level: 0,
+            name: "admin",
+            password:
+              "0614862976da6450e770d00f6d75d890b3e0585d3cc75204c20507804ad5da654f65e1fe32b0d2cc83c97d5b159f0b196ac723caea2a7433360f1f4f8da95524",
+            salt: "ee26b0dd4af7e749aa1a8ee3c10ae9923f618980772e473f8819a5d4940e0db27ac185f8a0e1d5f84f88bc887fd67b143732c304cc5fa9ad8e6f57f50028a8ff",
+          },
+        ],
+      },
+      vlan: {
+        version: 1,
+        vids: [],
+        zones: [
+          { interface: 1, wan: false },
+          { interface: 2, wan: false },
+          { interface: 3, wan: false },
+          { interface: 4, wan: false },
+          { interface: 5, wan: false },
+          { interface: 6, wan: false },
+          { interface: 7, wan: false },
+          { interface: 8, wan: false },
+          { interface: 9, wan: false },
+          { interface: 10, wan: false },
+        ],
+        interfaces: [
+          { interface: 1, tags: 0 },
+          { interface: 2, tags: 0 },
+          { interface: 3, tags: 0 },
+          { interface: 4, tags: 0 },
+          { interface: 5, tags: 0 },
+          { interface: 6, tags: 0 },
+          { interface: 7, tags: 0 },
+          { interface: 8, tags: 0 },
+          { interface: 9, tags: 0 },
+          { interface: 10, tags: 0 },
+        ],
+        "vid members": [],
+        bridges: [
+          {
+            wan: false,
+            vid: 0,
+            ip: "192.168.1.1",
+            sm: "255.255.255.0",
+            gw: "",
+          },
+        ],
+      },
+    };
+
+    function ipToNumb(address) {
+      var val = 0;
+      var part = address.split(".");
+      for (var i = 0; i < 4; i++) {
+        var numb = parseInt(part[i], 10);
+        // >>>0 change to unsigned int
+        val += (numb << ((3 - i) * 8)) >>> 0;
+      }
+      return val >>> 0;
+    }
+
+    function isIP(address) {
+      if (address.split(".").length == 4) {
+        var part = address.split(".");
+        for (var i = 0; i < 4; i++) {
+          var numb = parseInt(part[i], 10);
+          var re = isNaN(numb) || numb < 0 || numb > 255;
+          if (isNaN(numb) || numb < 0 || numb > 255 || part[i].length == 0)
+            return false;
+          if ((numb + "").length != part[i].length) return false;
+        }
+        return true;
+      }
+      return false;
+    }
+
+    function isSubnetmask(address) {
+      if (address.split(".").length == 4) {
+        var stop = false;
+        var part = address.split(".");
+        for (var i = 0; i < 4; i++) {
+          var numb = parseInt(part[i], 10);
+          var re = isNaN(numb) || numb < 0 || numb > 255;
+          if (isNaN(numb) || numb < 0 || numb > 255 || part[i].length == 0)
+            return false;
+          if ((numb + "").length != part[i].length) return false;
+          if (stop && numb != 0) return false;
+          if (i == 0 && numb != 255) return false;
+          if (!stop) {
+            if (
+              numb == 0 ||
+              numb == 128 ||
+              numb == 192 ||
+              numb == 224 ||
+              numb == 240 ||
+              numb == 248 ||
+              numb == 252 ||
+              numb == 254
+            ) {
+              stop = true;
+            } else if (numb == 255 && i != 3) {
+            } else {
+              return false;
+            }
+          }
+        }
+        return true;
+      }
+      return false;
+    }
+
+    function fillDonePage() {
+      //done_content
+      //$("#done_content").append(countStruct.strLan);
+      $("#done_ip")[0].innerHTML = $("#systemip").val();
+      $("#done_dhcp")[0].innerHTML = $("input[name=dhcp]:checked").val();
+      $("#done_configname")[0].innerHTML = $("#configname").val();
+    }
+
+    function showpage(val, next) {
+      if (next) {
+        if ($("#rad_sys").prop("checked")) {
+          if (check_system() == false) return;
+        } else if ($("#rad_ip").prop("checked")) {
+          if (check_ip() == false) return;
+        } else if ($("#rad_dhcp").prop("checked")) {
+          if (check_dhcp() == false) return;
+        }
+      }
+
+      if (
+        val === "dhcp" &&
+        $("input[name=dhcp]:checked").val() !== "server" &&
+        $("#rad_ip").prop("checked")
+      ) {
+        val = "done";
+      } else if (
+        val === "dhcp" &&
+        $("input[name=dhcp]:checked").val() !== "server"
+      ) {
+        val = "ip";
+      }
+
+      if (val === "done") {
+        fillDonePage();
+      }
+
+      $("[id^=cfg]").css("display", "none");
+      $("[id^=cfg_" + val + "]").css("display", "");
+
+      $("[id^=rad_").prop("checked", false);
+      $("[id^=rad_" + val + "]").prop("checked", true);
+
+      if (val === "init") {
+        $("#position").css("display", "none");
+      }
+    }
+
+    function getSysInfoCallback(data) {
+      document.getElementById("systemname").innerHTML = data.name;
+    }
+
+    function check_system() {
+      if ($("#sys_desc").val().length == 0) {
+        alert("Description missing");
+        return false;
+      } else if ($("#sys_contact").val().length == 0) {
+        alert("Contact missing");
+        return false;
+      } else if ($("#sys_loc").val().length == 0) {
+        alert("Location missing");
+        return false;
+      } else if ($("#configname").val().length == 0) {
+        alert("Config name missing");
+        return false;
+      }
+      return true;
+    }
+
+    function check_ip() {
+      if ($("input[name=dhcp]:checked").val() === undefined) {
+        alert("No DHCP Setting selected");
+        return false;
+      } else if ($("input[name=dhcp]:checked").val() !== "client") {
+        if ($("#systemip").val().length == 0) {
+          alert("IP Address missing");
+          return false;
+        }
+        if (!isIP($("#systemip").val())) {
+          alert("invalid IP Address");
+          return false;
+        }
+
+        if ($("#systemsubnet").val().length == 0) {
+          alert("Subnet missing");
+          return false;
+        }
+        if (!isSubnetmask($("#systemsubnet").val())) {
+          alert("invalid Subnet");
+          return false;
+        }
+
+        if ($("#systemgateway").val().length !== 0) {
+          if (!isIP($("#systemgateway").val())) {
+            alert("invalid Gateway");
+            return false;
+          }
+          var ip = ipToNumb($("#systemip").val());
+          var mask = ipToNumb($("#systemsubnet").val());
+          var gateway = ipToNumb($("#systemgateway").val());
+          if ((ip & mask) !== (gateway & mask)) {
+            alert("Gateway not in the same subnet");
+            return false;
+          }
+        }
+      }
+    }
+
+    function check_dhcp() {
+      if ($("#dhcp_gateway").val().length == 0) {
+        alert("Gateway missing");
+        return false;
+      }
+      if (!isIP($("#dhcp_gateway").val())) {
+        alert("invalid Gateway");
+        return false;
+      }
+
+      if ($("#dhcp_netmask").val().length == 0) {
+        alert("Netmask missing");
+        return false;
+      }
+      if (!isSubnetmask($("#dhcp_netmask").val())) {
+        alert("invalid Netmask");
+        return false;
+      }
+
+      if ($("#dhcp_pool").prop("checked")) {
+        if ($("#dhcp_poolstart").val().length == 0) {
+          alert("Begin of Pool missing");
+          return false;
+        }
+        if (!isIP($("#dhcp_poolstart").val())) {
+          alert("invalid Begin of Pool");
+          return false;
+        }
+        if ($("#dhcp_poolend").val().length == 0) {
+          alert("End of Pool missing");
+          return false;
+        }
+        if (!isIP($("#dhcp_poolend").val())) {
+          alert("invalid End of Pool");
+          return false;
+        }
+        if (
+          ipToNumb($("#dhcp_poolend").val()) <
+          ipToNumb($("#dhcp_poolstart").val())
+        ) {
+          alert("negative pool size");
+          return false;
+        }
+      }
+
+      // warnings
+      if ($("#dhcp_pool").prop("checked")) {
+        var ps = ipToNumb($("#dhcp_poolstart").val());
+        var pe = ipToNumb($("#dhcp_poolend").val());
+        var dhcpmask = ipToNumb($("#dhcp_netmask").val());
+        var dhcpgw = ipToNumb($("#dhcp_gateway").val());
+
+        if (
+          (dhcpgw & dhcpmask) !== (ps & dhcpmask) ||
+          (dhcpgw & dhcpmask) !== (pe & dhcpmask)
+        ) {
+          if (!confirm("Gateway is not in the same subnet as the DHCP Pool"))
+            return false;
+        }
+
+        if ((ps & dhcpmask) !== (pe & dhcpmask)) {
+          if (!confirm("DHCP Pool is bigger than the subnet")) return false;
+        }
+        var ip = ipToNumb($("#systemip").val());
+        var mask = ipToNumb($("#systemsubnet").val());
+
+        if (
+          (ip & mask) !== (ps & mask) ||
+          (ip & mask) !== (pe & mask) ||
+          (ip & dhcpmask) != (ps & dhcpmask) ||
+          (ip & dhcpmask) !== (pe & dhcpmask)
+        ) {
+          if (!confirm("DHCP Pool and switch are not in the same subnet"))
+            return false;
+        }
+      }
+    }
+
+    function changeDHCP() {
+      if ($("input[name=dhcp]:checked").val() === "client") {
+        $("#systemip").prop("disabled", true);
+        $("#systemsubnet").prop("disabled", true);
+        $("#systemgateway").prop("disabled", true);
+      } else {
+        $("#systemip").prop("disabled", false);
+        $("#systemsubnet").prop("disabled", false);
+        $("#systemgateway").prop("disabled", false);
+      }
+    }
+
+    function startUploadCfg() {
+      $("#file").val("");
+      $("#file").trigger("click");
+    }
+
+    function changeDHCPPool() {
+      if ($("#dhcp_pool").prop("checked")) {
+        $("#dhcp_poolstart").prop("disabled", false);
+        $("#dhcp_poolend").prop("disabled", false);
+      } else {
+        $("#dhcp_poolstart").prop("disabled", true);
+        $("#dhcp_poolend").prop("disabled", true);
+      }
+    }
+
+    function startupload() {
+      var file = $("#file")[0].files[0];
+      if (file === undefined) {
+        alert("No File selected");
+        return;
+      }
+      var reader = new FileReader();
+      reader.readAsText(file);
+      reader.onloadend = function (e) {
+        if (reader.error !== null) {
+          alert("error");
+          return;
+        }
+        $.post(
+          "/api",
+          '{"service":"system","access":"set","command":"apply and save config","parameters":' +
+            reader.result +
+            "}",
+          function (data, status) {
+            //create_overlay("Config applied","overlay_message_ok",5000);
+            alert("Config applied");
+          }
+        );
+      };
+    }
+
+    function startWizard() {
+      $("#cfg_init").css("display", "none");
+      $("#position").css("display", "");
+      $("#cfg_system").css("display", "");
+    }
+
+    function finish_config() {
+      // system page
+      def_cfg.system.info.description = $("#sys_desc").val();
+      def_cfg.system.info.contact = $("#sys_contact").val();
+      def_cfg.system.info.location = $("#sys_loc").val();
+
+      //TODO config name
+
+      // IP Page
+      if ($("input[name=dhcp]:checked").val() !== "client") {
+        def_cfg.vlan.bridges[0].ip = $("#systemip").val();
+        def_cfg.vlan.bridges[0].sm = $("#systemsubnet").val();
+        def_cfg.vlan.bridges[0].gw = $("#systemgateway").val();
+      }
+      //TODO DHCP Client
+
+      if ($("input[name=dhcp]:checked").val() === "server") {
+        def_cfg.dhcp.config.state = true;
+
+        def_cfg.dhcp.config.gateway = $("#dhcp_gateway").val();
+        def_cfg.dhcp.config.subnetmask = $("#dhcp_netmask").val();
+
+        if ($("#dhcp_pool").prop("checked")) {
+          def_cfg.dhcp.pool["pool start"] = $("#dhcp_poolstart").val();
+          def_cfg.dhcp.pool["pool end"] = $("#dhcp_poolend").val();
+        } else {
+          def_cfg.dhcp.pool["pool start"] = "";
+          def_cfg.dhcp.pool["pool end"] = "";
+        }
+      }
+
+      $.post(
+        "/api",
+        '{"service":"system","access":"set","command":"apply and save config","parameters":' +
+          JSON.stringify(def_cfg) +
+          "}",
+        function (data, status) {
+          //create_overlay("Config applied","overlay_message_ok",5000);
+          alert("Config applied");
+        }
+      );
+      //def_cfg.
+      var win = window.open(
+        "",
+        "Title",
+        "toolbar=no,status=no, width=" +
+          $("#cfg_done").width() +
+          ", height=" +
+          $("#cfg_done").height() +
+          ",menubar=no, location=no, directories=no,scrollbars=yes"
+      );
+      while (win.document.body.childElementCount > 0)
+        win.document.body.childNodes[0].remove();
+
+      var item = document.getElementById("cfg_done").cloneNode(true);
+
+      //remove buttons
+      for (var i = 0; i < item.childNodes.length; i++) {
+        if (item.childNodes[i].type === "button") {
+          item.removeChild(item.childNodes[i]);
+          i--;
+        }
+      }
+
+      try {
+        win.document.body.appendChild(item);
+      } catch (e) {
+        if (item.outerHTML) {
+          win.document.body.innerHTML = item.outerHTML;
+        }
+      }
+
+      // wait for switch to reconfigure
+      setTimeout(function () {
+        window.open("http://" + $("#systemip").val() + "/main.html", "_self");
+      }, 5000);
+    }
+
+    $(document).ready(function () {
+      $.post(
+        "/api",
+        '{"service":"system","access":"get","command":"get info"}',
+        getSysInfoCallback
+      );
+
+      $("#loadcfg").click(startUploadCfg);
+
+      $("#file").change(startupload);
+      $("#wizard").click(startWizard);
+
+      $("[id^=rad_").prop("checked", false);
+      $("[id^=rad_sys]").prop("checked", true);
+
+      //dhcp
+      /*$("#dhcpserver").prop( "checked", false );
+			$("#dhcpclient").prop( "checked", false );
+			$("#nodhcp").prop( "checked", false );*/
+
+      $("#dhcpserver").change(changeDHCP);
+      $("#dhcpclient").change(changeDHCP);
+      $("#nodhcp").change(changeDHCP);
+      changeDHCP();
+
+      $("#dhcp_pool").change(changeDHCPPool);
+
+      changeDHCPPool();
+    });
+  </script>
+  <body
+    style="
+      margin: 0px;
+      height: 100%;
+      font-family: Verdana;
+      min-height: 590px;
+      font-size: x-large;
+    "
+  >
+    <div
+      style="
+        background-color: #fff;
+        width: 95%;
+        height: 95%;
+        border-width: 1px;
+        border-style: solid;
+        border-color: grey;
+        position: absolute;
+        left: 2.5%;
+        top: 2.5%;
+      "
+    >
+      <div class="element_top">
+        <div class="element_top_pic">
+          <img
+            src="Logo.png"
+            style="max-width: 100%; max-height: 100%"
+          /><img />
+        </div>
+        <div style="width: 100%; height: 30%"></div>
+      </div>
+      <div
+        style="
+          width: 40%;
+          height: 10%;
+          left: 30%;
+          bottom: 5%;
+          position: absolute;
+          display: none;
+        "
+        id="position"
+      >
+        <table style="width: 100%; table-layout: fixed">
+          <tr>
+            <td>
+              <input type="radio" id="rad_sys" disabled checked="checked" />
+            </td>
+            <td><input type="radio" id="rad_ip" disabled /></td>
+            <td><input type="radio" id="rad_dhcp" disabled /></td>
+          </tr>
+          <tr>
+            <td>System</td>
+            <td>IP</td>
+            <td>DHCP</td>
+          </tr>
+        </table>
+      </div>
+
+      <div
+        style="
+          width: 80%;
+          height: 70%;
+          border-width: 1px;
+          border-style: solid;
+          border-color: grey;
+          position: absolute;
+          top: 20%;
+          left: 10%;
+          background-color: #f3f3f3f3;
+        "
+        id="cfg_init"
+      >
+        <div style="width: 80%; left: 10%; height: 80%; position: absolute">
+          <input type="file" id="file" style="display: none" />
+          <input
+            type="button"
+            value="loadcfg"
+            id="loadcfg"
+            style="float: left; height: 90%; width: 40%; margin: 5%"
+          />
+          <input
+            type="button"
+            value="wizard"
+            id="wizard"
+            style="float: right; height: 90%; width: 40%; margin: 5%"
+          />
+        </div>
+      </div>
+
+      <div
+        style="
+          width: 80%;
+          height: 60%;
+          border-width: 1px;
+          border-style: solid;
+          border-color: grey;
+          position: absolute;
+          top: 20%;
+          left: 10%;
+          background-color: #f3f3f3f3;
+          display: none;
+        "
+        id="cfg_system"
+      >
+        <div style="width: 80%; left: 10%; height: 80%; position: absolute">
+          <h1>System</h1>
+          <table style="width: 100%; height: 80%">
+            <tr style="height: 15%">
+              <td>Systemname:</td>
+              <td id="systemname"></td>
+              <td></td>
+            </tr>
+
+            <tr style="height: 15%">
+              <td>Description:</td>
+              <td>
+                <input
+                  placeholder="M12 Managed Switch"
+                  style="font-size: x-large; width: 98%"
+                  id="sys_desc"
+                />
+                <td></td>
+              </td>
+            </tr>
+
+            <tr style="height: 15%">
+              <td>Contact:</td>
+              <td>
+                <input
+                  placeholder="System responsable person"
+                  style="font-size: x-large; width: 98%"
+                  id="sys_contact"
+                />
+                <td></td>
+              </td>
+            </tr>
+
+            <tr style="height: 15%">
+              <td>Location:</td>
+              <td>
+                <input
+                  placeholder="2nd door left"
+                  style="font-size: x-large; width: 98%"
+                  id="sys_loc"
+                />
+                <td></td>
+              </td>
+            </tr>
+
+            <tr style="height: 15%"></tr>
+            <tr style="height: 15%">
+              <td>Config name:</td>
+              <td>
+                <input
+                  placeholder="Solo Bus"
+                  style="font-size: x-large; width: 98%"
+                  id="configname"
+                />
+                <td>
+                  <!-- </tr><tr style="height:15%;">
+						<td>Power supply</td><td><input type="radio" name="supply">V1 <input type="radio" name="supply">V2 <input type="radio" name="supply">V1/V2<td> -->
+                </td>
+              </td>
+            </tr>
+          </table>
+        </div>
+        <input
+          type="button"
+          style="position: absolute; bottom: 0; left: 0; font-size: x-large"
+          value="back"
+          onclick="showpage('init', true);"
+        />
+        <input
+          type="button"
+          style="position: absolute; bottom: 0; right: 0; font-size: x-large"
+          value="next"
+          onclick="showpage('ip', true);"
+        />
+      </div>
+
+      <div
+        style="
+          width: 80%;
+          height: 60%;
+          border-width: 1px;
+          border-style: solid;
+          border-color: grey;
+          position: absolute;
+          top: 20%;
+          left: 10%;
+          background-color: #f3f3f3f3;
+          display: none;
+        "
+        id="cfg_ip"
+      >
+        <div style="width: 80%; left: 10%; height: 80%; position: absolute">
+          <h1>IP</h1>
+          <table style="width: 100%; height: 80%">
+            <tr style="height: 15%">
+              <td>DHCP Server:</td>
+              <td>
+                <input
+                  type="radio"
+                  id="dhcpserver"
+                  name="dhcp"
+                  value="server"
+                />
+                <td></td>
+              </td>
+            </tr>
+
+            <tr style="height: 15%">
+              <td>DHCP Client:</td>
+              <td>
+                <input
+                  type="radio"
+                  id="dhcpclient"
+                  name="dhcp"
+                  value="client"
+                  disabled="disabled"
+                />
+                <td></td>
+              </td>
+            </tr>
+
+            <tr style="height: 15%">
+              <td>No DHCP:</td>
+              <td>
+                <input type="radio" id="nodhcp" name="dhcp" value="off" />
+                <td></td>
+              </td>
+            </tr>
+
+            <tr style="height: 15%">
+              <td>IP Address:</td>
+              <td>
+                <input
+                  placeholder="192.168.1.1"
+                  style="font-size: x-large; width: 98%"
+                  id="systemip"
+                />
+                <td></td>
+              </td>
+            </tr>
+
+            <tr style="height: 15%">
+              <td>Subnet:</td>
+              <td>
+                <input
+                  placeholder="255.255.255.0"
+                  style="font-size: x-large; width: 98%"
+                  id="systemsubnet"
+                />
+                <td></td>
+              </td>
+            </tr>
+
+            <tr style="height: 15%">
+              <td>Gateway (optional):</td>
+              <td>
+                <input
+                  placeholder="192.168.1.254"
+                  style="font-size: x-large; width: 98%"
+                  id="systemgateway"
+                />
+                <td></td>
+              </td>
+            </tr>
+          </table>
+        </div>
+        <input
+          type="button"
+          style="position: absolute; bottom: 0; left: 0; font-size: x-large"
+          value="back"
+          onclick="showpage('sys', false);"
+        />
+        <input
+          type="button"
+          style="position: absolute; bottom: 0; right: 0; font-size: x-large"
+          value="next"
+          onclick="showpage('dhcp', true);"
+        />
+      </div>
+
+      <div
+        style="
+          width: 80%;
+          height: 60%;
+          border-width: 1px;
+          border-style: solid;
+          border-color: grey;
+          position: absolute;
+          top: 20%;
+          left: 10%;
+          background-color: #f3f3f3f3;
+          display: none;
+        "
+        id="cfg_dhcp"
+      >
+        <div style="width: 80%; left: 10%; height: 80%; position: absolute">
+          <h1>DHCP</h1>
+          <table style="width: 100%; height: 80%">
+            <tr style="height: 15%">
+              <td>Gateway:</td>
+              <td>
+                <input
+                  id="dhcp_gateway"
+                  placeholder="192.168.1.254"
+                  style="font-size: x-large; width: 98%"
+                />
+                <td></td>
+              </td>
+            </tr>
+
+            <tr style="height: 15%">
+              <td>Netmask:</td>
+              <td>
+                <input
+                  id="dhcp_netmask"
+                  placeholder="255.255.255.0"
+                  style="font-size: x-large; width: 98%"
+                />
+                <td></td>
+              </td>
+            </tr>
+
+            <tr style="height: 15%"></tr>
+            <tr style="height: 15%">
+              <td>Enable Pool</td>
+              <td>
+                <input id="dhcp_pool" type="checkbox" />
+                <td></td>
+              </td>
+            </tr>
+
+            <tr style="height: 15%">
+              <td>Begin of Pool:</td>
+              <td>
+                <input
+                  id="dhcp_poolstart"
+                  placeholder="192.168.1.100"
+                  style="font-size: x-large; width: 98%"
+                />
+                <td></td>
+              </td>
+            </tr>
+
+            <tr style="height: 15%">
+              <td>End of Pool:</td>
+              <td>
+                <input
+                  id="dhcp_poolend"
+                  placeholder="192.168.1.200"
+                  style="font-size: x-large; width: 98%"
+                />
+                <td></td>
+              </td>
+            </tr>
+          </table>
+        </div>
+        <input
+          type="button"
+          style="position: absolute; bottom: 0; right: 0; font-size: x-large"
+          value="next"
+          onclick="showpage('done', true);"
+        />
+        <input
+          type="button"
+          style="position: absolute; bottom: 0; left: 0; font-size: x-large"
+          value="back"
+          onclick="showpage('ip', false);"
+        />
+      </div>
+
+      <div
+        style="
+          width: 80%;
+          height: 60%;
+          border-width: 1px;
+          border-style: solid;
+          border-color: grey;
+          position: absolute;
+          top: 20%;
+          left: 10%;
+          background-color: #f3f3f3f3;
+          display: none;
+        "
+        id="cfg_done"
+      >
+        <div style="width: 80%; left: 10%; height: 80%; position: absolute">
+          <h1>Finished</h1>
+          <table style="width: 100%; height: 80%">
+            <tr style="height: 15%">
+              <td>IP:</td>
+              <td id="done_ip"></td>
+              <td></td>
+            </tr>
+
+            <tr style="height: 15%">
+              <td>DHCP:</td>
+              <td id="done_dhcp"></td>
+              <td></td>
+            </tr>
+
+            <tr style="height: 15%">
+              <td>Config name</td>
+              <td id="done_configname"></td>
+              <td></td>
+            </tr>
+
+            <tr style="height: 15%"></tr>
+          </table>
+        </div>
+        <input
+          type="button"
+          style="position: absolute; bottom: 0; right: 50%; font-size: x-large"
+          value="finish"
+          onclick=" finish_config();"
+        />
+        <input
+          type="button"
+          style="position: absolute; bottom: 0; left: 0; font-size: x-large"
+          value="back"
+          onclick="showpage('dhcp', false);"
+        />
+      </div>
+      <input
+        type="button"
+        style="position: absolute; bottom: 0; right: 0; font-size: x-large"
+        value="skip"
+        onclick="window.location = 'main.html';"
+      />
+    </div>
+  </body>
+</html>

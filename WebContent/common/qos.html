@@ -1,0 +1,490 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
+<meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1" />
+<html>
+  <head>
+    <link rel="stylesheet" type="text/css" href="basic_layout.css" />
+    <style type="text/css"></style>
+  </head>
+  <script type="text/javascript" src="basic_jscript.js"></script>
+  <script type="text/javascript" src="js/jquery-3.7.1.min.js"></script>
+  <script type="text/javascript">
+    $(document).ajaxError(function (event, request, settings) {
+      var obj = JSON.parse(request.responseText);
+      if (obj.msg) ffunc(obj.msg);
+      if (obj.error === "invalid rights")
+        window.top.location.href = "login.html";
+    });
+
+    function addQueues(sel) {
+      var q0 = document.createElement("option");
+      q0.value = "0";
+      q0.text = "Q0 (weighted, 1x)";
+      sel.appendChild(q0);
+
+      var q1 = document.createElement("option");
+      q1.value = "1";
+      q1.text = "Q1 (weighted, 2x)";
+      sel.appendChild(q1);
+
+      var q2 = document.createElement("option");
+      q2.value = "2";
+      q2.text = "Q2 (weighted, 3x)";
+      sel.appendChild(q2);
+
+      var q3 = document.createElement("option");
+      q3.value = "3";
+      q3.text = "Q3 (weighted, 6x)";
+      sel.appendChild(q3);
+
+      var q4 = document.createElement("option");
+      q4.value = "4";
+      q4.text = "Q4 (weighted, 12x)";
+      sel.appendChild(q4);
+
+      var q5 = document.createElement("option");
+      q5.value = "5";
+      q5.text = "Q5 (3rd strict)";
+      sel.appendChild(q5);
+
+      var q6 = document.createElement("option");
+      q6.value = "6";
+      q6.text = "Q6 (2nd strict)";
+      sel.appendChild(q6);
+
+      var q7 = document.createElement("option");
+      q7.value = "7";
+      q7.text = "Q7 (1st strict)";
+      sel.appendChild(q7);
+    }
+
+    function add_options(sel, number) {
+      for (var i = 0; i < number; i++) {
+        var opt = document.createElement("option");
+        opt.value = i + "";
+        opt.text = i + "";
+        sel.appendChild(opt);
+      }
+    }
+
+    function createPcpSettings() {
+      var tab = $("#pcp_mapping")[0];
+      for (var i = 0; i < 8; i++) {
+        var tr = tab.insertRow(i + 1);
+        tr.className = "table_row_content";
+        var t0 = tr.insertCell(0);
+        t0.textContent = i;
+        var t1 = tr.insertCell(1);
+        var t1s = document.createElement("select");
+        t1s.id = "queue_pcp_" + i;
+        addQueues(t1s);
+        t1.appendChild(t1s);
+      }
+    }
+
+    function createDscpSettings() {
+      var tab = $("#dscp_mapping")[0];
+      for (var i = 0; i < 16; i++) {
+        var tr = tab.insertRow(i + 1);
+        tr.className = "table_row_content";
+        var t0 = tr.insertCell(0);
+        t0.textContent = i;
+        var t1 = tr.insertCell(1);
+        var t1s = document.createElement("select");
+        t1s.id = "queue_dscp_" + i;
+        addQueues(t1s);
+        t1.appendChild(t1s);
+
+        var t2 = tr.insertCell(2);
+        t2.style.backgroundColor = "#ffffff";
+        var t3 = tr.insertCell(3);
+        t3.textContent = i + 16;
+        var t4 = tr.insertCell(4);
+        var t4s = document.createElement("select");
+        t4s.id = "queue_dscp_" + (i + 16);
+        addQueues(t4s);
+        t4.appendChild(t4s);
+        var t5 = tr.insertCell(5);
+        t5.style.backgroundColor = "#ffffff";
+        var t6 = tr.insertCell(6);
+        t6.textContent = i + 32;
+        var t7 = tr.insertCell(7);
+        var t7s = document.createElement("select");
+        t7s.id = "queue_dscp_" + (i + 32);
+        addQueues(t7s);
+        t7.appendChild(t7s);
+
+        var t8 = tr.insertCell(8);
+        t8.style.backgroundColor = "#ffffff";
+        var t9 = tr.insertCell(9);
+        t9.textContent = i + 48;
+        var t10 = tr.insertCell(10);
+        var t10s = document.createElement("select");
+        t10s.id = "queue_dscp_" + (i + 48);
+        addQueues(t10s);
+        t10.appendChild(t10s);
+      }
+    }
+
+    function createDscp2PcpSettings() {
+      var tab = $("#dscp2pcp_mapping")[0];
+      for (var i = 0; i < 16; i++) {
+        var tr = tab.insertRow(i + 1);
+        tr.className = "table_row_content";
+        var t0 = tr.insertCell(0);
+        t0.textContent = i;
+        var t1 = tr.insertCell(1);
+        var t1s = document.createElement("select");
+        t1s.id = "pcp_dscp_" + i;
+        add_options(t1s, 8);
+        t1.appendChild(t1s);
+
+        var t2 = tr.insertCell(2);
+        t2.style.backgroundColor = "#ffffff";
+        var t3 = tr.insertCell(3);
+        t3.textContent = i + 16;
+        var t4 = tr.insertCell(4);
+        var t4s = document.createElement("select");
+        t4s.id = "pcp_dscp_" + (i + 16);
+        add_options(t4s, 8);
+        t4.appendChild(t4s);
+
+        var t5 = tr.insertCell(5);
+        t5.style.backgroundColor = "#ffffff";
+        var t6 = tr.insertCell(6);
+        t6.textContent = i + 32;
+        var t7 = tr.insertCell(7);
+        var t7s = document.createElement("select");
+        t7s.id = "pcp_dscp_" + (i + 32);
+        add_options(t7s, 8);
+        t7.appendChild(t7s);
+
+        var t8 = tr.insertCell(8);
+        t8.style.backgroundColor = "#ffffff";
+        var t9 = tr.insertCell(9);
+        t9.textContent = i + 48;
+        var t10 = tr.insertCell(10);
+        var t10s = document.createElement("select");
+        t10s.id = "pcp_dscp_" + (i + 48);
+        add_options(t10s, 8);
+        t10.appendChild(t10s);
+      }
+    }
+
+    function createInterfaceSettings() {
+      var tab = $("#qos_interfaces")[0];
+      for (var j = 0; j < NumberSwitchPorts; j++) {
+        var i = Order[j] + 1;
+        var tr = tab.insertRow(-1);
+        tr.className = "table_row_content";
+        var t0 = tr.insertCell(0);
+        var t1 = tr.insertCell(1);
+        var t2 = tr.insertCell(2);
+        var t3 = tr.insertCell(3);
+        t0.textContent = SwitchPortNames[i - 1];
+
+        //t1
+        var prio_c = document.createElement("select");
+        prio_c.id = "choice_" + i;
+        prio_c.style.width = "100%";
+        {
+          var def = document.createElement("option");
+          def.value = "default";
+          def.text = "default queue";
+          prio_c.appendChild(def);
+
+          var pcp = document.createElement("option");
+          pcp.value = "pcp > default";
+          pcp.text = "PCP > default queue";
+          prio_c.appendChild(pcp);
+
+          var dscp = document.createElement("option");
+          dscp.value = "dscp > default";
+          dscp.text = "DSCP > default queue";
+          prio_c.appendChild(dscp);
+
+          var pcp_dscp = document.createElement("option");
+          pcp_dscp.value = "pcp > dscp > default";
+          pcp_dscp.text = "PCP > DSCP > default queue";
+          prio_c.appendChild(pcp_dscp);
+        }
+        t1.appendChild(prio_c);
+
+        //t2
+        var def_q = document.createElement("select");
+        def_q.id = "def_queue_" + i;
+        def_q.style.width = "100%";
+        addQueues(def_q);
+        t2.appendChild(def_q);
+
+        //t3
+        var def_pcp = document.createElement("select");
+        def_pcp.id = "def_pcp_" + i;
+        def_pcp.style.width = "100%";
+        add_options(def_pcp, 8);
+        t3.appendChild(def_pcp);
+      }
+    }
+
+    function getDefaults() {
+      $.post(
+        "/api",
+        '{"service":"qos","access":"get","command":"get defaults"}',
+        function (data, status) {
+          data.forEach(function (i) {
+            $("#choice_" + i["interface"]).val(i["prio choice"]);
+            $("#def_queue_" + i["interface"]).val(i.queue);
+            $("#def_pcp_" + i["interface"]).val(i.pcp);
+          });
+        }
+      );
+    }
+
+    function getPcpToQueueMapping() {
+      $.post(
+        "/api",
+        '{"service":"qos","access":"get","command":"get pcp->queue mapping"}',
+        function (data, status) {
+          for (var i = 0; i < 8; i++) {
+            $("#queue_pcp_" + i).val(data[i]);
+          }
+        }
+      );
+    }
+
+    function getDscpToQueueMapping() {
+      $.post(
+        "/api",
+        '{"service":"qos","access":"get","command":"get dscp->queue mapping"}',
+        function (data, status) {
+          for (var i = 0; i < 64; i++) {
+            $("#queue_dscp_" + i).val(data[i]);
+          }
+        }
+      );
+    }
+
+    function getDscpToPcpMapping() {
+      $.post(
+        "/api",
+        '{"service":"qos","access":"get","command":"get dscp->pcp mapping"}',
+        function (data, status) {
+          for (var i = 0; i < 64; i++) {
+            $("#pcp_dscp_" + i).val(data[i]);
+          }
+        }
+      );
+    }
+
+    function setDefaults() {
+      var parms = [];
+      for (var i = 1; i < NumberNetworkPorts + 1; i++) {
+        parms.push({
+          interface: i,
+          "prio choice": $("#choice_" + i).val(),
+          queue: parseInt($("#def_queue_" + i).val()),
+          pcp: parseInt($("#def_pcp_" + i).val()),
+        });
+      }
+
+      $.post(
+        "/api",
+        JSON.stringify({
+          service: "qos",
+          access: "set",
+          command: "set defaults",
+          parameters: parms,
+        }),
+        function (data, status) {
+          createOK(data);
+        }
+      );
+    }
+
+    function setPcpToQueueMapping() {
+      var obj = {
+        service: "qos",
+        access: "set",
+        command: "set pcp->queue mapping",
+        parameters: [],
+      };
+
+      for (var i = 0; i < 8; i++)
+        obj.parameters[i] = parseInt($("#queue_pcp_" + i).val());
+
+      $.post("/api", JSON.stringify(obj), function (data, status) {
+        createOK(data);
+      });
+    }
+
+    function setDscpToQueueMapping() {
+      var obj = {
+        service: "qos",
+        access: "set",
+        command: "set dscp->queue mapping",
+        parameters: [],
+      };
+
+      for (var i = 0; i < 64; i++)
+        obj.parameters[i] = parseInt($("#queue_dscp_" + i).val());
+
+      $.post("/api", JSON.stringify(obj), function (data, status) {
+        createOK(data);
+      });
+    }
+
+    function setDscpToPcpMapping() {
+      var obj = {
+        service: "qos",
+        access: "set",
+        command: "set dscp->pcp mapping",
+        parameters: [],
+      };
+
+      for (var i = 0; i < 64; i++)
+        obj.parameters[i] = parseInt($("#pcp_dscp_" + i).val());
+
+      $.post("/api", JSON.stringify(obj), function (data, status) {
+        createOK(data);
+      });
+    }
+
+    $(document).ready(function () {
+      setupPortInfo(setupDone);
+    });
+
+    function setupDone() {
+      createInterfaceSettings();
+      createPcpSettings();
+      createDscpSettings();
+      createDscp2PcpSettings();
+
+      getDefaults();
+      getPcpToQueueMapping();
+      getDscpToQueueMapping();
+      getDscpToPcpMapping();
+
+      $("#interfaces_set").click(function () {
+        setDefaults();
+      });
+
+      $("#queue_pcp_set").click(function () {
+        setPcpToQueueMapping();
+      });
+
+      $("#queue_dscp_set").click(function () {
+        setDscpToQueueMapping();
+      });
+
+      $("#pcp_dscp_set").click(function () {
+        setDscpToPcpMapping();
+      });
+    }
+  </script>
+  <body
+    style="
+      height: 100%;
+      width: 100%;
+      float: left;
+      margin: 0px;
+      font-family: Verdana;
+      overflow: hidden;
+      position: absolute;
+    "
+  >
+    <div id="content" style="height: 100%; overflow: auto; width: 100%">
+      <h2 style="margin-left: 10px">Settings &gt; QoS</h2>
+      <div class="box2" style="width: calc(50% - 20px)">
+        <a class="headline">QoS Port Settings</a>
+        <table
+          class="table"
+          style="font-size: 80%; width: 100%; text-align: center"
+          id="qos_interfaces"
+        >
+          <tr class="table_row_head">
+            <td class="table_cell">Port</td>
+            <td>Priority Criterion</td>
+            <td>Default Queue</td>
+            <td>Default PCP</td>
+          </tr>
+        </table>
+        <input
+          id="interfaces_set"
+          value="Set QoS Port Settings"
+          type="button"
+        />
+      </div>
+      <br />
+      <div class="box2" style="width: calc(25% - 20px); clear: left">
+        <a class="headline">PCP -> Queue Mapping</a>
+        <div class="box_content" style="overflow: auto; text-align: center">
+          <table style="font-size: 80%; width: 100%" id="pcp_mapping">
+            <tr class="table_row_head">
+              <td>PCP Value</td>
+              <td>Egress Queue</td>
+            </tr>
+          </table>
+        </div>
+        <input
+          type="button"
+          class="button"
+          id="queue_pcp_set"
+          value="Set PCP -> Queue Mapping"
+        />
+      </div>
+
+      <div class="box2" style="width: calc(100% - 20px)">
+        <a class="headline">DSCP Mapping</a>
+        <div class="box_content" style="overflow: auto; text-align: center">
+          <table style="font-size: 80%; width: 100%" id="dscp_mapping">
+            <tr class="table_row_head">
+              <td>DSCP Value</td>
+              <td>Egress Queue</td>
+              <td style="background-color: #ffffff"></td>
+              <td>DSCP Value</td>
+              <td>Egress Queue</td>
+              <td style="background-color: #ffffff"></td>
+              <td>DSCP Value</td>
+              <td>Egress Queue</td>
+              <td style="background-color: #ffffff"></td>
+              <td>DSCP Value</td>
+              <td>Egress Queue</td>
+            </tr>
+          </table>
+        </div>
+        <input
+          type="button"
+          class="button"
+          id="queue_dscp_set"
+          value="Set DSCP Mapping"
+        />
+      </div>
+
+      <div class="box2" style="width: calc(100% - 20px)">
+        <a class="headline">DSCP -> PCP Mapping</a>
+        <div class="box_content" style="overflow: auto; text-align: center">
+          <table style="font-size: 80%; width: 100%" id="dscp2pcp_mapping">
+            <tr class="table_row_head">
+              <td>DSCP Value</td>
+              <td>PCP Value</td>
+              <td style="background-color: #ffffff"></td>
+              <td>DSCP Value</td>
+              <td>PCP Value</td>
+              <td style="background-color: #ffffff"></td>
+              <td>DSCP Value</td>
+              <td>PCP Value</td>
+              <td style="background-color: #ffffff"></td>
+              <td>DSCP Value</td>
+              <td>PCP Value</td>
+            </tr>
+          </table>
+        </div>
+        <input
+          type="button"
+          class="button"
+          id="pcp_dscp_set"
+          value="Set DSCP -> PCP Mapping"
+        />
+      </div>
+    </div>
+  </body>
+</html>

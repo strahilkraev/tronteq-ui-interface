@@ -1,0 +1,210 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
+<meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1" />
+<html>
+  <head>
+    <link rel="stylesheet" type="text/css" href="basic_layout.css" />
+  </head>
+  <script type="text/javascript" src="basic_jscript.js"></script>
+  <script type="text/javascript" src="js/jquery-3.7.1.min.js"></script>
+  <script type="text/javascript">
+    $(document).ajaxError(function (event, request, settings) {
+      var obj = JSON.parse(request.responseText);
+      if (obj.msg) ffunc(obj.msg);
+      if (obj.error === "invalid rights")
+        window.top.location.href = "login.html";
+    });
+
+    function updateDisable() {
+      var dis = $("[id^=ch_d_]");
+      var disable = false;
+      var num = "-1";
+      for (var i = 0; i < dis.length; i++) {
+        if (dis[i].checked) {
+          disable = true;
+          num = dis[i].id.split("_")[2];
+          break;
+        }
+      }
+
+      if (disable) {
+        dis.prop("checked", false);
+        dis.prop("disabled", true);
+        $("#ch_d_" + num).prop("checked", true);
+        $("#ch_d_" + num).prop("disabled", false);
+        $("#ch_i_" + num).prop("checked", false);
+        $("#ch_i_" + num).prop("disabled", true);
+        $("#ch_o_" + num).prop("checked", false);
+        $("#ch_o_" + num).prop("disabled", true);
+      } else {
+        var dis = $("[id^=ch_]").prop("disabled", false);
+      }
+    }
+
+    function getMirroring(data) {
+      var tab = $("#mirroring_table")[0];
+      while (tab.rows.length > 2) tab.rows[2].remove();
+
+      for (var i = 0; i < Order.length; i++) {
+        var tr = tab.insertRow(-1);
+
+        var t0 = tr.insertCell(0);
+        var t1 = tr.insertCell(1);
+        var t2 = tr.insertCell(2);
+        var t3 = tr.insertCell(3);
+
+        tr.className = "table_row_content";
+
+        t0.innerText = SwitchPortNames[Order[i]];
+
+        var ch_i = document.createElement("input");
+        ch_i.type = "checkbox";
+        ch_i.id = "ch_i_" + (Order[i] + 1);
+
+        var ch_o = document.createElement("input");
+        ch_o.type = "checkbox";
+        ch_o.id = "ch_o_" + (Order[i] + 1);
+
+        var ch_d = document.createElement("input");
+        ch_d.type = "checkbox";
+        ch_d.id = "ch_d_" + (Order[i] + 1);
+
+        t1.appendChild(ch_i);
+        t2.appendChild(ch_o);
+        t3.appendChild(ch_d);
+      }
+
+      for (var k = 0; k < data.src.length; k++) {
+        if (data.src[k].state === "normal") {
+          $("#ch_i_" + (k + 1)).prop("checked", false);
+          $("#ch_o_" + (k + 1)).prop("checked", false);
+        } else if (data.src[k].state === "source_ingress") {
+          $("#ch_i_" + (k + 1)).prop("checked", true);
+          $("#ch_o_" + (k + 1)).prop("checked", false);
+        } else if (data.src[k].state === "source_egress") {
+          $("#ch_i_" + (k + 1)).prop("checked", false);
+          $("#ch_o_" + (k + 1)).prop("checked", true);
+        } else if (data.src[k].state === "source_both") {
+          $("#ch_i_" + (k + 1)).prop("checked", true);
+          $("#ch_o_" + (k + 1)).prop("checked", true);
+        }
+      }
+
+      if (data.dest >= 0) {
+        $("[id^=ch_d_]").prop("disabled", true);
+        $("#ch_i_" + data.dest).prop("checked", false);
+        $("#ch_i_" + data.dest).prop("disabled", true);
+        $("#ch_o_" + data.dest).prop("checked", false);
+        $("#ch_o_" + data.dest).prop("disabled", true);
+        $("#ch_d_" + data.dest).prop("checked", true);
+        $("#ch_d_" + data.dest).prop("disabled", false);
+      }
+
+      $("[id^=ch_d_]").on("change", updateDisable);
+    }
+
+    function set() {
+      var obj = {};
+      obj.dest = -1;
+      obj.src = [];
+      var dis = $("[id^=ch_d_]");
+      for (var i = 0; i < dis.length; i++) {
+        if (dis[i].checked) {
+          obj.dest = parseInt(dis[i].id.split("_")[2]);
+          break;
+        }
+      }
+      for (var i = 1; i <= SwitchPorts.length; i++) {
+        var iface = {};
+        iface["interface"] = i;
+
+        if (
+          $("#ch_o_" + i).prop("checked") &&
+          $("#ch_i_" + i).prop("checked")
+        ) {
+          iface.state = "source_both";
+        } else if (
+          $("#ch_o_" + i).prop("checked") &&
+          !$("#ch_i_" + i).prop("checked")
+        ) {
+          iface.state = "source_egress";
+        } else if (
+          !$("#ch_o_" + i).prop("checked") &&
+          $("#ch_i_" + i).prop("checked")
+        ) {
+          iface.state = "source_ingress";
+        } else if (
+          !$("#ch_o_" + i).prop("checked") &&
+          !$("#ch_i_" + i).prop("checked")
+        ) {
+          iface.state = "normal";
+        }
+        obj.src.push(iface);
+      }
+
+      $.post(
+        "/api",
+        JSON.stringify({
+          service: "mirroring",
+          access: "set",
+          command: "set mirroring",
+          parameters: obj,
+        }),
+        function (data, status) {
+          createOK(data);
+        }
+      );
+    }
+
+    $(document).ready(function () {
+      setupPortInfo(setupDone);
+    });
+
+    function setupDone() {
+      $(document).ajaxError(function (data, a1) {
+        if (a1.responseJSON != undefined)
+          $("#infoline").text(a1.responseJSON.msg);
+      });
+
+      $("#setMirroring").click(set);
+
+      $.post(
+        "/api",
+        '{"service":"mirroring","access":"get","command":"get mirroring"}',
+        getMirroring
+      );
+    }
+  </script>
+  <body
+    style="
+      height: 100%;
+      width: 100%;
+      float: left;
+      margin: 0px;
+      font-family: Verdana;
+      overflow: hidden;
+      position: absolute;
+    "
+  >
+    <div id="content" style="height: 100%; overflow: auto; width: 100%">
+      <h2 style="margin-left: 10px">Settings &gt; Port Mirroring</h2>
+
+      <div class="box2" style="width: calc(50% - 20px)">
+        <a class="headline">Mirroring Settings</a>
+        <div class="box_content">
+          <table style="font-size: 80%; width: 100%" id="mirroring_table">
+            <tr class="table_row_head">
+              <td rowspan="2">Port</td>
+              <td colspan="2">Traffic to mirror</td>
+              <td rowspan="2">Destination</td>
+            </tr>
+            <tr class="table_row_head">
+              <td>Incoming</td>
+              <td>Outgoing</td>
+            </tr>
+          </table>
+        </div>
+        <input type="button" value="Set" id="setMirroring" />
+      </div>
+    </div>
+  </body>
+</html>

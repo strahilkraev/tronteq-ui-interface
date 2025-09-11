@@ -1,0 +1,96 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
+<meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1" />
+<html style="height: 100%">
+  <head>
+    <link rel="stylesheet" type="text/css" href="basic_layout.css" />
+    <style type="text/css"></style>
+  </head>
+  <script type="text/javascript" src="basic_jscript.js"></script>
+  <script type="text/javascript" src="js/jquery-3.7.1.min.js"></script>
+  <script type="text/javascript">
+    $(document).ajaxError(function (event, request, settings) {
+      var obj = JSON.parse(request.responseText);
+      if (obj.msg) ffunc(obj.msg);
+      if (obj.error === "invalid rights")
+        window.top.location.href = "login.html";
+    });
+
+    $(document).ready(function () {
+      getLeases();
+      autoRefreshFn({ fn: getLeases });
+    });
+
+    function getLeases() {
+      $.post(
+        "/api",
+        '{"service":"dhcp","access":"get","command":"get active leases"}',
+        function (data, status) {
+          var tab = $("#lease_table")[0];
+          while (tab.rows.length > 1) tab.rows[1].remove();
+          data["static"].forEach(function (lease) {
+            var tr = tab.insertRow(-1);
+            tr.className = "table_row_content";
+
+            var t0 = tr.insertCell(0);
+            var t1 = tr.insertCell(1);
+            var t2 = tr.insertCell(2);
+            var t3 = tr.insertCell(3);
+
+            t0.textContent = lease.ip;
+            t1.textContent = lease.mac;
+            t2.textContent = "static";
+            t3.textContent = lease.time;
+          });
+          data["dynamic"].forEach(function (lease) {
+            var tr = tab.insertRow(-1);
+            tr.className = "table_row_content";
+
+            var t0 = tr.insertCell(0);
+            var t1 = tr.insertCell(1);
+            var t2 = tr.insertCell(2);
+            var t3 = tr.insertCell(3);
+
+            t0.textContent = lease.ip;
+            t1.textContent = lease.mac;
+            t2.textContent = "dynamic";
+            t3.textContent = lease.time;
+          });
+        }
+      );
+    }
+  </script>
+  <body
+    style="
+      height: 100%;
+      width: 100%;
+      float: left;
+      margin: 0px;
+      font-family: Verdana;
+      height: 100%;
+      overflow: hidden;
+      position: absolute;
+    "
+  >
+    <div id="content" style="height: 100%; overflow: auto; width: 100%">
+      <div style="width: 100%; float: left">
+        <h2 style="margin-left: 10px">Status &gt; DHCP Leases</h2>
+
+        <div class="box2" style="width: calc(100% - 20px)">
+          <div class="box_content">
+            <table
+              style="font-size: 80%; text-align: center; width: 100%"
+              id="lease_table"
+            >
+              <tr class="table_row_head">
+                <td>IP Address</td>
+                <td>MAC Address</td>
+                <td>Type</td>
+                <td>Leasetime &#040;s&#041;</td>
+              </tr>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  </body>
+</html>

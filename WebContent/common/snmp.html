@@ -1,0 +1,383 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
+<meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1" />
+<html>
+  <head>
+    <link rel="stylesheet" type="text/css" href="basic_layout.css" />
+    <style type="text/css"></style>
+  </head>
+  <script type="text/javascript" src="js/jquery-3.7.1.min.js"></script>
+  <script type="text/javascript" src="basic_jscript.js"></script>
+  <script type="text/javascript">
+    $(document).ajaxError(function (event, request, settings) {
+      var obj = JSON.parse(request.responseText);
+      if (obj.msg) ffunc(obj.msg);
+      if (obj.error === "invalid rights")
+        window.top.location.href = "login.html";
+    });
+
+    function removeUser(p) {
+      $.post(
+        "/api",
+        JSON.stringify({
+          service: "snmp",
+          access: "set",
+          command: "remove user",
+          parameters: [p],
+        }),
+        function (data, status) {
+          createOK(data);
+          $.post(
+            "/api",
+            '{"service":"snmp","access":"get","command":"get user"}',
+            UserData
+          );
+        }
+      );
+    }
+
+    function UserData(data) {
+      $("#UserList").empty();
+      var tab = $("#UserList")[0];
+      for (var i = 0; i < data.length; i++) {
+        var tr = tab.insertRow(-1);
+        tr.className = "table_row_content";
+        var t0 = tr.insertCell(0);
+        var t1 = tr.insertCell(1);
+        t0.innerText = data[i].name;
+        t1.align = "center";
+        var bu = document.createElement("input");
+        bu.type = "button";
+        bu.id = "remove_" + data[i].name;
+        bu.value = "Remove";
+        bu.onclick = function (e) {
+          var params = e.target.id.substr(7);
+          removeUser(params);
+        };
+        t1.appendChild(bu);
+      }
+    }
+
+    function getTrapData(data) {
+      $("#trapEnabled").prop("checked", data.enabled);
+      $("#trapReceiver").val(data.destination);
+      $("#trapCommunity").val(data.community);
+    }
+
+    $(document).ready(function () {
+      $(document).ajaxError(function (data, a1) {
+        if (a1.responseJSON != undefined)
+          $("#infoline").text(a1.responseJSON.msg);
+      });
+      $("#setConfig").click(function () {
+        $.post(
+          "/api",
+          JSON.stringify({
+            service: "snmp",
+            access: "set",
+            command: "set config",
+            parameters: {
+              v1: $("#v1").prop("checked"),
+              v2c: $("#v2c").prop("checked"),
+              v3: $("#v3").prop("checked"),
+              read_community: $("#read").val(),
+              write_community: $("#write").val(),
+              engineID: $("#engineID").val(),
+            },
+          }),
+          function (data, status) {
+            createOK(data);
+          }
+        );
+      });
+
+      $("#getConfig").click(function () {
+        $.post(
+          "/api",
+          '{"service":"snmp","access":"get","command":"get config"}',
+          readData
+        );
+      });
+
+      $("#getUser").click(function () {
+        $.post(
+          "/api",
+          '{"service":"snmp","access":"get","command":"get user"}',
+          UserData
+        );
+      });
+
+      $("#getTrap").click(function () {
+        $.post(
+          "/api",
+          '{"service":"trap","access":"get","command":"get trap"}',
+          getTrapData
+        );
+      });
+
+      $("#setTrap").click(function () {
+        //if($("#trap")[0].checkValidity())
+        //{
+        $.post(
+          "/api",
+          JSON.stringify({
+            service: "trap",
+            access: "set",
+            command: "set trap",
+            parameters: {
+              version: "v1",
+              destination: $("#trapReceiver").val(),
+              enabled: $("#trapEnabled").is(":checked"),
+              community: $("#trapCommunity").val(),
+            },
+          }),
+          function (data, status) {
+            createOK(data);
+          }
+        );
+        return false;
+        //}
+        //return true;
+      });
+
+      $("#addUser").click(function () {
+        var obj = {
+          service: "snmp",
+          access: "set",
+          command: "add user",
+          parameters: [
+            {
+              name: $("#name").val(),
+              authpass: $("#authpass").val(),
+              privpass: $("#privpass").val(),
+            },
+          ],
+        };
+        //if($("#formUser")[0].checkValidity())
+        //{
+        $.post("/api", JSON.stringify(obj), function (data, status) {
+          createOK(data);
+          $.post(
+            "/api",
+            '{"service":"snmp","access":"get","command":"get user"}',
+            UserData
+          );
+        });
+        return false;
+        //}
+        //return true;
+      });
+
+      $.post(
+        "/api",
+        '{"service":"snmp","access":"get","command":"get config"}',
+        readData
+      );
+
+      $.post(
+        "/api",
+        '{"service":"trap","access":"get","command":"get trap"}',
+        getTrapData
+      );
+
+      $.post(
+        "/api",
+        '{"service":"snmp","access":"get","command":"get user"}',
+        UserData
+      );
+
+      function readData(data, s) {
+        $("#v1").prop("checked", data.v1);
+        $("#v2c").prop("checked", data.v2c);
+        $("#v3").prop("checked", data.v3);
+        $("#read").val(data.read_community);
+        $("#write").val(data.write_community);
+        $("#engineID").val(data.engineID);
+      }
+
+      //set username
+      var cookies = document.cookie.split("; ");
+      var found = false;
+      for (var i in cookies) {
+        if (cookies[i].split("=")[0].match("user")) {
+          $("#username").text(cookies[i].split("=")[1]);
+          found = true;
+        }
+      }
+
+      if (!found)
+        window.top.location.href =
+          window.top.location.protocol +
+          "//" +
+          window.top.location.host +
+          "/login.html";
+    });
+  </script>
+  <body
+    style="
+      height: 100%;
+      width: 100%;
+      float: left;
+      margin: 0px;
+      font-family: Verdana;
+      overflow: hidden;
+      position: absolute;
+    "
+  >
+    <div id="content" style="height: 100%; overflow: auto; width: 100%">
+      <h2 style="margin-left: 10px">Settings &gt; SNMP</h2>
+      <div id="snmp_content" style="overflow: hidden">
+        <div class="box2" style="width: calc(25% - 20px)">
+          <a class="headline">Server Settings</a>
+          <div class="box_content">
+            <table style="font-size: 80%; width: 100%">
+              <tr class="table_row_head">
+                <td>Setting</td>
+                <td>Status</td>
+              </tr>
+              <tr class="table_row_content">
+                <td>Version 1:</td>
+                <td align="center"><input id="v1" type="checkbox" /></td>
+              </tr>
+              <tr class="table_row_content">
+                <td>Version 2c:</td>
+                <td align="center"><input id="v2c" type="checkbox" /></td>
+              </tr>
+              <tr class="table_row_content">
+                <td>Version 3:</td>
+                <td align="center"><input id="v3" type="checkbox" /></td>
+              </tr>
+              <tr class="table_row_head">
+                <td colspan="2">Version 1 / 2c Settings</td>
+              </tr>
+              <tr class="table_row_content">
+                <td>Read Community</td>
+                <td>
+                  <input
+                    type="text"
+                    class="textbox"
+                    id="read"
+                    style="width: 97%"
+                  />
+                </td>
+              </tr>
+              <tr class="table_row_content">
+                <td>Write Community</td>
+                <td>
+                  <input
+                    type="text"
+                    class="textbox"
+                    id="write"
+                    style="width: 97%"
+                  />
+                </td>
+              </tr>
+              <tr class="table_row_content" style="visibility: collapse">
+                <td>Engine ID</td>
+                <td>
+                  <input
+                    type="text"
+                    class="textbox"
+                    id="engineID"
+                    style="width: 97%"
+                    readonly
+                  />
+                </td>
+              </tr>
+            </table>
+            <input id="setConfig" type="button" value="Set Server Settings" />
+          </div>
+        </div>
+        <div class="box2" style="width: calc(25% - 20px)">
+          <div class="box_content">
+            <a class="headline">Add User</a>
+            <table style="font-size: 80%; width: 100%">
+              <tbody>
+                <tr class="table_row_head">
+                  <td>Parameter</td>
+                  <td>Value</td>
+                </tr>
+                <tr class="table_row_content">
+                  <td><label for="name">Username:</label></td>
+                  <td><input id="name" type="text" style="width: 97%" /></td>
+                </tr>
+                <tr class="table_row_content">
+                  <td><label for="authpass">Authpass:</label></td>
+                  <td>
+                    <input
+                      id="authpass"
+                      pattern=".{8,}"
+                      required
+                      title="minimum length 8"
+                      type="text"
+                      style="width: 97%"
+                    />
+                  </td>
+                </tr>
+                <tr class="table_row_content">
+                  <td><label for="privpass">Privpass:</label></td>
+                  <td>
+                    <input
+                      id="privpass"
+                      pattern=".{8,}"
+                      required
+                      title="minimum length 8"
+                      type="text"
+                      style="width: 97%"
+                    />
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+            <input id="addUser" type="button" value="Add User" />
+            <br />
+            <a class="headline">SNMP Version 3 Users</a>
+            <table style="font-size: 80%; width: 100%" id="Users">
+              <thead>
+                <tr class="table_row_head">
+                  <td>User</td>
+                  <td>Action</td>
+                </tr>
+              </thead>
+              <tbody id="UserList"></tbody>
+            </table>
+          </div>
+        </div>
+        <div class="box2" style="width: calc(25% - 20px)">
+          <a class="headline">Traps</a>
+          <div class="box_content">
+            <table style="font-size: 80%; width: 100%">
+              <tr class="table_row_head">
+                <td>Parameter</td>
+                <td>Status</td>
+              </tr>
+              <tr class="table_row_content">
+                <td>Enabled</td>
+                <td>
+                  <input type="checkbox" id="trapEnabled" style="width: 97%" />
+                </td>
+              </tr>
+              <tr class="table_row_content">
+                <td>Receiver</td>
+                <td>
+                  <input type="text" id="trapReceiver" style="width: 97%" />
+                </td>
+              </tr>
+              <tr class="table_row_content">
+                <td>Trap Community</td>
+                <td>
+                  <input type="text" id="trapCommunity" style="width: 97%" />
+                </td>
+              </tr>
+            </table>
+            <input
+              type="button"
+              class="button"
+              id="setTrap"
+              value="Set SNMP Trap Settings"
+            />
+          </div>
+        </div>
+      </div>
+    </div>
+  </body>
+</html>

@@ -1,0 +1,206 @@
+<meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1" />
+<html>
+  <head>
+    <link rel="stylesheet" type="text/css" href="basic_layout.css" />
+    <style type="text/css"></style>
+  </head>
+  <script type="text/javascript" src="js/jquery-3.7.1.min.js"></script>
+  <script type="text/javascript" src="basic_jscript.js"></script>
+  <script type="text/javascript">
+    $(document).ajaxError(function (event, request, settings) {
+      try {
+        var obj = JSON.parse(request.responseText);
+        if (obj.msg) ffunc(obj.msg);
+        if (obj.error) {
+          if (obj.error === "invalid rights")
+            window.top.location.href = "login.html";
+          else ffunc(obj.error);
+        }
+      } catch (e) {}
+    });
+
+    $(document).ready(function () {
+      $("#resetCfg").click(function () {
+        $.post(
+          "/api",
+          '{"service":"system","access":"set","command":"factory reset"}',
+          function (data, status) {
+            create_overlay(
+              "The configuration has been reset.",
+              "overlay_message_ok",
+              5000
+            );
+          }
+        );
+      });
+
+      $("#saveCfg").click(function () {
+        $.post(
+          "/api",
+          '{"service":"system","access":"get","command":"get config name"}',
+          function (data, status) {
+            var cfgName = prompt(
+              "Please enter the config name (1-28 chars):",
+              data.cfgName.substring(0, data.cfgName.lastIndexOf("."))
+            );
+            if (cfgName == null || cfgName.trim() == "") {
+              // abort
+            } else {
+              if (cfgName.endsWith(".cfg")) {
+                cfgName = cfgName.substr(0, cfgName.length - 4);
+              }
+              var obj = {
+                service: "system",
+                access: "set",
+                command: "save config with name",
+                parameters: {},
+              };
+              if (cfgName.length > 255)
+                obj["parameters"].cfgName = cfgName.substr(0, 255);
+              else obj["parameters"].cfgName = cfgName;
+              $.post("/api", JSON.stringify(obj), function (data, status) {
+                create_overlay("Config saved", "overlay_message_ok", 5000);
+              });
+            }
+          }
+        );
+      });
+
+      $("#downloadCfg").click(function () {
+        $.post(
+          "/api",
+          '{"service":"system","access":"get","command":"get config name"}',
+          function (data, status) {
+            var cfgName = data.cfgName;
+
+            $.post(
+              "/api",
+              '{"service":"system","access":"set","command":"create config"}',
+              function (data, status) {
+                var json = JSON.stringify(data, null, 4);
+                blob = new Blob([json], { type: "octet/stream" });
+                if (navigator.msSaveOrOpenBlob) {
+                  navigator.msSaveOrOpenBlob(blob, cfgName);
+                  return;
+                }
+                var a = document.createElement("a");
+                document.body.appendChild(a);
+                a.style = "display: none";
+                url = window.URL.createObjectURL(blob);
+                a.href = url;
+                a.download = cfgName;
+                a.click();
+                window.URL.revokeObjectURL(url);
+              }
+            );
+          }
+        );
+      });
+      $("#applycfg").click(function () {
+        var file = $("#file")[0].files[0];
+        if (file === undefined) {
+          alert("No File selected");
+          return;
+        }
+        var reader = new FileReader();
+        reader.readAsText(file);
+        reader.onloadend = function (e) {
+          if (reader.error !== null) {
+            alert("error");
+            return;
+          }
+          $.post(
+            "/api",
+            '{"service":"system","access":"set","command":"apply config","parameters":' +
+              reader.result +
+              "}",
+            function (data, status) {
+              create_overlay("Config applied", "overlay_message_ok", 5000);
+            }
+          );
+        };
+      });
+    });
+  </script>
+  <body
+    style="
+      height: 100%;
+      width: 100%;
+      float: left;
+      margin: 0px;
+      font-family: Verdana;
+      overflow: hidden;
+      position: absolute;
+    "
+  >
+    <div id="content" style="height: 100%; overflow: auto; width: 100%">
+      <h2 style="margin-left: 10px">Maintenance &gt; Configuration</h2>
+      <div class="box2" style="width: calc(50% - 20px)">
+        <a class="headline">Configuration </a>
+        <table
+          class="table"
+          style="font-size: 80%; width: 100%; text-align: center"
+          id="config_files_table"
+        >
+          <tr class="table_row_head" id="general_data_table_row_3">
+            <td>Action</td>
+            <td class="button_col">Execute</td>
+          </tr>
+          <tr class="table_row_content">
+            <td>Download</td>
+            <td>
+              <input
+                class="button"
+                id="downloadCfg"
+                value="Download Configuration"
+                type="button"
+                style="width: 100%"
+              />
+            </td>
+          </tr>
+          <tr class="table_row_content">
+            <td>Reset</td>
+            <td>
+              <input
+                class="button"
+                id="resetCfg"
+                value="Reset to Default Configuration"
+                type="button"
+                style="width: 100%"
+              />
+            </td>
+          </tr>
+          <tr class="table_row_content">
+            <td>Save</td>
+            <td>
+              <input
+                class="button"
+                id="saveCfg"
+                value="Save Changes"
+                type="button"
+                style="width: 100%"
+              />
+            </td>
+          </tr>
+          <tr class="table_row_content">
+            <td rowspan="2">Upload</td>
+            <td>
+              <input type="file" id="file" style="width: 100%" />
+            </td>
+          </tr>
+          <tr class="table_row_content">
+            <td>
+              <input
+                class="button"
+                id="applycfg"
+                value="Upload &amp; Apply Configuration File"
+                type="button"
+                style="width: 100%"
+              />
+            </td>
+          </tr>
+        </table>
+      </div>
+    </div>
+  </body>
+</html>

@@ -1,0 +1,317 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <link rel="stylesheet" type="text/css" href="basic_layout.css" />
+    <script type="text/javascript" src="js/jquery-3.7.1.min.js"></script>
+  </head>
+  <script type="text/javascript" src="basic_jscript.js"></script>
+  <script type="text/javascript">
+    var poecfg;
+
+    $(document).ajaxError(function (event, request, settings) {
+      var obj = JSON.parse(request.responseText);
+      if (obj.msg) ffunc(obj.msg);
+      if (obj.error === "invalid rights")
+        window.top.location.href = "login.html";
+    });
+
+    function get_poe_limit_callback(retobj) {
+      if (Array.isArray(retobj)) {
+        for (var i = 0; i < retobj.length; i++) {
+          val = retobj[i].limit + "W";
+          document.getElementById("maxPwr" + (i + 1)).textContent = val;
+        }
+      }
+    }
+
+    function get_poe_global_callback(retobj) {
+      for (var i = 0; i < retobj.length; i++) {
+        id = "pwrUsed" + (i + 1);
+        ele = document.getElementById(id);
+        if (parseInt(retobj[i].usedBudget) < 0) {
+          ele.textContent = "PoE Failure";
+        } else {
+          ele.textContent = (parseInt(retobj[i].usedBudget) * 1.0) / 10 + "W";
+        }
+      }
+    }
+
+    function get_poe_global_fail() {
+      document.getElementById("pwrUsed1").textContent = "PoE Failure";
+      document.getElementById("pwrUsed2").textContent = "PoE Failure";
+    }
+
+    $(document).ready(function () {
+      setupPortInfo(setupDone);
+      autoRefreshFn({ fn: setupDone });
+    });
+
+    function setupDone() {
+      createtable();
+
+      $.post("/api", '{"service":"poe","command":"get limit","access":"get"}')
+        .done(get_poe_limit_callback)
+        .fail(get_poe_cfg_fail);
+
+      $.post(
+        "/api",
+        '{"service":"poe","command":"get port cfg state","access":"get"}'
+      )
+        .done(get_poe_cfg_callback)
+        .fail(get_poe_cfg_fail);
+
+      $.post(
+        "/api",
+        '{"service":"poe","command":"get global state","access":"get"}'
+      )
+        .done(get_poe_global_callback)
+        .fail(get_poe_global_fail);
+    }
+
+    function createtable() {
+      var tab = document.getElementById("interface_table");
+      var bank = 0;
+      for (var i = 0; i < PoEPorts; i++) {
+        if (i % 8 == 0) {
+          bank += 1;
+        }
+        var j = i + 1;
+        var tr = tab.insertRow(j);
+        tr.id = "row" + j;
+        var t0 = tr.insertCell(0);
+        var t1 = tr.insertCell(1);
+        var t2 = tr.insertCell(2);
+        var t3 = tr.insertCell(3);
+        var t4 = tr.insertCell(4);
+        var t5 = tr.insertCell(5);
+        var t6 = tr.insertCell(6);
+        var t7 = tr.insertCell(7);
+        var t8 = tr.insertCell(8);
+        var t9 = tr.insertCell(9);
+        var t10 = tr.insertCell(10);
+        var t11 = tr.insertCell(11);
+        var t12 = tr.insertCell(12);
+
+        t0.textContent = "" + bank;
+        t1.textContent = PoEPortName[i]; //"P" + j;
+        t2.id = "Name_" + j;
+        t3.id = "Enabled_" + j;
+        t4.id = "Prio_" + j;
+        t5.id = "Status_" + j;
+        t6.id = "class_" + j;
+        t7.id = "Limit_" + j;
+        t8.id = "Limit_pwr_" + j;
+        t9.id = "pwr_alloc_" + j;
+        t10.id = "pwr_" + j;
+        t11.id = "volt_" + j;
+        t12.id = "curr_" + j;
+      }
+    }
+
+    function get_poe_state_callback(retobj) {
+      for (var i = 0; i < retobj.length; i++) {
+        if (retobj[i].poeclass == -1) {
+          document.getElementById("class_" + (i + 1)).textContent = "-";
+          document.getElementById("row" + (i + 1)).className = "port_down";
+        } else {
+          document.getElementById("class_" + (i + 1)).textContent =
+            retobj[i].poeclass +
+            " (" +
+            ("    " + PoEClassW[retobj[i].poeclass].toFixed(1)).substr(-4) +
+            "W)";
+
+          if (
+            PoEClassW[retobj[i].poeclass] < PoEUserPWRLimit[poecfg[i].limit_pwr]
+          ) {
+            document.getElementById("pwr_alloc_" + (i + 1)).textContent =
+              PoEClassW[retobj[i].poeclass] + "W";
+          } else {
+            document.getElementById("pwr_alloc_" + (i + 1)).textContent =
+              PoEUserPWRLimit[poecfg[i].limit_pwr] + "W";
+          }
+
+          document.getElementById("row" + (i + 1)).className =
+            "table_row_content";
+
+          document.getElementById("volt_" + (i + 1)).textContent =
+            Math.round(retobj[i].volt / 100) / 10;
+          document.getElementById("curr_" + (i + 1)).textContent =
+            Math.round(retobj[i].curr * 10) / 10;
+          document.getElementById("pwr_" + (i + 1)).textContent =
+            Math.round((retobj[i].curr / 10) * (retobj[i].volt / 1000)) / 100;
+        }
+        if (retobj[i].status == 0) {
+          document.getElementById("Status_" + (i + 1)).textContent = "disabled";
+        } else if (retobj[i].status == 1) {
+          document.getElementById("Status_" + (i + 1)).textContent =
+            "not detected";
+        } else if (retobj[i].status == 2) {
+          document.getElementById("Status_" + (i + 1)).textContent = "powered";
+        } else if (retobj[i].status == 3) {
+          document.getElementById("Status_" + (i + 1)).textContent = "blocked";
+        } else if (retobj[i].status == 4) {
+          document.getElementById("Status_" + (i + 1)).textContent = "dropped";
+        } else if (retobj[i].status == 5) {
+          document.getElementById("Status_" + (i + 1)).textContent = "error";
+        }
+      }
+
+      document.body.style.width = "99.99999%";
+      setTimeout(function () {
+        document.body.style.width = "100%";
+      }, 50);
+    }
+
+    function get_poe_cfg_callback(retobj) {
+      poecfg = retobj;
+      for (var i = 0; i < retobj.length; i++) {
+        document.getElementById("Name_" + (i + 1)).textContent = retobj[i].name;
+
+        if (retobj[i].enable)
+          document.getElementById("Enabled_" + (i + 1)).textContent = "enabled";
+        else
+          document.getElementById("Enabled_" + (i + 1)).textContent =
+            "disabled";
+
+        if (retobj[i].prio == 3)
+          document.getElementById("Prio_" + (i + 1)).textContent = "low";
+        else if (retobj[i].prio == 2)
+          document.getElementById("Prio_" + (i + 1)).textContent = "high";
+        else if (retobj[i].prio == 1)
+          document.getElementById("Prio_" + (i + 1)).textContent = "critical";
+
+        document.getElementById("Limit_" + (i + 1)).textContent =
+          PoEClassW[retobj[i].limit] + "W (Class " + retobj[i].limit + ")";
+
+        if (retobj[i].limit_pwr == 0)
+          document.getElementById("Limit_pwr_" + (i + 1)).textContent = "-";
+        else
+          document.getElementById("Limit_pwr_" + (i + 1)).textContent =
+            PoEUserPWRLimit[retobj[i].limit_pwr] + "W";
+      }
+
+      $.post(
+        "/api",
+        '{"service":"poe","command":"get poe state","access":"get"}'
+      ).done(get_poe_state_callback);
+    }
+
+    function get_poe_cfg_fail(response) {
+      for (var i = 0; i < 8; i++) {
+        document.getElementById("row" + (i + 1)).className = "port_down";
+        document.getElementById("Name_" + (i + 1)).textContent = "-";
+        document.getElementById("Status_" + (i + 1)).textContent = "-";
+        document.getElementById("Enabled_" + (i + 1)).textContent = "-";
+        document.getElementById("Limit_" + (i + 1)).textContent = "-";
+        document.getElementById("Limit_pwr_" + (i + 1)).textContent = "-";
+        document.getElementById("Prio_" + (i + 1)).textContent = "-";
+        document.getElementById("volt_" + (i + 1)).textContent = "-";
+        document.getElementById("curr_" + (i + 1)).textContent = "-";
+        document.getElementById("pwr_" + (i + 1)).textContent = "-";
+        document.getElementById("class_" + (i + 1)).textContent = "-";
+      }
+
+      document.body.style.width = "99.99999%";
+      setTimeout(function () {
+        document.body.style.width = "100%";
+      }, 50);
+    }
+  </script>
+  <body
+    style="
+      height: 100%;
+      width: 100%;
+      float: left;
+      margin: 0px;
+      font-family: Verdana;
+    "
+  >
+    <h2 style="margin-left: 10px">Status &gt; PoE</h2>
+
+    <div class="box2" style="width: calc(25% - 20px)">
+      <a class="headline">Global Usage</a>
+      <div class="box_content">
+        <table style="font-size: 80%; width: 100%">
+          <tr class="table_row_head">
+            <td>Parameter</td>
+            <td style="text-align: center">Powerbank 1</td>
+            <td style="text-align: center">Powerbank 2</td>
+          </tr>
+          <tr class="table_row_content">
+            <td>Power Budget</td>
+            <td id="maxPwr1" style="text-align: center"></td>
+            <td id="maxPwr2" style="text-align: center"></td>
+          </tr>
+          <tr class="table_row_content">
+            <td>Power allocated</td>
+            <td id="pwrUsed1" style="text-align: center"></td>
+            <td id="pwrUsed2" style="text-align: center"></td>
+          </tr>
+        </table>
+      </div>
+    </div>
+
+    <div class="box2" style="width: calc(100% - 20px)">
+      <div class="box_content">
+        <table
+          style="font-size: 80%; text-align: center; width: 100%"
+          id="interface_table"
+        >
+          <tr class="table_row_head">
+            <td>Powerbank</td>
+            <td>Port</td>
+            <td>PD Name</td>
+            <td>PoE Mode</td>
+            <td>Priority</td>
+            <td>PoE Status</td>
+            <td>PD Class</td>
+            <td>Limit Class</td>
+            <td>Power Limit</td>
+            <td>Power allocated</td>
+            <td>Power Usage (W)</td>
+            <td>Voltage (V)</td>
+            <td>Current (mA)</td>
+          </tr>
+        </table>
+      </div>
+      <br />
+      <a class="headline">PoE Status</a><br />
+      <table style="font-size: small">
+        <tr>
+          <td>disabled</td>
+          <td>&#61;</td>
+          <td>PoE port is disabled/off</td>
+        </tr>
+        <tr>
+          <td>not detected</td>
+          <td>&#61;</td>
+          <td>PD is not connected or not valid</td>
+        </tr>
+        <tr>
+          <td>powered</td>
+          <td>&#61;</td>
+          <td>PD is supplied by PoE port</td>
+        </tr>
+        <tr>
+          <td>blocked</td>
+          <td>&#61;</td>
+          <td>
+            Power supply of PD is blocked due to exceeded total power budget
+          </td>
+        </tr>
+        <tr>
+          <td>dropped</td>
+          <td>&#61;</td>
+          <td>
+            Power supply of PD is turned off due to exceeded PoE class limit
+          </td>
+        </tr>
+        <tr>
+          <td>error</td>
+          <td>&#61;</td>
+          <td>internal PoE error</td>
+        </tr>
+      </table>
+    </div>
+  </body>
+</html>

@@ -1,0 +1,29 @@
+{
+  "name": "roq-ui-interface",
+  "version": "1.0.0",
+  "description": "Node.js server to render ROQ UI interface with configurable device types",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "nodemon server.js"
+  },
+  "keywords": [
+    "roq",
+    "ui",
+    "interface",
+    "switch",
+    "management"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "cors": "^2.8.5",
+    "dotenv": "^16.3.1",
+    "express": "^4.18.2",
+    "express-session": "^1.18.2",
+    "path": "^0.12.7"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.1"
+  }
+}

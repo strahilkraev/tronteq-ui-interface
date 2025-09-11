@@ -1,0 +1,2873 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
+<meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1" />
+<html>
+  <head>
+    <link rel="stylesheet" type="text/css" href="basic_layout.css" />
+    <style type="text/css"></style>
+  </head>
+  <script type="text/javascript" src="basic_jscript.js"></script>
+  <script type="text/javascript" src="js/jquery-3.7.1.min.js"></script>
+  <script type="text/javascript">
+    $(document).ajaxError(function (event, request, settings) {
+      var obj = JSON.parse(request.responseText);
+      if (obj.msg) ffunc(obj.msg);
+      if (obj.error === "invalid rights")
+        window.top.location.href = "login.html";
+    });
+
+    function deepcopy(obj) {
+      if (typeof obj == typeof {}) return $.extend(true, {}, obj);
+      else if (typeof obj == typeof []) return $.extend(true, [], obj);
+      else return obj;
+    }
+
+    // global variables
+    var dhcpParams = { upd: {}, del: [], add: {} };
+    var dhcpSubnets = { upd: {}, del: [], add: {}, tmp: {} };
+    var portMap = {};
+    var dhcpInactiveColor = "#f0f0f0";
+
+    // tmp subnet static values
+    var dhcpSubnetTmp = {
+      id: 0xffff,
+      name: "New Remote Subnet",
+      network: "0.0.0.0",
+      netmask: "0.0.0.0",
+      type: "remote",
+      oif: ["none", "0.0.0.0"],
+      role: "server",
+      operation: false,
+      description: "",
+      params: {
+        id: 0xffff,
+        name: "",
+        netmask: "0.0.0.0",
+        gateway: "0.0.0.0",
+        dns0: "0.0.0.0",
+        dns1: "0.0.0.0",
+        domain: "",
+        leasetime: 86400,
+        pool_start: "0.0.0.0",
+        pool_end: "0.0.0.0",
+      },
+      server0: "127.0.0.1",
+      leasesO82: { upd: {}, del: [], add: {}, idle: {} },
+      leasesMAC: { upd: {}, del: [], add: {} },
+      leasesDYN: { active: {}, idle: {} },
+    };
+
+    // initialize tmp subnet values
+    dhcpSubnets.tmp[dhcpSubnetTmp.id] = deepcopy(dhcpSubnetTmp);
+
+    $(document).ready(function () {
+      $(document).ajaxError(function (data, a1) {
+        if (a1.responseJSON != undefined)
+          $("#infoline").text(a1.responseJSON.msg);
+      });
+
+      reloadDhcp();
+
+      //set username
+      var cookies = document.cookie.split("; ");
+      var found = false;
+      for (var i in cookies) {
+        if (cookies[i].split("=")[0].match("user")) {
+          $("#username").text(cookies[i].split("=")[1]);
+          found = true;
+        }
+      }
+
+      if (!found)
+        window.top.location.href =
+          window.top.location.protocol +
+          "//" +
+          window.top.location.host +
+          "/login.html";
+    });
+
+    function escapeHtml(unsafe) {
+      return unsafe
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
+    }
+
+    /**
+     *  IP Address text validator
+     **/
+    function isValidIPAddress(inputText) {
+      var ipformat =
+        /^(([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\.){3}([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])$/;
+
+      if (inputText.match(ipformat)) {
+        return true;
+      } else {
+        return false;
+      }
+    }
+
+    /**
+     *  MAC Address text validator
+     **/
+    function isValidMACAddress(inputText) {
+      var macformat = /^([0-9A-F]{2}[:]){5}([0-9A-F]{2})$/;
+
+      if (inputText.match(macformat)) {
+        return true;
+      } else {
+        return false;
+      }
+    }
+
+    /**
+     *  Subnet Identifier generator
+     **/
+    function subnetIdGenerate() {
+      // find a free subnet id
+      var max_subnets = 64;
+      var sid = 0;
+      for (sid = max_subnets - 1; sid >= 0; sid--) {
+        if (
+          !(sid in window.dhcpSubnets.upd) &&
+          !(sid in window.dhcpSubnets.add)
+        )
+          break;
+      }
+
+      if (sid < 0) return null;
+
+      return sid;
+    }
+
+    /**
+     *  O82 Lease Identifier generator
+     **/
+    function leaseO82IdGenerate(subnet, pref) {
+      var max_leases = 128;
+      var lid = 0;
+
+      if (pref == 254) {
+        for (lid = 0; lid < max_leases; lid++) {
+          if (!(lid in subnet.leasesO82.upd) && !(lid in subnet.leasesO82.add))
+            break;
+        }
+
+        if (lid == max_leases) return null;
+
+        return lid;
+      } else {
+        if (!(pref in subnet.leasesO82.upd) && !(pref in subnet.leasesO82.add))
+          return pref;
+
+        return null;
+      }
+    }
+
+    /**
+     *  MAC Lease Identifier generator
+     **/
+    function leaseMACIdGenerate(subnet) {
+      var max_leases = 128;
+      var lid = 0;
+      for (lid = 0; lid < max_leases; lid++) {
+        if (!(lid in subnet.leasesMAC.upd) && !(lid in subnet.leasesMAC.add))
+          break;
+      }
+
+      if (lid == max_leases) return null;
+
+      return lid;
+    }
+
+    function subnetEnableSave(subnet) {
+      if (!subnet) return;
+
+      // unsaved subnets have different background color
+
+      var subnetRow = document.getElementById(
+        "tbl_subnet_" + subnet.id + "_tr"
+      );
+      if (subnetRow) subnetRow.style.backgroundColor = "#fcfdd6"; //very light yellow
+
+      var subnetLeaseSettingsCell = document.getElementById(
+        "tbc_subnet_" + subnet.id + "_lease_td"
+      );
+      if (subnetLeaseSettingsCell)
+        subnetLeaseSettingsCell.style.backgroundColor = "#fcfdd6"; //very light yellow
+
+      var subnetServerSettingsCell = document.getElementById(
+        "tbl_subnet_" + subnet.id + "_server_td"
+      );
+      if (subnetServerSettingsCell)
+        subnetServerSettingsCell.style.backgroundColor = "#fcfdd6"; //very light yellow
+
+      var subnetLeaseSettingsTable = document.getElementById(
+        "tbl_subnet_" + subnet.id + "_lease"
+      );
+      if (subnetLeaseSettingsTable)
+        subnetLeaseSettingsTable.style.backgroundColor = "#fcfdd6"; //very light yellow
+
+      // enable APPLY button
+      //if (document.getElementById("btn_subnet_"+subnet.id+"_apply").disabled)
+      //	document.getElementById("btn_subnet_"+subnet.id+"_apply").disabled = false;
+    }
+
+    /**
+     *  Subnet Settings cell NAME editing handling
+     **/
+    function subnetNameChanged(sid) {
+      var subnet = null;
+
+      if (sid in window.dhcpSubnets.upd) subnet = window.dhcpSubnets.upd[sid];
+      else if (sid in window.dhcpSubnets.add)
+        subnet = window.dhcpSubnets.add[sid];
+      else if (sid in window.dhcpSubnets.tmp)
+        subnet = window.dhcpSubnets.tmp[sid];
+      // unknown subnet
+      else return;
+
+      var name = document.getElementById("txt_subnet_" + sid + "_name").value;
+
+      if (name.length < 3 || name.length > 63) {
+        document.getElementById("txt_subnet_" + sid + "_name").value =
+          subnet.name;
+        document.getElementById("txt_subnet_" + sid + "_name").focus();
+      } else {
+        subnet.name = document.getElementById(
+          "txt_subnet_" + sid + "_name"
+        ).value;
+      }
+    }
+
+    /**
+     *  Subnet Settings cell NAME editing handling
+     **/
+    function subnetDescriptionChanged(sid) {
+      var subnet = null;
+
+      if (sid in window.dhcpSubnets.upd) subnet = window.dhcpSubnets.upd[sid];
+      else if (sid in window.dhcpSubnets.add)
+        subnet = window.dhcpSubnets.add[sid];
+      else if (sid in window.dhcpSubnets.tmp)
+        subnet = window.dhcpSubnets.tmp[sid];
+      // unknown subnet
+      else return;
+
+      var description = document
+        .getElementById("txt_subnet_" + sid + "_description")
+        .value.trim();
+
+      if (description.length > 63) {
+        document.getElementById("txt_subnet_" + sid + "_description").value =
+          subnet.description;
+        document.getElementById("txt_subnet_" + sid + "_description").focus();
+      } else {
+        if (subnet.description != description) {
+          subnet.description = description;
+          subnetEnableSave(subnet);
+        }
+      }
+    }
+
+    /**
+     *  Subnet Settings cell NETWORK editing handling
+     **/
+    function subnetNetworkChanged(sid) {
+      var subnet = null;
+
+      if (sid in window.dhcpSubnets.tmp) subnet = window.dhcpSubnets.tmp[sid];
+      // unknown subnet
+      else return;
+
+      var network = document.getElementById(
+        "txt_subnet_" + sid + "_network"
+      ).value;
+      if (!isValidIPAddress(network)) {
+        alert("error: new subnet's network value is not a valid IP Address");
+        document.getElementById("txt_subnet_" + sid + "_network").focus();
+
+        document.getElementById("txt_subnet_" + sid + "_network").value =
+          subnet.network;
+        return;
+      }
+
+      subnet.network = network;
+    }
+
+    /**
+     *  Subnet Settings cell NETMASK editing handling
+     **/
+    function subnetNetmaskChanged(sid) {
+      var subnet = null;
+
+      if (sid in window.dhcpSubnets.tmp) subnet = window.dhcpSubnets.tmp[sid];
+      // unknown subnet
+      else return;
+
+      var netmask = document.getElementById(
+        "txt_subnet_" + sid + "_netmask"
+      ).value;
+      if (!isValidIPAddress(netmask)) {
+        alert("error: new subnet's netmask value is not a valid IP Address");
+        document.getElementById("txt_subnet_" + sid + "_netmask").focus();
+
+        document.getElementById("txt_subnet_" + sid + "_netmask").value =
+          subnet.netmask;
+        return;
+      }
+
+      subnet.netmask = netmask;
+    }
+
+    /**
+     *  Subnet Settings cell OPERATION handling
+     **/
+    function subnetOperationChanged(sid) {
+      var subnet = null;
+
+      if (sid in window.dhcpSubnets.upd) subnet = window.dhcpSubnets.upd[sid];
+      else if (sid in window.dhcpSubnets.add)
+        subnet = window.dhcpSubnets.add[sid];
+      else if (sid in window.dhcpSubnets.tmp)
+        subnet = window.dhcpSubnets.tmp[sid];
+      // unknown subnet
+      else return;
+
+      var operation = document.getElementById(
+        "ckb_subnet_" + sid + "_operation"
+      ).checked;
+
+      if (subnet.operation != operation) {
+        subnet.operation = operation;
+        subnetEnableSave(subnet);
+      }
+
+      // subnet background color handling
+      if (
+        subnet.operation &&
+        (subnet.network == "0.0.0.0" || subnet.netmask == "0.0.0.0")
+      ) {
+        document.getElementById(
+          "tbl_subnet_" + sid + "_tr"
+        ).style.backgroundColor = "#FFEBD5";
+      }
+    }
+
+    /**
+     *  Subnet Settings cell DELETE Subnet operation handling
+     **/
+    function deleteSubnet(sid) {
+      if (sid in window.dhcpSubnets.upd) {
+        delete window.dhcpSubnets.upd[sid];
+        window.dhcpSubnets.del.push(sid);
+
+        // redraw the subnets table
+        renderDhcpSubnetTable();
+
+        /* active delete */
+        var subnetsCmd = {
+          service: "dhcp",
+          access: "set",
+          command: "subnets",
+          parameters: { upd: [], del: [sid], add: [] },
+        };
+
+        $.post("/api", JSON.stringify(subnetsCmd), jsonProcessSubnets);
+      }
+      /* else if (sid in window.dhcpSubnets.add)
+				{
+					delete window.dhcpSubnets.add[sid];
+
+					// redraw the subnets table
+					renderDhcpSubnetTable();
+				} */
+    }
+
+    /**
+     *  Subnet Settings cell APPLY Subnet operation handling
+     **/
+    function applySubnet(sid) {
+      var subnet = null;
+      var subnetsCmd = {
+        service: "dhcp",
+        access: "set",
+        command: "subnets",
+        parameters: { upd: [], del: [], add: [] },
+      };
+
+      if (sid in window.dhcpSubnets.upd) {
+        subnet = window.dhcpSubnets.upd[sid];
+        var sobj = subnetCopy(subnet);
+
+        subnetsCmd.parameters.upd.push(deepcopy(sobj));
+      } else if (sid in window.dhcpSubnets.add) {
+        subnet = window.dhcpSubnets.add[sid];
+        var sobj = subnetCopy(subnet);
+
+        subnetsCmd.parameters.add.push(deepcopy(sobj));
+      } else if (sid in window.dhcpSubnets.tmp) {
+        if (
+          window.dhcpSubnets.tmp[sid].network == "0.0.0.0" ||
+          window.dhcpSubnets.tmp[sid].netmask == "0.0.0.0"
+        ) {
+          alert(
+            "error: new subnet must have a valid network/netmask combination!"
+          );
+
+          document.getElementById("txt_subnet_" + sid.id + "_network").focus();
+          document.getElementById("txt_subnet_" + sid.id + "_netmask").focus();
+
+          return;
+        }
+
+        var new_sid = subnetIdGenerate();
+        if (new_sid == null) {
+          alert("error: maximum subnets number reached!");
+          document.getElementById("tbl_subnet_" + sid + "_tr").focus();
+          return;
+        }
+
+        var subnet = subnetCopy(window.dhcpSubnets.tmp[sid]);
+
+        subnet.id = new_sid;
+        subnet.params.id = new_sid;
+        subnet.params.name = subnet.name + " parameters";
+        if (subnet.params.netmask == "0.0.0.0")
+          subnet.params.netmask = subnet.netmask;
+
+        subnetsCmd.parameters.add.push(deepcopy(subnet));
+      } // unknown subnet
+      else return;
+
+      $.post("/api", JSON.stringify(subnetsCmd), jsonProcessSubnets);
+    }
+
+    /**
+     *  Subnet Settings cell ADD Subnet operation handling
+     **/
+    function addSubnet(sid) {
+      if (sid in window.dhcpSubnets.tmp) {
+        if (
+          window.dhcpSubnets.tmp[sid].network == "0.0.0.0" ||
+          window.dhcpSubnets.tmp[sid].netmask == "0.0.0.0"
+        ) {
+          alert(
+            "error: new subnet must have a valid network/netmask combination!"
+          );
+
+          document.getElementById("txt_subnet_" + sid.id + "_network").focus();
+          document.getElementById("txt_subnet_" + sid.id + "_netmask").focus();
+
+          return;
+        }
+
+        var new_sid = subnetIdGenerate();
+        if (new_sid == null) {
+          alert("error: maximum subnets number reached!");
+          document.getElementById("tbl_subnet_" + sid + "_tr").focus();
+          return;
+        }
+
+        window.dhcpSubnets.add[new_sid] = deepcopy(window.dhcpSubnets.tmp[sid]);
+        window.dhcpSubnets.add[new_sid].id = new_sid;
+
+        window.dhcpSubnets.add[new_sid].params.id = new_sid;
+        window.dhcpSubnets.add[new_sid].params.name =
+          "Parameters " + window.dhcpSubnets.add[new_sid].name;
+        if (window.dhcpSubnets.add[new_sid].params.netmask == "0.0.0.0")
+          window.dhcpSubnets.add[new_sid].params.netmask =
+            window.dhcpSubnets.add[new_sid].netmask;
+
+        // re-initialize tmp subnet values
+        window.dhcpSubnets.tmp[dhcpSubnetTmp.id] = deepcopy(dhcpSubnetTmp);
+
+        // redraw the subnets table
+        renderDhcpSubnetTable();
+      }
+    }
+
+    /**
+     *  Subnet Settings cell handling
+     **/
+    function renderSubnetSettings(subnet) {
+      var cell = document.createElement("td");
+      var innerHTML = "";
+
+      if (subnet == null) {
+        cell.appendChild(document.createTextNode("Invalid Subnet ERROR!"));
+        return cell;
+      }
+
+      cell.align = "left";
+      cell.vAlign = "top";
+      cell.style.minWidth = "285px";
+      //cell.style.height = "250px";
+      cell.style.position = "relative";
+
+      cell.id = "tbl_subnet_" + subnet.id + "_settings_td";
+
+      innerHTML += '<table style="table-layout: fixed; width:285px;">';
+      innerHTML +=
+        '<tr><td style="width:35%;font-weight:bold;">DHCP Active:</td><td align="center" style="width:65%;"><input type="checkbox" id="ckb_subnet_' +
+        subnet.id +
+        '_operation" onclick="subnetOperationChanged(' +
+        subnet.id +
+        ')"></td></tr>';
+      if (subnet.id != dhcpSubnetTmp.id) {
+        // fixed fields after save/add
+        innerHTML +=
+          "" +
+          '<tr><td style="width:35%;">Name:</td><td style="width:65%;">' +
+          escapeHtml(subnet.name) +
+          "</td></tr>" +
+          '<tr><td style="width:35%;">IP Interface:</td><td style="width:65%;">' +
+          subnet.oif[1] +
+          "/" +
+          subnet.oif[0] +
+          "</td></tr>" +
+          '<tr><td style="width:35%;">Network:</td><td style="width:65%;">' +
+          subnet.network +
+          "</td></tr>" +
+          '<tr><td style="width:35%;">Netmask:</td><td style="width:65%;">' +
+          subnet.netmask +
+          "</td></tr>";
+      } else {
+        // network and netmask fields are editable during a subnet add operation
+        innerHTML +=
+          "" +
+          '<tr><td style="width:35%;">Name:</td><td style="width:65%;"><input type="text" id="txt_subnet_' +
+          subnet.id +
+          '_name" value="' +
+          escapeHtml(subnet.name) +
+          '" minlength="3" maxlength="63" size="15" onchange="subnetNameChanged(' +
+          subnet.id +
+          ')"></td></tr>' +
+          '<tr><td style="width:35%;">Network:</td><td style="width:65%;"><input type="text" id="txt_subnet_' +
+          subnet.id +
+          '_network" value="' +
+          subnet.network +
+          '" minlength="7" maxlength="15" size="15" onchange="subnetNetworkChanged(' +
+          subnet.id +
+          ')"></td></tr>' +
+          '<tr><td style="width:35%;">Netmask:</td><td style="width:65%;"><input type="text" id="txt_subnet_' +
+          subnet.id +
+          '_netmask" value="' +
+          subnet.netmask +
+          '" minlength="7" maxlength="15" size="15" onchange="subnetNetmaskChanged(' +
+          subnet.id +
+          ')"></td></tr>';
+      }
+
+      innerHTML +=
+        '<tr><td style="width:35%;">DHCP Role:</td><td id="td_subnet_' +
+        subnet.id +
+        '_role" style="width:65%;">' +
+        subnet.role +
+        "</td></tr>";
+      innerHTML +=
+        '<tr><td style="width:35%;">Description:</td><td style="width:65%;"><input type="text" id="txt_subnet_' +
+        subnet.id +
+        '_description" value="' +
+        escapeHtml(subnet.description) +
+        '" maxlength="63" size="15" onchange="subnetDescriptionChanged(' +
+        subnet.id +
+        ')"></td></tr>';
+      innerHTML += "</table>";
+
+      //innerHTML += '<div style="position: absolute; bottom: 0"><table style="table-layout: fixed; width:285px;">';
+      //innerHTML += '<tr><td style="width:35%;"></td>';
+      //if (subnet.id != dhcpSubnetTmp.id)
+      //{
+      //	innerHTML += '<td align="right" style="width:65%;">';
+      // non-local saved and added subnets offer a DELETE operation
+      //if (subnet.type == "remote")
+      //{
+      //	innerHTML += '<input type="button" class="button" value="DELETE" onClick="deleteSubnet('+subnet.id+')">';
+      //}
+      //else
+      //{
+      //	innerHTML += '<input type="button" class="button" value="DELETE" disabled>';
+      //}
+      // saved subnets offer APPLY only when a setting has changed
+      //innerHTML += '<input type="button" id="btn_subnet_'+subnet.id+'_apply" class="button" value="APPLY" onClick="applySubnet('+subnet.id+')" disabled></td></tr>';
+
+      //}
+      //else
+      //{   // subnet add has no delete
+      // subnet add has active APPLY button always
+      //innerHTML += '<td align="right" style="width:65%;"><input type="button" id="btn_subnet_'+subnet.id+'_apply" class="button" value="APPLY" onClick="applySubnet('+subnet.id+')"></td></tr>';
+      //}
+      innerHTML += "</table></div>";
+
+      cell.innerHTML = innerHTML;
+
+      cell.querySelector("#ckb_subnet_" + subnet.id + "_operation").checked =
+        subnet.operation;
+
+      return cell;
+    }
+
+    function serverRemoteChanged(sid) {
+      var subnet = null;
+      var subnetset = null;
+
+      if (sid in window.dhcpSubnets.upd)
+        subnetset = window.dhcpSubnets.upd[sid];
+      // unknown or invalid subnet
+      else return;
+
+      for (var i in Object.keys(window.dhcpSubnets.upd)) {
+        subnet = window.dhcpSubnets.upd[Object.keys(window.dhcpSubnets.upd)[i]];
+
+        if (subnet.type == "remote") {
+          continue;
+        }
+
+        var remote_state = document.getElementById(
+          "ckb_subnet_" + subnetset.id + "_server_remote"
+        ).checked;
+
+        if (remote_state) {
+          document.getElementById(
+            "ckb_subnet_" + subnet.id + "_server_local"
+          ).checked = false;
+          document.getElementById(
+            "ckb_subnet_" + subnet.id + "_server_remote"
+          ).checked = true;
+
+          // remote section is enabled
+          document.getElementById(
+            "txt_subnet_" + subnet.id + "_server0"
+          ).disabled = false;
+          document.getElementById(
+            "txt_subnet_" + subnet.id + "_server0"
+          ).value = subnet.server0;
+          // dhcp server row is visible
+          document.getElementById(
+            "tr_subnet_" + subnet.id + "_server"
+          ).style.display = "";
+
+          // local section is disabled
+          document.getElementById(
+            "ckb_subnet_" + subnet.id + "_server_local"
+          ).checked = false;
+          // params dropdown row is hidden
+          document.getElementById(
+            "tr_subnet_" + subnet.id + "_params"
+          ).style.display = "none";
+
+          // lease add dropdown needs refreshed
+          renderLeaseAddSelect(subnet);
+        } else {
+          document.getElementById(
+            "ckb_subnet_" + subnet.id + "_server_remote"
+          ).checked = true;
+        }
+      }
+    }
+
+    function serverIPAddressChanged(sid) {
+      var subnet = null;
+      var subnetset = null;
+
+      if (sid in window.dhcpSubnets.upd)
+        subnetset = window.dhcpSubnets.upd[sid];
+      // unknown or invalid subnet
+      else return;
+
+      for (var i in Object.keys(window.dhcpSubnets.upd)) {
+        subnet = window.dhcpSubnets.upd[Object.keys(window.dhcpSubnets.upd)[i]];
+
+        if (subnet.type == "remote") continue;
+
+        var server0 = document
+          .getElementById("txt_subnet_" + subnetset.id + "_server0")
+          .value.trim();
+        if (!isValidIPAddress(server0)) {
+          alert("error: DHCP Server value is not a valid IP Address");
+          document
+            .getElementById("txt_subnet_" + subnetset.id + "_server0")
+            .focus();
+
+          document.getElementById(
+            "txt_subnet_" + subnetset.id + "_server0"
+          ).value = subnetset.server0;
+          continue;
+        }
+
+        document.getElementById("txt_subnet_" + subnet.id + "_server0").value =
+          server0;
+
+        if (server0 != "127.0.0.1") {
+          var role_cell = document.getElementById(
+            "td_subnet_" + subnet.id + "_role"
+          );
+          if (role_cell) role_cell.innerHTML = "relay";
+        }
+
+        if (subnet.server0 != server0) {
+          subnet.server0 = server0;
+          subnetEnableSave(subnet);
+        }
+      }
+    }
+
+    function serverLocalChanged(sid) {
+      var subnet = null;
+      var subnetset = null;
+
+      if (sid in window.dhcpSubnets.upd)
+        subnetset = window.dhcpSubnets.upd[sid];
+      // unknown or invalid subnet
+      else return;
+
+      for (var i in Object.keys(window.dhcpSubnets.upd)) {
+        subnet = window.dhcpSubnets.upd[Object.keys(window.dhcpSubnets.upd)[i]];
+
+        if (subnet.type == "remote") {
+          return;
+        }
+
+        var local_state = document.getElementById(
+          "ckb_subnet_" + subnetset.id + "_server_local"
+        ).checked;
+
+        if (local_state) {
+          // remote section is disabled
+          document.getElementById(
+            "ckb_subnet_" + subnet.id + "_server_local"
+          ).checked = true;
+          document.getElementById(
+            "ckb_subnet_" + subnet.id + "_server_remote"
+          ).checked = false;
+          if (subnet.server0 != "127.0.0.1") {
+            document.getElementById(
+              "txt_subnet_" + subnet.id + "_server0"
+            ).value = "127.0.0.1";
+            subnet.server0 = "127.0.0.1";
+
+            subnetEnableSave(subnet);
+          }
+
+          /* dhcp role update */
+          var role_cell = document.getElementById(
+            "td_subnet_" + subnet.id + "_role"
+          );
+          if (role_cell) role_cell.innerHTML = "server";
+
+          document.getElementById(
+            "txt_subnet_" + subnet.id + "_server0"
+          ).disabled = true;
+          // dhcp server row is hidden
+          document.getElementById(
+            "tr_subnet_" + subnet.id + "_server"
+          ).style.display = "none";
+
+          // local section is enabled
+          document.getElementById(
+            "ckb_subnet_" + subnet.id + "_server_local"
+          ).checked = true;
+
+          // params dropdown row is visible
+          var params_cell = document.getElementById(
+            "td_subnet_" + subnet.id + "_params_cell"
+          );
+          if (params_cell == null) {
+            params_cell = renderSubnetParamsCell(subnet.id);
+            document
+              .getElementById("tr_subnet_" + subnet.id + "_params")
+              .appendChild(params_cell);
+          } else {
+            renderSubnetParamsCell(subnet.id);
+          }
+          document.getElementById(
+            "tr_subnet_" + subnet.id + "_params"
+          ).style.display = "";
+
+          // lease add dropdown needs refreshed
+          renderLeaseAddSelect(subnet);
+        } else {
+          document.getElementById(
+            "ckb_subnet_" + subnet.id + "_server_local"
+          ).checked = true;
+        }
+      }
+    }
+
+    function subnetParamsNetmaskChanged(sid) {
+      var subnet = null;
+
+      if (sid in window.dhcpSubnets.upd) subnet = window.dhcpSubnets.upd[sid];
+      else if (sid in window.dhcpSubnets.add)
+        subnet = window.dhcpSubnets.add[sid];
+      else if (sid in window.dhcpSubnets.tmp)
+        subnet = window.dhcpSubnets.tmp[sid];
+      // unknown subnet
+      else return;
+
+      var params = subnet.params;
+      if (typeof params == typeof {}) {
+        var netmask = document
+          .getElementById("txt_subnet_" + subnet.id + "_params_netmask")
+          .value.trim();
+        /* empty value resets the field to default */
+        if (netmask.length == 0) {
+          netmask = subnet.netmask;
+          document.getElementById(
+            "txt_subnet_" + subnet.id + "_params_netmask"
+          ).value = netmask;
+        }
+
+        if (!isValidIPAddress(netmask)) {
+          alert(
+            "error: Subnet '" +
+              subnet.name +
+              "' given parameters netmask value is not a valid IP Address"
+          );
+          document
+            .getElementById("txt_subnet_" + subnet.id + "_params_netmask")
+            .focus();
+
+          document.getElementById(
+            "txt_subnet_" + subnet.id + "_params_netmask"
+          ).value = params.netmask;
+          return;
+        }
+
+        if (params.netmask != netmask) {
+          params.netmask = netmask;
+          subnetEnableSave(subnet);
+        }
+      }
+    }
+
+    function renderSubnetParamsNetmaskRow(sid) {
+      var subnet = null;
+
+      if (sid in window.dhcpSubnets.upd) subnet = window.dhcpSubnets.upd[sid];
+      else if (sid in window.dhcpSubnets.add)
+        subnet = window.dhcpSubnets.add[sid];
+      else if (sid in window.dhcpSubnets.tmp)
+        subnet = window.dhcpSubnets.tmp[sid];
+      // unknown subnet
+      else return null;
+
+      var params = subnet.params;
+      var row = document.createElement("tr");
+      var cell_name = document.createElement("td");
+      var cell_value = document.createElement("td");
+
+      cell_name.style.width = "93px";
+      cell_name.innerHTML = "Netmask";
+      cell_value.innerHTML =
+        '<input type="text" id="txt_subnet_' +
+        subnet.id +
+        '_params_netmask" value="' +
+        params.netmask +
+        '" minlength="7" maxlength="15" size="15" onchange="subnetParamsNetmaskChanged(' +
+        subnet.id +
+        ')">';
+
+      row.id = "tbl_subnet_" + subnet.id + "_params_netmask_tr";
+      row.appendChild(cell_name);
+      row.appendChild(cell_value);
+
+      return row;
+    }
+
+    function subnetParamsGatewayChanged(sid) {
+      var subnet = null;
+
+      if (sid in window.dhcpSubnets.upd) subnet = window.dhcpSubnets.upd[sid];
+      else if (sid in window.dhcpSubnets.add)
+        subnet = window.dhcpSubnets.add[sid];
+      else if (sid in window.dhcpSubnets.tmp)
+        subnet = window.dhcpSubnets.tmp[sid];
+      // unknown subnet
+      else return;
+
+      var params = subnet.params;
+      if (typeof params == typeof {}) {
+        var gateway = document
+          .getElementById("txt_subnet_" + subnet.id + "_params_gateway")
+          .value.trim();
+
+        /* empty value resets the field to default */
+        if (gateway.length == 0) {
+          gateway = "0.0.0.0";
+          document.getElementById(
+            "txt_subnet_" + subnet.id + "_params_gateway"
+          ).value = gateway;
+        }
+
+        if (!isValidIPAddress(gateway)) {
+          alert(
+            "error: Subnet '" +
+              subnet.name +
+              "' given parameters gateway value is not a valid IP Address"
+          );
+          document
+            .getElementById("txt_subnet_" + subnet.id + "_params_gateway")
+            .focus();
+
+          document.getElementById(
+            "txt_subnet_" + subnet.id + "_params_gateway"
+          ).value = params.gateway;
+          return;
+        }
+
+        if (params.gateway != gateway) {
+          params.gateway = gateway;
+          subnetEnableSave(subnet);
+        }
+      }
+    }
+
+    function renderSubnetParamsGatewayRow(sid) {
+      var subnet = null;
+
+      if (sid in window.dhcpSubnets.upd) subnet = window.dhcpSubnets.upd[sid];
+      else if (sid in window.dhcpSubnets.add)
+        subnet = window.dhcpSubnets.add[sid];
+      else if (sid in window.dhcpSubnets.tmp)
+        subnet = window.dhcpSubnets.tmp[sid];
+      // unknown subnet
+      else return null;
+
+      var params = subnet.params;
+      var row = document.createElement("tr");
+      var cell_name = document.createElement("td");
+      var cell_value = document.createElement("td");
+
+      cell_name.style.width = "93px";
+      cell_name.innerHTML = "Gateway";
+      cell_value.innerHTML =
+        '<input type="text" id="txt_subnet_' +
+        subnet.id +
+        '_params_gateway" value="' +
+        params.gateway +
+        '" minlength="7" maxlength="15" size="15" onchange="subnetParamsGatewayChanged(' +
+        subnet.id +
+        ')">';
+
+      row.id = "tbl_subnet_" + subnet.id + "_params_gateway_tr";
+      row.appendChild(cell_name);
+      row.appendChild(cell_value);
+
+      return row;
+    }
+
+    function subnetParamsDnsChanged(sid, did) {
+      var subnet = null;
+
+      if (sid in window.dhcpSubnets.upd) subnet = window.dhcpSubnets.upd[sid];
+      else if (sid in window.dhcpSubnets.add)
+        subnet = window.dhcpSubnets.add[sid];
+      else if (sid in window.dhcpSubnets.tmp)
+        subnet = window.dhcpSubnets.tmp[sid];
+      // unknown subnet
+      else return;
+
+      if (did != 0 && did != 1) return;
+
+      var params = subnet.params;
+      if (typeof params == typeof {}) {
+        var dns = document
+          .getElementById("txt_subnet_" + subnet.id + "_params_dns" + did)
+          .value.trim();
+        /* empty value resets the field to default */
+        if (dns.length == 0) {
+          dns = "0.0.0.0";
+          document.getElementById(
+            "txt_subnet_" + subnet.id + "_params_dns" + did
+          ).value = dns;
+        }
+
+        if (!isValidIPAddress(dns)) {
+          alert(
+            "error: Subnet '" +
+              subnet.name +
+              "' given parameters DNS value is not a valid IP Address"
+          );
+          document
+            .getElementById("txt_subnet_" + subnet.id + "_params_dns" + did)
+            .focus();
+
+          document.getElementById(
+            "txt_subnet_" + subnet.id + "_params_dns" + did
+          ).value = params["dns" + did];
+          return;
+        }
+
+        if (params["dns" + did] != dns) {
+          params["dns" + did] = dns;
+          subnetEnableSave(subnet);
+        }
+      }
+    }
+
+    function renderSubnetParamsDns0Row(sid) {
+      var subnet = null;
+
+      if (sid in window.dhcpSubnets.upd) subnet = window.dhcpSubnets.upd[sid];
+      else if (sid in window.dhcpSubnets.add)
+        subnet = window.dhcpSubnets.add[sid];
+      else if (sid in window.dhcpSubnets.tmp)
+        subnet = window.dhcpSubnets.tmp[sid];
+      // unknown subnet
+      else return null;
+
+      var params = subnet.params;
+      var row = document.createElement("tr");
+      var cell_name = document.createElement("td");
+      var cell_value = document.createElement("td");
+
+      cell_name.style.width = "93px";
+      cell_name.innerHTML = "Primary DNS";
+      cell_value.innerHTML =
+        '<input type="text" id="txt_subnet_' +
+        subnet.id +
+        '_params_dns0" value="' +
+        params.dns0 +
+        '" minlength="7" maxlength="15" size="15" onchange="subnetParamsDnsChanged(' +
+        subnet.id +
+        ', 0)">';
+
+      row.id = "tbl_subnet_" + subnet.id + "_params_dns0_tr";
+      row.appendChild(cell_name);
+      row.appendChild(cell_value);
+
+      return row;
+    }
+
+    function renderSubnetParamsDns1Row(sid) {
+      var subnet = null;
+
+      if (sid in window.dhcpSubnets.upd) subnet = window.dhcpSubnets.upd[sid];
+      else if (sid in window.dhcpSubnets.add)
+        subnet = window.dhcpSubnets.add[sid];
+      else if (sid in window.dhcpSubnets.tmp)
+        subnet = window.dhcpSubnets.tmp[sid];
+      // unknown subnet
+      else return null;
+
+      var params = subnet.params;
+      var row = document.createElement("tr");
+      var cell_name = document.createElement("td");
+      var cell_value = document.createElement("td");
+
+      cell_name.style.width = "93px";
+      cell_name.innerHTML = "Secondary DNS";
+      cell_value.innerHTML =
+        '<input type="text" id="txt_subnet_' +
+        subnet.id +
+        '_params_dns1" value="' +
+        params.dns1 +
+        '" minlength="7" maxlength="15" size="15" onchange="subnetParamsDnsChanged(' +
+        subnet.id +
+        ', 1)">';
+
+      row.id = "tbl_subnet_" + subnet.id + "_params_dns1_tr";
+      row.appendChild(cell_name);
+      row.appendChild(cell_value);
+
+      return row;
+    }
+
+    function subnetParamsDomainChanged(sid) {
+      var subnet = null;
+
+      if (sid in window.dhcpSubnets.upd) subnet = window.dhcpSubnets.upd[sid];
+      else if (sid in window.dhcpSubnets.add)
+        subnet = window.dhcpSubnets.add[sid];
+      else if (sid in window.dhcpSubnets.tmp)
+        subnet = window.dhcpSubnets.tmp[sid];
+      // unknown subnet
+      else return;
+
+      var params = subnet.params;
+      if (typeof params == typeof {}) {
+        var domain = document
+          .getElementById("txt_subnet_" + subnet.id + "_params_domain")
+          .value.trim();
+        if (domain.length > 255) {
+          alert(
+            "error: Subnet '" +
+              subnet.name +
+              "' given parameters domain value must be smaller than 255 characters"
+          );
+
+          document.getElementById(
+            "txt_subnet_" + subnet.id + "_params_domain"
+          ).value = params.domain;
+          document
+            .getElementById("txt_subnet_" + subnet.id + "_params_domain")
+            .focus();
+        } else if (params.domain != domain) {
+          params.domain = domain;
+          subnetEnableSave(subnet);
+        }
+      }
+    }
+
+    function renderSubnetParamsDomainRow(sid) {
+      var subnet = null;
+
+      if (sid in window.dhcpSubnets.upd) subnet = window.dhcpSubnets.upd[sid];
+      else if (sid in window.dhcpSubnets.add)
+        subnet = window.dhcpSubnets.add[sid];
+      else if (sid in window.dhcpSubnets.tmp)
+        subnet = window.dhcpSubnets.tmp[sid];
+      // unknown subnet
+      else return null;
+
+      var params = subnet.params;
+      var row = document.createElement("tr");
+      var cell_name = document.createElement("td");
+      var cell_value = document.createElement("td");
+
+      cell_name.style.width = "93px";
+      cell_name.innerHTML = "Domain";
+      cell_value.innerHTML =
+        '<input type="text" id="txt_subnet_' +
+        subnet.id +
+        '_params_domain" value="' +
+        escapeHtml(params.domain) +
+        '" minlength="0" maxlength="255" size="15" onchange="subnetParamsDomainChanged(' +
+        subnet.id +
+        ')">';
+
+      row.id = "tbl_subnet_" + subnet.id + "_params_domain_tr";
+      row.appendChild(cell_name);
+      row.appendChild(cell_value);
+
+      return row;
+    }
+
+    function subnetParamsLeasetimeChanged(sid) {
+      var subnet = null;
+
+      if (sid in window.dhcpSubnets.upd) subnet = window.dhcpSubnets.upd[sid];
+      else if (sid in window.dhcpSubnets.add)
+        subnet = window.dhcpSubnets.add[sid];
+      else if (sid in window.dhcpSubnets.tmp)
+        subnet = window.dhcpSubnets.tmp[sid];
+      // unknown subnet
+      else return;
+
+      var params = subnet.params;
+      if (typeof params == typeof {}) {
+        var lv = document
+          .getElementById("txt_subnet_" + subnet.id + "_params_leasetime")
+          .value.trim();
+        /* empty value resets the field to default */
+        if (lv.length == 0) {
+          lv = "86400";
+          document.getElementById(
+            "txt_subnet_" + subnet.id + "_params_leasetime"
+          ).value = lv;
+        }
+
+        var leasetime = Number(lv);
+        if (leasetime < 300 || leasetime > 604800) {
+          alert(
+            "error: Subnet '" +
+              subnet.name +
+              "' given parameters lease time value must be in range of 300 to 604800 seconds"
+          );
+
+          document.getElementById(
+            "txt_subnet_" + subnet.id + "_params_leasetime"
+          ).value = params.leasetime;
+          document
+            .getElementById("txt_subnet_" + subnet.id + "_params_leasetime")
+            .focus();
+        } else if (params.leasetime != leasetime) {
+          params.leasetime = leasetime;
+          subnetEnableSave(subnet);
+        }
+      }
+    }
+
+    function renderSubnetParamsLeasetimeRow(sid) {
+      var subnet = null;
+
+      if (sid in window.dhcpSubnets.upd) subnet = window.dhcpSubnets.upd[sid];
+      else if (sid in window.dhcpSubnets.add)
+        subnet = window.dhcpSubnets.add[sid];
+      else if (sid in window.dhcpSubnets.tmp)
+        subnet = window.dhcpSubnets.tmp[sid];
+      // unknown subnet
+      else return null;
+
+      var params = subnet.params;
+      var row = document.createElement("tr");
+      var cell_name = document.createElement("td");
+      var cell_value = document.createElement("td");
+
+      cell_name.style.width = "93px";
+      cell_name.innerHTML = "Lease Time";
+      cell_value.innerHTML =
+        '<input type="number" id="txt_subnet_' +
+        subnet.id +
+        '_params_leasetime" value="' +
+        params.leasetime +
+        '" min="300" max="604800" size="6" onchange="subnetParamsLeasetimeChanged(' +
+        subnet.id +
+        ')">';
+
+      row.id = "tbl_subnet_" + subnet.id + "_params_domain_tr";
+      row.appendChild(cell_name);
+      row.appendChild(cell_value);
+
+      return row;
+    }
+
+    function subnetParamsPoolChanged(sid) {
+      var subnet = null;
+
+      if (sid in window.dhcpSubnets.upd) subnet = window.dhcpSubnets.upd[sid];
+      else if (sid in window.dhcpSubnets.add)
+        subnet = window.dhcpSubnets.add[sid];
+      else if (sid in window.dhcpSubnets.tmp)
+        subnet = window.dhcpSubnets.tmp[sid];
+      // unknown subnet
+      else return;
+
+      var params = subnet.params;
+      if (typeof params == typeof {}) {
+        var pool_start = document
+          .getElementById("txt_subnet_" + subnet.id + "_params_pool_start")
+          .value.trim();
+        /* empty value resets the field to default */
+        if (pool_start.length == 0) {
+          pool_start = "0.0.0.0";
+          pool_end = "0.0.0.0";
+          document.getElementById(
+            "txt_subnet_" + subnet.id + "_params_pool_start"
+          ).value = pool_start;
+          document.getElementById(
+            "txt_subnet_" + subnet.id + "_params_pool_end"
+          ).value = pool_end;
+        }
+
+        var pool_end = document
+          .getElementById("txt_subnet_" + subnet.id + "_params_pool_end")
+          .value.trim();
+        /* empty value resets the field to default */
+        if (pool_end.length == 0) {
+          pool_start = "0.0.0.0";
+          pool_end = "0.0.0.0";
+          document.getElementById(
+            "txt_subnet_" + subnet.id + "_params_pool_start"
+          ).value = pool_start;
+          document.getElementById(
+            "txt_subnet_" + subnet.id + "_params_pool_end"
+          ).value = pool_end;
+        }
+
+        if (!isValidIPAddress(pool_start)) {
+          alert(
+            "error: new parameters pool start value is not a valid IP Address"
+          );
+          document
+            .getElementById("txt_subnet_" + subnet.id + "_params_pool_start")
+            .focus();
+
+          document.getElementById(
+            "txt_subnet_" + subnet.id + "_params_pool_start"
+          ).value = params.pool_start;
+          return;
+        }
+        if (!isValidIPAddress(pool_end)) {
+          alert(
+            "error: new parameters pool end value is not a valid IP Address"
+          );
+          document
+            .getElementById("txt_subnet_" + subnet.id + "_params_pool_end")
+            .focus();
+
+          document.getElementById(
+            "txt_subnet_" + subnet.id + "_params_pool_end"
+          ).value = params.pool_end;
+          return;
+        }
+
+        if (params.pool_start != pool_start) {
+          params.pool_start = pool_start;
+          subnetEnableSave(subnet);
+        }
+
+        if (params.pool_end != pool_end) {
+          params.pool_end = pool_end;
+          subnetEnableSave(subnet);
+        }
+      }
+    }
+
+    function renderSubnetParamsPoolRow(sid) {
+      var subnet = null;
+
+      if (sid in window.dhcpSubnets.upd) subnet = window.dhcpSubnets.upd[sid];
+      else if (sid in window.dhcpSubnets.add)
+        subnet = window.dhcpSubnets.add[sid];
+      else if (sid in window.dhcpSubnets.tmp)
+        subnet = window.dhcpSubnets.tmp[sid];
+      // unknown subnet
+      else return null;
+
+      var params = subnet.params;
+      var row = document.createElement("tr");
+      var cell_name = document.createElement("td");
+      var cell_value = document.createElement("td");
+
+      cell_name.style.width = "93px";
+      cell_name.vAlign = "top";
+      cell_name.innerHTML = "Default Pool";
+      cell_value.innerHTML =
+        "" +
+        "<div>" +
+        '<input type="text" id="txt_subnet_' +
+        subnet.id +
+        '_params_pool_start" value="' +
+        params.pool_start +
+        '" minlength="7" maxlength="15" size="15" onchange="subnetParamsPoolChanged(' +
+        subnet.id +
+        ')">' +
+        "</div>" +
+        "<div>" +
+        '<input type="text" id="txt_subnet_' +
+        subnet.id +
+        '_params_pool_end" value="' +
+        params.pool_end +
+        '" minlength="7" maxlength="15" size="15" onchange="subnetParamsPoolChanged(' +
+        subnet.id +
+        ')">' +
+        "</div>";
+
+      row.id = "tbl_subnet_" + subnet.id + "_params_pool_tr";
+      row.appendChild(cell_name);
+      row.appendChild(cell_value);
+
+      return row;
+    }
+
+    function subnetParamsSelectChanged(sid) {
+      var subnet = null;
+
+      if (sid in window.dhcpSubnets.upd) subnet = window.dhcpSubnets.upd[sid];
+      else if (sid in window.dhcpSubnets.add)
+        subnet = window.dhcpSubnets.add[sid];
+      else if (sid in window.dhcpSubnets.tmp)
+        subnet = window.dhcpSubnets.tmp[sid];
+      // unknown subnet
+      else return;
+
+      var params = subnet.params;
+      if (typeof params == typeof {}) {
+        var tblBody = document.getElementById(
+          "tbd_subnet_" + subnet.id + "_params_settings"
+        );
+        if (!tblBody) return;
+
+        var select = document.getElementById(
+          "dpd_subnet_" + subnet.id + "_params"
+        );
+        var opt = select.options[select.selectedIndex];
+
+        if (opt.value == "1") {
+          // netmask ip address
+          tblBody.appendChild(renderSubnetParamsNetmaskRow(subnet.id));
+        } else if (opt.value == "2") {
+          // gateway ip address
+          tblBody.appendChild(renderSubnetParamsGatewayRow(subnet.id));
+        } else if (opt.value == "3") {
+          // primary dns ip address
+          tblBody.appendChild(renderSubnetParamsDns0Row(subnet.id));
+        } else if (opt.value == "4") {
+          // secondary dns ip address
+          tblBody.appendChild(renderSubnetParamsDns1Row(subnet.id));
+        } else if (opt.value == "5") {
+          // domain name
+          tblBody.appendChild(renderSubnetParamsDomainRow(subnet.id));
+        }
+
+        opt.hidden = true;
+        select.options[0].selected = true;
+      }
+    }
+
+    function renderSubnetParamsCell(sid) {
+      var subnet = null;
+
+      if (sid in window.dhcpSubnets.upd) subnet = window.dhcpSubnets.upd[sid];
+      else if (sid in window.dhcpSubnets.add)
+        subnet = window.dhcpSubnets.add[sid];
+      else if (sid in window.dhcpSubnets.tmp)
+        subnet = window.dhcpSubnets.tmp[sid];
+      // unknown subnet
+      else return;
+
+      var params_cell = document.getElementById(
+        "td_subnet_" + subnet.id + "_params_cell"
+      );
+      if (params_cell == null) {
+        params_cell = document.createElement("td");
+        params_cell.id = "td_subnet_" + subnet.id + "_params_cell";
+      } else {
+        $("#td_subnet_" + subnet.id + "_params_cell").empty();
+      }
+
+      var tbl = document.createElement("table");
+      tbl.id = "tbl_subnet_" + subnet.id + "_params_settings";
+      tbl.style.width = "272px";
+      tbl.style.tableLayout = "fixed";
+
+      var div_tbl = document.createElement("div");
+      div_tbl.appendChild(tbl);
+
+      params_cell.appendChild(div_tbl);
+
+      var tblBody = document.createElement("tbody");
+      tblBody.id = "tbd_subnet_" + subnet.id + "_params_settings";
+      tbl.appendChild(tblBody);
+
+      var params = subnet.params;
+      if (typeof params == typeof {}) {
+        var select = document.createElement("select");
+        select.id = "dpd_subnet_" + subnet.id + "_params";
+        select.style.width = "270px";
+        select.setAttribute(
+          "onchange",
+          "subnetParamsSelectChanged(" + subnet.id + ")"
+        );
+
+        var div_select = document.createElement("div");
+        div_select.appendChild(select);
+
+        params_cell.appendChild(div_select);
+
+        var opt0 = document.createElement("option");
+        opt0.text = "Edit DHCP Parameters";
+        opt0.value = "none";
+        opt0.defaultSelected = true;
+        opt0.selected = true;
+        opt0.hidden = true;
+
+        select.appendChild(opt0);
+
+        if ("netmask" in params && params.netmask != subnet.netmask) {
+          tblBody.appendChild(renderSubnetParamsNetmaskRow(subnet.id));
+        } else {
+          var opt = document.createElement("option");
+          opt.text = "Netmask IP Address";
+          opt.value = "1";
+
+          select.appendChild(opt);
+        }
+
+        if ("gateway" in params && params.gateway != "0.0.0.0") {
+          tblBody.appendChild(renderSubnetParamsGatewayRow(subnet.id));
+        } else {
+          var opt = document.createElement("option");
+          opt.text = "Gateway IP Address";
+          opt.value = "2";
+
+          select.appendChild(opt);
+        }
+
+        if ("dns0" in params && params.dns0 != "0.0.0.0") {
+          tblBody.appendChild(renderSubnetParamsDns0Row(subnet.id));
+        } else {
+          var opt = document.createElement("option");
+          opt.text = "Primary DNS IP Address";
+          opt.value = "3";
+
+          select.appendChild(opt);
+        }
+
+        if ("dns1" in params && params.dns1 != "0.0.0.0") {
+          tblBody.appendChild(renderSubnetParamsDns1Row(subnet.id));
+        } else {
+          var opt = document.createElement("option");
+          opt.text = "Secondary DNS IP Address";
+          opt.value = "4";
+
+          select.appendChild(opt);
+        }
+
+        if ("domain" in params && params.domain.length) {
+          tblBody.appendChild(renderSubnetParamsDomainRow(subnet.id));
+        } else {
+          var opt = document.createElement("option");
+          opt.text = "Domain Name";
+          opt.value = "5";
+
+          select.appendChild(opt);
+        }
+
+        tblBody.appendChild(renderSubnetParamsLeasetimeRow(subnet.id));
+        tblBody.appendChild(renderSubnetParamsPoolRow(subnet.id));
+      } else {
+        var row = document.createElement("tr");
+        var cell = document.createElement("td");
+        cell.innerHTML = '<input type="text" size="10" value="<Auto>">';
+        row.appendChild(cell);
+        tblBody.appendChild(row);
+      }
+
+      return params_cell;
+    }
+
+    /**
+     *  Subnet Server cell handling
+     **/
+    function renderServerSettings(subnet) {
+      var cell = document.createElement("td");
+      var innerHTML = "";
+
+      if (subnet == null) {
+        cell.appendChild(document.createTextNode("Invalid Subnet ERROR!"));
+        return cell;
+      }
+
+      if (!subnet.operation) cell.style.backgroundColor = dhcpInactiveColor; //gray shade
+
+      cell.align = "left";
+      cell.vAlign = "top";
+      cell.style.width = "385px";
+      cell.id = "tbl_subnet_" + subnet.id + "_server_td";
+      innerHTML +=
+        "" +
+        '<table style="table-layout:fixed; width: 390px;">' +
+        "<tr>" +
+        '<td style="width: 25px;"><input type="checkbox" id="ckb_subnet_' +
+        subnet.id +
+        '_server_remote" onclick="serverRemoteChanged(' +
+        subnet.id +
+        ')"></td>' +
+        '<td style="width: 85px;">Other Server</td>' +
+        "<td></td>" +
+        "</tr>" +
+        '<tr id="tr_subnet_' +
+        subnet.id +
+        '_server">' +
+        '<td style="width: 25px;"></td>' +
+        '<td align="right" style="width: 85px;">&nbsp;&nbsp;IP Address:</td>' +
+        '<td><input type="text" id="txt_subnet_' +
+        subnet.id +
+        '_server0" value="' +
+        subnet.server0 +
+        '" minlength="7" maxlength="15" size="15" onchange="serverIPAddressChanged(' +
+        subnet.id +
+        ')"></td>' +
+        "</tr>" +
+        "<tr>" +
+        '<td style="width: 25px;"><input type="checkbox" id="ckb_subnet_' +
+        subnet.id +
+        '_server_local" onclick="serverLocalChanged(' +
+        subnet.id +
+        ')" /></td>' +
+        '<td style="width: 85px;">This Switch</td>' +
+        "<td></td>" +
+        "</tr>" +
+        '<tr id="tr_subnet_' +
+        subnet.id +
+        '_params">' +
+        '<td style="width: 25px;"></td>' +
+        '<td align="left" valign="top" style="width: 85px;">&nbsp;&nbsp;Parameters:</td>' +
+        "</tr>" +
+        "</table>";
+
+      cell.innerHTML = innerHTML;
+
+      if (subnet.server0 == "127.0.0.1") {
+        // server is local
+        // remote section is inactive
+        cell.querySelector(
+          "#ckb_subnet_" + subnet.id + "_server_remote"
+        ).checked = false;
+        cell.querySelector(
+          "#txt_subnet_" + subnet.id + "_server0"
+        ).disabled = true;
+        // remote server ip address row is hidden
+        cell.querySelector(
+          "#tr_subnet_" + subnet.id + "_server"
+        ).style.display = "none";
+
+        // local section is enabled
+        cell.querySelector(
+          "#ckb_subnet_" + subnet.id + "_server_local"
+        ).checked = true;
+        // server parameters are enabled
+        cell
+          .querySelector("#tr_subnet_" + subnet.id + "_params")
+          .appendChild(renderSubnetParamsCell(subnet.id));
+
+        if (subnet.type == "remote") {
+          // remote subnets work only with local server
+          cell.querySelector(
+            "#ckb_subnet_" + subnet.id + "_server_remote"
+          ).disabled = true;
+          cell.querySelector(
+            "#ckb_subnet_" + subnet.id + "_server_local"
+          ).disabled = true;
+        }
+      } // server is remote
+      else {
+        // remote section is enabled
+        cell.querySelector(
+          "#ckb_subnet_" + subnet.id + "_server_remote"
+        ).checked = true;
+        cell.querySelector(
+          "#txt_subnet_" + subnet.id + "_server0"
+        ).disabled = false;
+
+        // local section is inactive
+        cell.querySelector(
+          "#ckb_subnet_" + subnet.id + "_server_local"
+        ).checked = false;
+        // params dropdown row is hidden
+        cell.querySelector(
+          "#tr_subnet_" + subnet.id + "_params"
+        ).style.display = "none";
+
+        //if (oif1 == "none")
+        //{
+        //	document.getElementById("tbl_subnet_"+subnet.id+"_tr").setAttribute("style", "background-color:#FFEBD5;");
+        //}
+      }
+
+      return cell;
+    }
+
+    function leaseO82IdentifierChanged(sid, lid) {
+      var subnet = null;
+      var lease = null;
+
+      if (sid in window.dhcpSubnets.upd) subnet = window.dhcpSubnets.upd[sid];
+      else if (sid in window.dhcpSubnets.add)
+        subnet = window.dhcpSubnets.add[sid];
+      else if (sid in window.dhcpSubnets.tmp)
+        subnet = window.dhcpSubnets.tmp[sid];
+      // unknown subnet
+      else return;
+
+      if (lid in subnet.leasesO82.upd) lease = subnet.leasesO82.upd[lid];
+      else if (lid in subnet.leasesO82.add) lease = subnet.leasesO82.add[lid];
+      // unknown lease
+      else return;
+
+      var remoteid = document
+        .getElementById(
+          "txt_subnet_" + subnet.id + "_lO82_" + lease.id + "_remoteid"
+        )
+        .value.trim();
+      if (remoteid.length < 3 || remoteid.length > 47) {
+        document.getElementById(
+          "txt_subnet_" + subnet.id + "_lO82_" + lease.id + "_remoteid"
+        ).value = lease.remoteid;
+        document
+          .getElementById(
+            "txt_subnet_" + subnet.id + "_lO82_" + lease.id + "_remoteid"
+          )
+          .focus();
+      } else if (lease.remoteid != remoteid) {
+        lease.remoteid = remoteid;
+        subnetEnableSave(subnet);
+      }
+    }
+
+    function leaseO82IPAddressChanged(sid, lid) {
+      var subnet = null;
+      var lease = null;
+
+      if (sid in window.dhcpSubnets.upd) subnet = window.dhcpSubnets.upd[sid];
+      else if (sid in window.dhcpSubnets.add)
+        subnet = window.dhcpSubnets.add[sid];
+      else if (sid in window.dhcpSubnets.tmp)
+        subnet = window.dhcpSubnets.tmp[sid];
+      // unknown subnet
+      else return;
+
+      if (subnet.server0 != "127.0.0.1") return;
+
+      if (lid in subnet.leasesO82.upd) lease = subnet.leasesO82.upd[lid];
+      else if (lid in subnet.leasesO82.add) lease = subnet.leasesO82.add[lid];
+      // unknown lease
+      else return;
+
+      var ipaddr = document
+        .getElementById("txt_subnet_" + subnet.id + "_lO82_" + lease.id + "_ip")
+        .value.trim();
+      if (!isValidIPAddress(ipaddr)) {
+        alert(
+          "error: Port P" +
+            lease.port +
+            " Lease value is not a valid IP Address"
+        );
+        document
+          .getElementById(
+            "txt_subnet_" + subnet.id + "_lO82_" + lease.id + "_ip"
+          )
+          .focus();
+
+        document.getElementById(
+          "txt_subnet_" + subnet.id + "_lO82_" + lease.id + "_ip"
+        ).value = lease.ip;
+        return;
+      }
+
+      if (lease.ip != ipaddr) {
+        lease.ip = ipaddr;
+        subnetEnableSave(subnet);
+      }
+    }
+
+    function leaseO82CfgNameChanged(sid, lid) {
+      var subnet = null;
+      var lease = null;
+
+      if (sid in window.dhcpSubnets.upd) subnet = window.dhcpSubnets.upd[sid];
+      else if (sid in window.dhcpSubnets.add)
+        subnet = window.dhcpSubnets.add[sid];
+      else if (sid in window.dhcpSubnets.tmp)
+        subnet = window.dhcpSubnets.tmp[sid];
+      // unknown subnet
+      else return;
+
+      if (subnet.server0 != "127.0.0.1") return;
+
+      if (lid in subnet.leasesO82.upd) lease = subnet.leasesO82.upd[lid];
+      else if (lid in subnet.leasesO82.add) lease = subnet.leasesO82.add[lid];
+      // unknown lease
+      else return;
+
+      var cfgname = document
+        .getElementById(
+          "txt_subnet_" + subnet.id + "_lO82_" + lease.id + "_cfgname"
+        )
+        .value.trim();
+      if (cfgname.length > 36) {
+        document.getElementById(
+          "txt_subnet_" + subnet.id + "_lO82_" + lease.id + "_cfgname"
+        ).value = lease.cfgname;
+        document
+          .getElementById(
+            "txt_subnet_" + subnet.id + "_lO82_" + lease.id + "_cfgname"
+          )
+          .focus();
+      } else if (lease.cfgname != cfgname) {
+        lease.cfgname = cfgname;
+        subnetEnableSave(subnet);
+      }
+    }
+
+    function deleteLeaseO82(sid, lid) {
+      var subnet = null;
+
+      if (sid in window.dhcpSubnets.upd) subnet = window.dhcpSubnets.upd[sid];
+      else if (sid in window.dhcpSubnets.add)
+        subnet = window.dhcpSubnets.add[sid];
+      else if (sid in window.dhcpSubnets.tmp)
+        subnet = window.dhcpSubnets.tmp[sid];
+      // unknown subnet
+      else return;
+
+      if (lid in subnet.leasesO82.upd) {
+        subnet.leasesO82.idle[lid] = subnet.leasesO82.upd[lid];
+        subnet.leasesO82.idle[lid].deleted = true;
+        delete subnet.leasesO82.upd[lid];
+        /* mark this lease for deletion */
+        subnet.leasesO82.del.push(lid);
+      } else if (lid in subnet.leasesO82.add) {
+        delete subnet.leasesO82.add[lid];
+      } else return;
+
+      if (lid in subnet.leasesO82.idle) subnet.leasesO82.idle[lid].idle = true;
+
+      //redraw leases table
+      renderLeaseTable(subnet);
+
+      // lease add dropdown needs refreshed
+      renderLeaseAddSelect(subnet);
+
+      // unsaved changes
+      subnetEnableSave(subnet);
+    }
+
+    function renderLeaseO82ForLocalServer(subnet, lease) {
+      var row = document.createElement("tr");
+      var type_cell = document.createElement("td");
+      var identifier_cell = document.createElement("td");
+      var ipaddr_cell = document.createElement("td");
+      var cfgname_cell = document.createElement("td");
+      var state_cell = document.createElement("td");
+      var expiry_cell = document.createElement("td");
+      var operation_cell = document.createElement("td");
+
+      type_cell.style.textAlign = "center";
+      state_cell.style.textAlign = "center";
+      expiry_cell.style.textAlign = "center";
+      operation_cell.style.textAlign = "center";
+
+      type_cell.innerHTML = "Option 82";
+      if (subnet.type == "local") {
+        identifier_cell.innerHTML =
+          '<input type="text" id="txt_subnet_' +
+          subnet.id +
+          "_lO82_" +
+          lease.id +
+          '_remoteid" style="width: 130px;" value="Port ' +
+          window.portMap[subnet.id][lease.port] +
+          '" disabled>';
+      } else {
+        identifier_cell.innerHTML =
+          '<input type="text" id="txt_subnet_' +
+          subnet.id +
+          "_lO82_" +
+          lease.id +
+          '_remoteid" style="width: 130px;" value="' +
+          lease.remoteid +
+          '" minlength="3" maxlength="47" onchange="leaseO82IdentifierChanged(' +
+          subnet.id +
+          ", " +
+          lease.id +
+          ')">';
+      }
+      ipaddr_cell.innerHTML =
+        '<input type="text" id="txt_subnet_' +
+        subnet.id +
+        "_lO82_" +
+        lease.id +
+        '_ip" value="' +
+        lease.ip +
+        '" minlength="7" maxlength="15" style="width: 92px;" onchange="leaseO82IPAddressChanged(' +
+        subnet.id +
+        ", " +
+        lease.id +
+        ')">';
+      cfgname_cell.innerHTML =
+        '<input type="text" id="txt_subnet_' +
+        subnet.id +
+        "_lO82_" +
+        lease.id +
+        '_cfgname" value="' +
+        lease.cfgname +
+        '" maxlength="36" style="width: 170px;" onchange="leaseO82CfgNameChanged(' +
+        subnet.id +
+        ", " +
+        lease.id +
+        ')">';
+      state_cell.innerHTML = lease.state;
+      expiry_cell.innerHTML = lease.expiry;
+      operation_cell.innerHTML =
+        '<input type="button" class="button" value="X" onClick="deleteLeaseO82(' +
+        subnet.id +
+        ", " +
+        lease.id +
+        ')">';
+
+      row.appendChild(type_cell);
+      row.appendChild(identifier_cell);
+      row.appendChild(ipaddr_cell);
+      row.appendChild(cfgname_cell);
+      row.appendChild(state_cell);
+      row.appendChild(expiry_cell);
+      row.appendChild(operation_cell);
+
+      return row;
+    }
+
+    function leaseMACIPAddressChanged(sid, lid) {
+      var subnet = null;
+      var lease = null;
+
+      if (sid in window.dhcpSubnets.upd) subnet = window.dhcpSubnets.upd[sid];
+      else if (sid in window.dhcpSubnets.add)
+        subnet = window.dhcpSubnets.add[sid];
+      else if (sid in window.dhcpSubnets.tmp)
+        subnet = window.dhcpSubnets.tmp[sid];
+      // unknown subnet
+      else return;
+
+      if (subnet.server0 != "127.0.0.1") return;
+
+      if (lid in subnet.leasesMAC.upd) lease = subnet.leasesMAC.upd[lid];
+      else if (lid in subnet.leasesMAC.add) lease = subnet.leasesMAC.add[lid];
+      // unknown lease
+      else return;
+
+      var ipaddr = document
+        .getElementById("txt_subnet_" + subnet.id + "_lMAC_" + lease.id + "_ip")
+        .value.trim();
+      if (!isValidIPAddress(ipaddr)) {
+        alert("error: MAC Lease value is not a valid IP Address");
+        document
+          .getElementById(
+            "txt_subnet_" + subnet.id + "_lMAC_" + lease.id + "_ip"
+          )
+          .focus();
+
+        document.getElementById(
+          "txt_subnet_" + subnet.id + "_lMAC_" + lease.id + "_ip"
+        ).value = lease.ip;
+        return;
+      }
+
+      if (lease.ip != ipaddr) {
+        lease.ip = ipaddr;
+        subnetEnableSave(subnet);
+      }
+    }
+
+    function leaseMACIdentifierChanged(sid, lid) {
+      var subnet = null;
+      var lease = null;
+
+      if (sid in window.dhcpSubnets.upd) subnet = window.dhcpSubnets.upd[sid];
+      else if (sid in window.dhcpSubnets.add)
+        subnet = window.dhcpSubnets.add[sid];
+      else if (sid in window.dhcpSubnets.tmp)
+        subnet = window.dhcpSubnets.tmp[sid];
+      // unknown subnet
+      else return;
+
+      if (subnet.server0 != "127.0.0.1") return;
+
+      if (lid in subnet.leasesMAC.upd) lease = subnet.leasesMAC.upd[lid];
+      else if (lid in subnet.leasesMAC.add) lease = subnet.leasesMAC.add[lid];
+      // unknown lease
+      else return;
+
+      var el = document.getElementById(
+        "txt_subnet_" + subnet.id + "_lMAC_" + lease.id + "_remoteid"
+      );
+      el.value = el.value.trim().toUpperCase();
+      var macaddr = el.value;
+      if (!isValidMACAddress(macaddr)) {
+        alert("error: identifier value is not a valid MAC Address");
+        document
+          .getElementById(
+            "txt_subnet_" + subnet.id + "_lMAC_" + lease.id + "_remoteid"
+          )
+          .focus();
+
+        document.getElementById(
+          "txt_subnet_" + subnet.id + "_lMAC_" + lease.id + "_remoteid"
+        ).value = lease.remoteid;
+        return;
+      }
+      if (lease.remoteid != macaddr) {
+        lease.remoteid = macaddr;
+        subnetEnableSave(subnet);
+      }
+    }
+
+    function leaseMACCfgNameChanged(sid, lid) {
+      var subnet = null;
+      var lease = null;
+
+      if (sid in window.dhcpSubnets.upd) subnet = window.dhcpSubnets.upd[sid];
+      else if (sid in window.dhcpSubnets.add)
+        subnet = window.dhcpSubnets.add[sid];
+      else if (sid in window.dhcpSubnets.tmp)
+        subnet = window.dhcpSubnets.tmp[sid];
+      // unknown subnet
+      else return;
+
+      if (subnet.server0 != "127.0.0.1") return;
+
+      if (lid in subnet.leasesMAC.upd) lease = subnet.leasesMAC.upd[lid];
+      else if (lid in subnet.leasesMAC.add) lease = subnet.leasesMAC.add[lid];
+      // unknown lease
+      else return;
+
+      var cfgname = document
+        .getElementById(
+          "txt_subnet_" + subnet.id + "_lMAC_" + lease.id + "_cfgname"
+        )
+        .value.trim();
+      if (cfgname.length > 36) {
+        document.getElementById(
+          "txt_subnet_" + subnet.id + "_lMAC_" + lease.id + "_cfgname"
+        ).value = lease.cfgname;
+        document
+          .getElementById(
+            "txt_subnet_" + subnet.id + "_lMAC_" + lease.id + "_cfgname"
+          )
+          .focus();
+      } else if (lease.cfgname != cfgname) {
+        lease.cfgname = cfgname;
+        subnetEnableSave(subnet);
+      }
+    }
+
+    function deleteLeaseMAC(sid, lid) {
+      var subnet = null;
+
+      if (sid in window.dhcpSubnets.upd) subnet = window.dhcpSubnets.upd[sid];
+      else if (sid in window.dhcpSubnets.add)
+        subnet = window.dhcpSubnets.add[sid];
+      else if (sid in window.dhcpSubnets.tmp)
+        subnet = window.dhcpSubnets.tmp[sid];
+      // unknown subnet
+      else return;
+
+      if (lid in subnet.leasesMAC.upd) {
+        delete subnet.leasesMAC.upd[lid];
+        subnet.leasesMAC.del.push(lid);
+      } else if (lid in subnet.leasesMAC.add) {
+        delete subnet.leasesMAC.add[lid];
+      } else return;
+
+      //redraw leases table
+      renderLeaseTable(subnet);
+
+      // unsaved changes
+      subnetEnableSave(subnet);
+    }
+
+    function renderLeaseMACForLocalServer(subnet, lease) {
+      var row = document.createElement("tr");
+      var type_cell = document.createElement("td");
+      var identifier_cell = document.createElement("td");
+      var cfgname_cell = document.createElement("td");
+      var ipaddr_cell = document.createElement("td");
+      var state_cell = document.createElement("td");
+      var expiry_cell = document.createElement("td");
+      var operation_cell = document.createElement("td");
+
+      type_cell.style.textAlign = "center";
+      state_cell.style.textAlign = "center";
+      expiry_cell.style.textAlign = "center";
+      operation_cell.style.textAlign = "center";
+
+      type_cell.innerHTML = "MAC";
+      identifier_cell.innerHTML =
+        '<input type="text" id="txt_subnet_' +
+        subnet.id +
+        "_lMAC_" +
+        lease.id +
+        '_remoteid" style="width: 130px;" value="' +
+        lease.remoteid +
+        '" minlength="17" maxlength="17" onchange="leaseMACIdentifierChanged(' +
+        subnet.id +
+        ", " +
+        lease.id +
+        ')">';
+      ipaddr_cell.innerHTML =
+        '<input type="text" id="txt_subnet_' +
+        subnet.id +
+        "_lMAC_" +
+        lease.id +
+        '_ip" value="' +
+        lease.ip +
+        '" minlength="7" maxlength="15" style="width: 92px;" onchange="leaseMACIPAddressChanged(' +
+        subnet.id +
+        ", " +
+        lease.id +
+        ')">';
+      cfgname_cell.innerHTML =
+        '<input type="text" id="txt_subnet_' +
+        subnet.id +
+        "_lMAC_" +
+        lease.id +
+        '_cfgname" value="' +
+        lease.cfgname +
+        '" maxlength="36" style="width: 170px;" onchange="leaseMACCfgNameChanged(' +
+        subnet.id +
+        ", " +
+        lease.id +
+        ')">';
+      state_cell.innerHTML = lease.state;
+      expiry_cell.innerHTML = lease.expiry;
+      operation_cell.innerHTML =
+        '<input type="button" class="button" value="X" onClick="deleteLeaseMAC(' +
+        subnet.id +
+        ", " +
+        lease.id +
+        ')">';
+
+      row.appendChild(type_cell);
+      row.appendChild(identifier_cell);
+      row.appendChild(ipaddr_cell);
+      row.appendChild(cfgname_cell);
+      row.appendChild(state_cell);
+      row.appendChild(expiry_cell);
+      row.appendChild(operation_cell);
+
+      return row;
+    }
+
+    function renderLeaseDYNForLocalServer(subnet, lease) {
+      var row = document.createElement("tr");
+      var type_cell = document.createElement("td");
+      var identifier_cell = document.createElement("td");
+      var cfgname_cell = document.createElement("td");
+      var ipaddr_cell = document.createElement("td");
+      var state_cell = document.createElement("td");
+      var expiry_cell = document.createElement("td");
+      var operation_cell = document.createElement("td");
+
+      type_cell.style.textAlign = "center";
+      state_cell.style.textAlign = "center";
+      expiry_cell.style.textAlign = "center";
+      operation_cell.style.textAlign = "center";
+
+      type_cell.innerHTML = "Dynamic";
+      identifier_cell.innerHTML =
+        '<input type="text" id="txt_subnet_' +
+        subnet.id +
+        "_lDYN_" +
+        lease.id +
+        '_remoteid" style="width: 130px;" value="' +
+        lease.remoteid +
+        '" disabled>';
+      ipaddr_cell.innerHTML =
+        '<input type="text" id="txt_subnet_' +
+        subnet.id +
+        "_lDYN_" +
+        lease.id +
+        '_ip" minlength="7" maxlength="15" style="width: 92px;" value="' +
+        lease.ip +
+        '" disabled>';
+      state_cell.innerHTML = lease.state;
+      expiry_cell.innerHTML = lease.expiry;
+
+      row.appendChild(type_cell);
+      row.appendChild(identifier_cell);
+      row.appendChild(ipaddr_cell);
+      row.appendChild(cfgname_cell);
+      row.appendChild(state_cell);
+      row.appendChild(expiry_cell);
+      row.appendChild(operation_cell);
+
+      return row;
+    }
+
+    function renderLeaseTableForLocalServer(subnet) {
+      var tbl = null;
+      var tblBody = null;
+
+      tbl = document.getElementById("tbl_subnet_" + subnet.id + "_lease");
+      if (tbl == null) {
+        tbl = document.createElement("table");
+        var tblHead = document.createElement("thead");
+
+        tblHead.innerHTML =
+          "" +
+          '<tr class="table_row_head">' +
+          '<th style="width: 10%;">Type</th>' +
+          '<th style="width: 20%;">Identifier</th>' +
+          '<th style="width: 15%;">IP Address</th>' +
+          '<th style="width: 25%;">Configuration Provision</th>' +
+          '<th style="width: 10%;">State</th>' +
+          '<th style="width: 10%;">Expiry</th>' +
+          '<th style="width: 10%;">Delete</th>' +
+          "</tr>";
+        tblHead.style.backgroundColor = "#74B130";
+        tblHead.style.width = "100%";
+
+        tbl.id = "tbl_subnet_" + subnet.id + "_lease";
+        tbl.style.fontSize = "100%";
+        tbl.style.width = "777px";
+        tbl.style.tableLayout = "fixed";
+
+        tbl.appendChild(tblHead);
+      }
+
+      tblBody = tbl.querySelector("#tbd_subnet_" + subnet.id + "_lease");
+      if (tblBody == null) {
+        tblBody = document.createElement("tbody");
+        tblBody.id = "tbd_subnet_" + subnet.id + "_lease";
+        tbl.appendChild(tblBody);
+      } else {
+        $("#tbd_subnet_" + subnet.id + "_lease").empty();
+      }
+
+      for (var lid in subnet.leasesO82.upd) {
+        tblBody.appendChild(
+          renderLeaseO82ForLocalServer(subnet, subnet.leasesO82.upd[lid])
+        );
+      }
+
+      for (var lid in subnet.leasesO82.add) {
+        tblBody.appendChild(
+          renderLeaseO82ForLocalServer(subnet, subnet.leasesO82.add[lid])
+        );
+      }
+
+      for (var lid in subnet.leasesMAC.upd) {
+        tblBody.appendChild(
+          renderLeaseMACForLocalServer(subnet, subnet.leasesMAC.upd[lid])
+        );
+      }
+
+      for (var lid in subnet.leasesMAC.add) {
+        tblBody.appendChild(
+          renderLeaseMACForLocalServer(subnet, subnet.leasesMAC.add[lid])
+        );
+      }
+
+      for (var lid in subnet.leasesDYN.active) {
+        tblBody.appendChild(
+          renderLeaseDYNForLocalServer(subnet, subnet.leasesDYN.active[lid])
+        );
+      }
+
+      for (var lid in subnet.leasesDYN.idle) {
+        tblBody.appendChild(
+          renderLeaseDYNForLocalServer(subnet, subnet.leasesDYN.idle[lid])
+        );
+      }
+
+      return tbl;
+    }
+
+    function renderLeaseO82ForRemoteServer(subnet, lease) {
+      var row = document.createElement("tr");
+      var type_cell = document.createElement("td");
+      var port_cell = document.createElement("td");
+      var identifier_cell = document.createElement("td");
+      var state_cell = document.createElement("td");
+      var expiry_cell = document.createElement("td");
+      var operation_cell = document.createElement("td");
+
+      type_cell.style.textAlign = "center";
+      state_cell.style.textAlign = "center";
+      expiry_cell.style.textAlign = "center";
+      operation_cell.style.textAlign = "center";
+
+      type_cell.innerHTML = "Option 82";
+      port_cell.innerHTML =
+        '<input type="text" style="width: 205px;" value="Port ' +
+        window.portMap[subnet.id][lease.port] +
+        '" disabled>';
+      identifier_cell.innerHTML =
+        '<input type="text" id="txt_subnet_' +
+        subnet.id +
+        "_lO82_" +
+        lease.id +
+        '_remoteid" style="width: 170px;" value="' +
+        lease.remoteid +
+        '" minlength="3" maxlength="47" onchange="leaseO82IdentifierChanged(' +
+        subnet.id +
+        ", " +
+        lease.id +
+        ')">';
+      state_cell.innerHTML = "N/A";
+      expiry_cell.innerHTML = "N/A";
+      operation_cell.innerHTML =
+        '<input type="button" class="button" value="X" onClick="deleteLeaseO82(' +
+        subnet.id +
+        ", " +
+        lease.id +
+        ')">';
+
+      row.appendChild(type_cell);
+      row.appendChild(port_cell);
+      row.appendChild(identifier_cell);
+      row.appendChild(state_cell);
+      row.appendChild(expiry_cell);
+      row.appendChild(operation_cell);
+
+      return row;
+    }
+
+    function renderLeaseTableForRemoteServer(subnet) {
+      var tbl = null;
+      var tblBody = null;
+
+      tbl = document.getElementById("tbl_subnet_" + subnet.id + "_lease");
+      if (tbl == null) {
+        tbl = document.createElement("table");
+        var tblHead = document.createElement("thead");
+
+        tblHead.innerHTML =
+          "" +
+          '<tr class="table_row_head">' +
+          '<th style="width: 10%;">Type</th>' +
+          '<th style="width: 30%;">Port</th>' +
+          '<th style="width: 30%;">Identifier</th>' +
+          '<th style="width: 10%;">State</th>' +
+          '<th style="width: 10%;">Expiry</th>' +
+          '<th style="width: 10%;">Delete</th>' +
+          "</tr>";
+        tblHead.style.backgroundColor = "#74B130";
+        tblHead.style.width = "100%";
+
+        tbl.id = "tbl_subnet_" + subnet.id + "_lease";
+        tbl.style.fontSize = "100%";
+        tbl.style.width = "777px";
+        tbl.style.tableLayout = "fixed";
+
+        tbl.id = "tbl_subnet_" + subnet.id + "_lease";
+        tbl.appendChild(tblHead);
+      }
+
+      tblBody = tbl.querySelector("#tbd_subnet_" + subnet.id + "_lease");
+      if (tblBody == null) {
+        tblBody = document.createElement("tbody");
+        tblBody.id = "tbd_subnet_" + subnet.id + "_lease";
+        tbl.appendChild(tblBody);
+      } else {
+        $("#tbd_subnet_" + subnet.id + "_lease").empty();
+      }
+
+      for (var lid in subnet.leasesO82.upd) {
+        tblBody.appendChild(
+          renderLeaseO82ForRemoteServer(subnet, subnet.leasesO82.upd[lid])
+        );
+      }
+
+      for (var lid in subnet.leasesO82.add) {
+        tblBody.appendChild(
+          renderLeaseO82ForRemoteServer(subnet, subnet.leasesO82.add[lid])
+        );
+      }
+
+      return tbl;
+    }
+
+    function renderLeaseTable(subnet) {
+      if (subnet.server0 == "127.0.0.1") {
+        return renderLeaseTableForLocalServer(subnet);
+      } else {
+        return renderLeaseTableForRemoteServer(subnet);
+      }
+    }
+
+    function renderLeaseAddSelect(subnet) {
+      var select = null;
+
+      select = document.getElementById(
+        "dpd_subnet_" + subnet.id + "_lease_add"
+      );
+      if (select == null) {
+        select = document.createElement("select");
+        select.id = "dpd_subnet_" + subnet.id + "_lease_add";
+        select.style.width = "325px";
+        select.setAttribute("onchange", "addLease(" + subnet.id + ")");
+      } else {
+        $("#dpd_subnet_" + subnet.id + "_lease_add").empty();
+      }
+
+      var opt0 = document.createElement("option");
+      opt0.text = "Click to settings new static lease";
+      opt0.value = "none";
+      opt0.defaultSelected = true;
+      opt0.selected = true;
+      opt0.hidden = true;
+
+      select.appendChild(opt0);
+
+      if (subnet.type == "local") {
+        for (var lid in subnet.leasesO82.idle) {
+          var lease = subnet.leasesO82.idle[lid];
+          /* skip leases which are already in use */
+          if (!lease.idle) continue;
+
+          var opt = document.createElement("option");
+          opt.text =
+            "Port Based Option 82 Lease: <Port " +
+            window.portMap[subnet.id][lease.port] +
+            ">";
+          opt.value = lease.port.toString();
+
+          select.appendChild(opt);
+        }
+      } else {
+        var opt = document.createElement("option");
+        opt.text = "Port Based Option 82 Lease: <Option 82 Identifier>";
+        opt.value = "254";
+
+        select.appendChild(opt);
+      }
+
+      if (subnet.server0 == "127.0.0.1") {
+        var opt = document.createElement("option");
+        opt.text = "Host Based MAC Lease: <MAC Address>";
+        opt.value = "255";
+
+        select.appendChild(opt);
+      }
+
+      return select;
+    }
+
+    function addLease(sid) {
+      var subnet = null;
+
+      if (sid in window.dhcpSubnets.upd) subnet = window.dhcpSubnets.upd[sid];
+      else if (sid in window.dhcpSubnets.add)
+        subnet = window.dhcpSubnets.add[sid];
+      else if (sid in window.dhcpSubnets.tmp)
+        subnet = window.dhcpSubnets.tmp[sid];
+      // unknown subnet
+      else return;
+
+      var select = document.getElementById(
+        "dpd_subnet_" + subnet.id + "_lease_add"
+      );
+      var opt = select.options[select.selectedIndex].value;
+
+      if (opt == "255") {
+        // new mac lease
+        var lid = leaseMACIdGenerate(subnet);
+
+        if (lid == null) {
+          alert("error: maximum MAC leases number reached!");
+          document.getElementById("tbl_subnet_" + subnet.id + "_lease").focus();
+          return;
+        }
+
+        subnet.leasesMAC.add[lid] = {
+          id: lid,
+          remoteid: "00:00:00:00:00:00",
+          ip: "0.0.0.0",
+          cfgname: "",
+          state: "N/A",
+          expiry: "N/A",
+        };
+      } else if (opt == "none") {
+        return;
+      } // new O82 lease
+      else {
+        var remoteid;
+        var oid = Number(opt);
+        var lid = leaseO82IdGenerate(subnet, oid);
+
+        if (lid == null) {
+          alert("error: maximum O82 leases number reached!");
+          document.getElementById("tbl_subnet_" + subnet.id + "_lease").focus();
+          return;
+        }
+
+        if (oid != 254 && lid != Number(opt)) {
+          alert("error: lease allocation");
+          document.getElementById("tbl_subnet_" + subnet.id + "_lease").focus();
+          return;
+        }
+
+        if (lid in subnet.leasesO82.idle) {
+          subnet.leasesO82.idle[lid].idle = false;
+          remoteid = subnet.leasesO82.idle[lid].remoteid;
+
+          if (subnet.leasesO82.idle[lid].deleted) {
+            subnet.leasesO82.upd[lid] = {
+              id: lid,
+              port: oid == 254 ? 0 : oid,
+              remoteid: remoteid,
+              ip: "0.0.0.0",
+              cfgname: "",
+              state: "N/A",
+              expiry: "N/A",
+            };
+            for (var i = 0; i < subnet.leasesO82.del.length; i++) {
+              if (subnet.leasesO82.del[i] == lid) {
+                subnet.leasesO82.del.splice(i, 1);
+                i--;
+              }
+            }
+          } else {
+            subnet.leasesO82.add[lid] = {
+              id: lid,
+              port: oid == 254 ? 0 : oid,
+              remoteid: remoteid,
+              ip: "0.0.0.0",
+              cfgname: "",
+              state: "N/A",
+              expiry: "N/A",
+            };
+          }
+        } else {
+          remoteid = "<unconfigured>";
+          subnet.leasesO82.add[lid] = {
+            id: lid,
+            port: oid == 254 ? 0 : oid,
+            remoteid: remoteid,
+            ip: "0.0.0.0",
+            cfgname: "",
+            state: "N/A",
+            expiry: "N/A",
+          };
+        }
+
+        // lease add dropdown needs refreshed
+        renderLeaseAddSelect(subnet);
+      }
+
+      select.selectedIndex = 0;
+
+      // redraw leases table
+      renderLeaseTable(subnet);
+
+      // unsaved changes
+      subnetEnableSave(subnet);
+    }
+
+    function renderLeaseAdd(subnet) {
+      var tbl = document.createElement("table");
+      var row = document.createElement("tr");
+      var cell_dpd = document.createElement("td");
+
+      cell_dpd.appendChild(renderLeaseAddSelect(subnet));
+
+      row.appendChild(cell_dpd);
+      tbl.appendChild(row);
+
+      return tbl;
+    }
+
+    function renderLeaseSettings(subnet) {
+      var cell = document.createElement("td");
+      var div_lease = document.createElement("div");
+      var div_add = document.createElement("div");
+
+      if (subnet == null) {
+        cell.appendChild(document.createTextNode("Invalid Subnet ERROR!"));
+        return cell;
+      }
+
+      cell.id = "tbc_subnet_" + subnet.id + "_lease_td";
+      cell.align = "left";
+      cell.vAlign = "top";
+      cell.style.width = "777px";
+      //cell.style.position = "relative";
+      //cell.id = "tbl_subnet_"+subnet.id+"_leases_td";
+
+      div_lease.style.paddingBottom = "20px";
+      //div_lease.style.position = "absolute";
+      //div_lease.style.top = "0";
+      //div_add.style.position = "absolute";
+      //div_add.style.bottom = "0";
+
+      var leaseTable = renderLeaseTable(subnet);
+      var leaseDropdown = renderLeaseAdd(subnet);
+
+      if (!subnet.operation) {
+        leaseTable.style.backgroundColor = dhcpInactiveColor; //gray shade
+        cell.style.backgroundColor = dhcpInactiveColor; //gray shade
+      }
+
+      // div elements
+      div_lease.appendChild(leaseTable);
+      div_add.appendChild(leaseDropdown);
+
+      cell.appendChild(div_lease);
+      cell.appendChild(div_add);
+
+      return cell;
+    }
+
+    /**
+     *  Subnet Row handling
+     **/
+    function renderDhcpSubnetRow(subnet) {
+      var subnetRow = document.createElement("tr");
+
+      subnetRow.id = "tbl_subnet_" + subnet.id + "_tr";
+      subnetRow.setAttribute("class", "table_row_content");
+
+      subnetRow.appendChild(renderSubnetSettings(subnet));
+      subnetRow.appendChild(renderServerSettings(subnet));
+      subnetRow.appendChild(renderLeaseSettings(subnet));
+
+      return subnetRow;
+    }
+
+    function renderDhcpSubnetTable() {
+      var sid;
+      var subnetTable = document.getElementById("tbl_subnets");
+
+      $("#tbl_subnets").find("tbody").detach();
+      $("#tbl_subnets").append($("<tbody>"));
+
+      var subnetTBody = subnetTable.getElementsByTagName("tbody")[0];
+
+      // 1. saved subnets
+      for (sid in window.dhcpSubnets.upd) {
+        var subnetRow = renderDhcpSubnetRow(window.dhcpSubnets.upd[sid]);
+        subnetTBody.appendChild(subnetRow);
+      }
+
+      // 2. unsaved subnets
+      for (sid in window.dhcpSubnets.add) {
+        var subnetRow = renderDhcpSubnetRow(window.dhcpSubnets.add[sid]);
+        subnetTBody.appendChild(subnetRow);
+
+        // unsaved subnets have different background color
+        subnetRow.style.backgroundColor = "#fcfdd6"; //very light yellow
+      }
+
+      // New Remote Subnet function disabled
+      // 3. new subnet
+      //for (sid in window.dhcpSubnets.tmp)
+      //{
+      //	var subnetRow = renderDhcpSubnetRow(window.dhcpSubnets.tmp[sid]);
+      //	subnetTBody.appendChild(subnetRow);
+
+      //	// ADD has different background color
+      //	subnetRow.style.backgroundColor = "#fcfdd6"; //very light yellow
+
+      //	// only one
+      //	break;
+      //}
+    }
+
+    function jsonProcessSubnets(data, status) {
+      // reset current subnets information
+      window.dhcpSubnets.upd = {};
+      window.dhcpSubnets.del = [];
+      window.dhcpSubnets.add = {};
+      window.dhcpSubnets.tmp[dhcpSubnetTmp.id] = deepcopy(dhcpSubnetTmp);
+
+      data.forEach(function (subnet) {
+        if (!subnet) return;
+
+        window.dhcpSubnets.upd[subnet.id] = {
+          id: subnet.id,
+          name: subnet.name,
+          network: subnet.network,
+          netmask: subnet.netmask,
+          role: subnet.role,
+          oif: deepcopy(subnet.oif),
+          type: subnet.type,
+          operation: subnet.operation,
+          description: subnet.description,
+          params: deepcopy(subnet.params),
+          server0: subnet.server0,
+          leasesO82: { upd: {}, del: [], add: {}, idle: {} },
+          leasesMAC: { upd: {}, del: [], add: {}, idle: {} },
+          leasesDYN: { active: {}, idle: {} },
+        };
+
+        window.portMap[subnet.id] = {};
+
+        subnet.leasesO82.active.forEach(function (lease) {
+          if (!lease) return;
+
+          window.portMap[subnet.id][lease.port] = lease.name;
+
+          window.dhcpSubnets.upd[subnet.id].leasesO82.upd[lease.id] = {
+            id: lease.id,
+            port: lease.port,
+            remoteid: lease.remoteid,
+            ip: lease.ip,
+            cfgname: lease.cfgname,
+            state: lease.state,
+            expiry: lease.expiry,
+          };
+        });
+
+        subnet.leasesO82.idle.forEach(function (lease) {
+          if (!lease) return;
+
+          window.portMap[subnet.id][lease.port] = lease.name;
+
+          window.dhcpSubnets.upd[subnet.id].leasesO82.idle[lease.id] = {
+            id: lease.id,
+            port: lease.port,
+            remoteid: lease.remoteid,
+            idle: true,
+            deleted: false,
+          };
+        });
+
+        subnet.leasesMAC.active.forEach(function (lease) {
+          if (!lease) return;
+
+          window.dhcpSubnets.upd[subnet.id].leasesMAC.upd[lease.id] = {
+            id: lease.id,
+            remoteid: lease.remoteid,
+            ip: lease.ip,
+            cfgname: lease.cfgname,
+            state: lease.state,
+            expiry: lease.expiry,
+          };
+        });
+
+        subnet.leasesDYN.active.forEach(function (lease) {
+          if (!lease) return;
+
+          window.dhcpSubnets.upd[subnet.id].leasesDYN.active[lease.id] = {
+            id: lease.id,
+            remoteid: lease.remoteid,
+            ip: lease.ip,
+            state: lease.state,
+            expiry: lease.expiry,
+          };
+        });
+
+        subnet.leasesDYN.idle.forEach(function (lease) {
+          if (!lease) return;
+
+          window.dhcpSubnets.upd[subnet.id].leasesDYN.idle[lease.id] = {
+            id: lease.id,
+            remoteid: lease.remoteid,
+            ip: lease.ip,
+            state: lease.state,
+            expiry: lease.expiry,
+          };
+        });
+      });
+
+      renderDhcpSubnetTable();
+    }
+
+    function jsonGetSubnets() {
+      $.post(
+        "/api",
+        '{"service":"dhcp","access":"get","command":"subnets"}',
+        jsonProcessSubnets
+      );
+    }
+
+    function reloadDhcp() {
+      // start the update chain
+      jsonGetSubnets();
+    }
+
+    function subnetCopy(subnet) {
+      var sobj = {
+        id: subnet.id,
+        name: subnet.name,
+        network: subnet.network,
+        netmask: subnet.netmask,
+        type: subnet.type,
+        operation: subnet.operation,
+        description: subnet.description,
+        params: deepcopy(subnet.params),
+        server0: subnet.server0,
+        leasesO82: { upd: [], del: subnet.leasesO82.del.slice(), add: [] },
+        leasesMAC: { upd: [], del: subnet.leasesMAC.del.slice(), add: [] },
+      };
+
+      for (var lid in subnet.leasesO82.upd) {
+        var lease = subnet.leasesO82.upd[lid];
+        var lobj = {
+          id: lease.id,
+          port: lease.port,
+          remoteid: lease.remoteid,
+          ip: lease.ip,
+          cfgname: lease.cfgname,
+        };
+
+        sobj.leasesO82.upd.push(deepcopy(lobj));
+      }
+
+      for (var lid in subnet.leasesO82.add) {
+        var lease = subnet.leasesO82.add[lid];
+        var lobj = {
+          id: lease.id,
+          port: lease.port,
+          remoteid: lease.remoteid,
+          ip: lease.ip,
+          cfgname: lease.cfgname,
+        };
+
+        sobj.leasesO82.add.push(deepcopy(lobj));
+      }
+
+      for (var lid in subnet.leasesMAC.upd) {
+        var lease = subnet.leasesMAC.upd[lid];
+        var lobj = {
+          id: lease.id,
+          remoteid: lease.remoteid,
+          ip: lease.ip,
+          cfgname: lease.cfgname,
+        };
+
+        sobj.leasesMAC.upd.push(deepcopy(lobj));
+      }
+
+      for (var lid in subnet.leasesMAC.add) {
+        var lease = subnet.leasesMAC.add[lid];
+        var lobj = {
+          id: lease.id,
+          remoteid: lease.remoteid,
+          ip: lease.ip,
+          cfgname: lease.cfgname,
+        };
+
+        sobj.leasesMAC.add.push(deepcopy(lobj));
+      }
+
+      return sobj;
+    }
+
+    function setSubnets() {
+      var sid;
+      var subnetsCmd = {
+        service: "dhcp",
+        access: "set",
+        command: "subnets",
+        parameters: { upd: [], del: window.dhcpSubnets.del, add: [] },
+      };
+
+      for (sid in window.dhcpSubnets.upd) {
+        var subnet = window.dhcpSubnets.upd[sid];
+        var sobj = subnetCopy(subnet);
+
+        subnetsCmd.parameters.upd.push(deepcopy(sobj));
+      }
+
+      for (sid in window.dhcpSubnets.add) {
+        var subnet = window.dhcpSubnets.add[sid];
+        var sobj = subnetCopy(subnet);
+
+        subnetsCmd.parameters.add.push(deepcopy(sobj));
+      }
+
+      $.post("/api", JSON.stringify(subnetsCmd), jsonProcessSubnets);
+    }
+  </script>
+  <body
+    style="
+      height: 100%;
+      width: 100%;
+      float: left;
+      margin: 0px;
+      font-family: Verdana;
+      overflow: hidden;
+      position: absolute;
+    "
+  >
+    <div id="content" style="height: 100%; overflow: auto; width: 100%">
+      <h2 style="margin-left: 10px">Settings &gt; DHCP</h2>
+      <div class="box2" style="width: calc(100% - 20px)">
+        <a class="headline">DHCP Subnet Configuration</a>
+        <div class="box_content">
+          <table
+            style="
+              font-size: 80%;
+              width: 1515;
+              border-collapse: separate;
+              border-spacing: 2px 2px;
+            "
+            id="tbl_subnets"
+          >
+            <thead>
+              <tr class="table_row_head">
+                <td align="center">Subnet Settings</td>
+                <td align="center">DHCP Server Settings</td>
+                <td align="center">Lease Settings</td>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+          <input
+            type="button"
+            id="btn_subnet_set"
+            class="button"
+            value="Set DHCP Subnet Configuration"
+            onClick="setSubnets()"
+          />
+        </div>
+      </div>
+    </div>
+  </body>
+</html>

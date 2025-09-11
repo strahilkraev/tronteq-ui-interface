@@ -1,0 +1,213 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
+<meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1" />
+<html>
+  <head>
+    <link rel="stylesheet" type="text/css" href="basic_layout.css" />
+    <style type="text/css"></style>
+  </head>
+  <script type="text/javascript" src="basic_jscript.js"></script>
+  <script type="text/javascript" src="js/jquery-3.7.1.min.js"></script>
+  <script type="text/javascript">
+    $(document).ajaxError(function (event, request, settings) {
+      var obj = JSON.parse(request.responseText);
+      if (obj.msg) ffunc(obj.msg);
+      if (obj.error === "invalid rights")
+        window.top.location.href = "login.html";
+    });
+
+    function getAllRoutes() {
+      $.post(
+        "/api",
+        '{"service":"routing","access":"get","command":"get routes"}',
+        function (data) {
+          $("#all_routes > tbody .table_row_content").remove();
+          var tab = $("#all_routes")[0];
+          for (var i = 0; i < data.length; i++) {
+            var tr = tab.insertRow(-1);
+            tr.className = "table_row_content";
+            var t0 = tr.insertCell(0);
+            var t1 = tr.insertCell(1);
+            var t2 = tr.insertCell(2);
+            var t3 = tr.insertCell(3);
+            var t4 = tr.insertCell(4);
+
+            t0.textContent = data[i]["network"];
+            t1.textContent = data[i]["subnetmask"];
+            t2.textContent = data[i]["gateway"];
+            t3.textContent = data[i]["metric"];
+            if (data[i]["bridge"]["vid"] == 0) t4.textContent = "-";
+            else t4.textContent = data[i]["bridge"]["vid"];
+          }
+        }
+      );
+    }
+
+    function getStaticRoutes() {
+      getAllRoutes();
+      $.post(
+        "/api",
+        '{"service":"routing","access":"get","command":"get static routes"}',
+        function (data) {
+          $("#static_routes > tbody .table_row_content").remove();
+          var tab = $("#static_routes")[0];
+          for (var i = 0; i < data.length; i++) {
+            var tr = tab.insertRow(-1);
+            tr.className = "table_row_content";
+            var t0 = tr.insertCell(0);
+            var t1 = tr.insertCell(1);
+            var t2 = tr.insertCell(2);
+            var t3 = tr.insertCell(3);
+
+            var button = document.createElement("input");
+            button.value = "remove";
+            button.type = "button";
+            button.id =
+              "remove_" +
+              data[i]["network"] +
+              "_" +
+              data[i]["subnetmask"] +
+              "_" +
+              data[i]["gateway"];
+            button.style = "width: 97%;";
+            button.onclick = RemoveRoute;
+
+            t0.textContent = data[i]["network"];
+            t1.textContent = data[i]["subnetmask"];
+            t2.textContent = data[i]["gateway"];
+            t3.appendChild(button);
+            //t3.textContent  = data[i]["bridge"]["vid"];
+          }
+        }
+      );
+    }
+
+    function RemoveRoute(data) {
+      var id = data.target.id;
+      var val = id.split("_");
+
+      $.post(
+        "/api",
+        JSON.stringify({
+          service: "routing",
+          access: "set",
+          command: "remove static routes",
+          parameters: [
+            {
+              network: val[1],
+              subnetmask: val[2],
+              gateway: val[3],
+            },
+          ],
+        }),
+        function (data) {
+          getStaticRoutes();
+        }
+      );
+    }
+
+    function addRoute() {
+      $.post(
+        "/api",
+        JSON.stringify({
+          service: "routing",
+          access: "set",
+          command: "add static routes",
+          parameters: [
+            {
+              network: $("#add_net").val(),
+              subnetmask: $("#add_sub").val(),
+              gateway: $("#add_next").val(),
+            },
+          ],
+        }),
+        function (data) {
+          getStaticRoutes();
+        }
+      );
+    }
+
+    window.onload = function () {
+      getStaticRoutes();
+
+      $("#updateAll").click(function () {
+        getAllRoutes();
+      });
+
+      $("#addStaticRoute").click(function () {
+        addRoute();
+      });
+    };
+  </script>
+  <body
+    style="
+      height: 100%;
+      width: 100%;
+      float: left;
+      margin: 0px;
+      font-family: Verdana;
+      overflow: hidden;
+      position: absolute;
+    "
+  >
+    <div id="content" style="height: 100%; overflow: auto; width: 100%">
+      <h2 style="margin-left: 10px">Settings &gt; Routing</h2>
+      <div class="box2" style="width: calc(50% - 20px)">
+        <a class="headline">Static Routes</a>
+        <table
+          class="table"
+          id="static_routes"
+          style="font-size: 80%; width: 100%; text-align: center"
+        >
+          <tr class="table_row_head">
+            <td class="table_cell">Network</td>
+            <td>Netmask</td>
+            <td>Gateway</td>
+            <td>Action</td>
+          </tr>
+        </table>
+        <br />
+        <a class="headline">Add Static Route</a>
+        <table
+          class="table"
+          style="font-size: 80%; width: 100%; text-align: center"
+        >
+          <tr class="table_row_head">
+            <td class="table_cell">Network</td>
+            <td>Netmask</td>
+            <td>Gateway</td>
+          </tr>
+          <tr class="table_row_content">
+            <td>
+              <input id="add_net" style="width: 97%" />
+            </td>
+            <td>
+              <input id="add_sub" style="width: 97%" />
+            </td>
+            <td>
+              <input id="add_next" style="width: 97%" />
+            </td>
+          </tr>
+        </table>
+        <input id="addStaticRoute" value="Add" type="button" />
+      </div>
+
+      <div class="box2" style="width: calc(50% - 20px)">
+        <a class="headline">All Active Routes</a>
+        <table
+          class="table"
+          style="font-size: 80%; width: 100%; text-align: center"
+          id="all_routes"
+        >
+          <tr class="table_row_head">
+            <td class="table_cell">Network</td>
+            <td>Netmask</td>
+            <td>Gateway</td>
+            <td>Metric</td>
+            <td>VLAN ID</td>
+          </tr>
+        </table>
+        <input id="updateAll" value="Update" type="button" />
+      </div>
+    </div>
+  </body>
+</html>

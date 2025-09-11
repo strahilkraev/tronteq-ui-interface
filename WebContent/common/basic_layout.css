@@ -1,0 +1,367 @@
+/*
+This file containes css-definitions that are used throughout the whole website.
+*/
+
+.wrapper {
+  background-color: #ffffff;
+  width: 95%;
+  height: 95%;
+  border-width: 1px;
+  border-style: solid;
+  border-color: grey;
+  position: absolute;
+  left: 2.5%;
+  top: 2.5%;
+  min-height: 820px;
+  min-width: 1350px;
+}
+
+td {
+  empty-cells: show;
+}
+
+table {
+  empty-cells: show;
+}
+
+.subpoint {
+  font-size: 80%;
+  cursor: pointer;
+}
+
+.selsubpoint {
+  font-size: 80%;
+  cursor: pointer;
+  color: green;
+  font-weight: bold;
+}
+
+.green_cir {
+  border-radius: 50%;
+  -moz-border-radius: 50%;
+  -webkit-border-radius: 50%;
+  background-color: #00b050;
+}
+
+.red_cir {
+  border-radius: 50%;
+  -moz-border-radius: 50%;
+  -webkit-border-radius: 50%;
+  background-color: #ff0000;
+}
+
+.grey_cir {
+  border-radius: 50%;
+  -moz-border-radius: 50%;
+  -webkit-border-radius: 50%;
+  background-color: #787878;
+}
+
+.centerbox {
+  background-color: #f3f3f3;
+  position: absolute;
+  left: calc(50% - 207px);
+  top: calc(50% - 110px);
+  width: 430px;
+  height: 220px;
+  border-width: 1px;
+  border-style: solid;
+  border-color: grey;
+}
+
+.vertcenter {
+  position: relative;
+  left: 10%;
+}
+
+.inner {
+  position: relative;
+  left: 10%;
+}
+
+.element_top {
+  background-color: #74b130;
+  height: 90px;
+  width: 100%;
+  position: absolute;
+  z-index: 3;
+}
+
+img {
+  max-width: calc(100% - 10px);
+  max-height: calc(100% - 10px);
+  image-rendering: -webkit-optimize-contrast;
+}
+
+.element_top_pic {
+  width: 300px;
+  height: 115%;
+  right: 5%;
+  object-fit: contain;
+  float: right;
+  margin-right: 20px;
+  margin-top: 8px;
+}
+
+h2 {
+  display: block;
+  font-size: 1.5em;
+  margin-top: 0.83em;
+  margin-bottom: 0px;
+  margin-left: 0;
+  margin-right: 0;
+  font-weight: bold;
+}
+
+h3 {
+  display: block;
+  font-size: 1.17em;
+  margin-top: 0.5em;
+  margin-bottom: 1em;
+  margin-left: 0;
+  margin-right: 0;
+  font-weight: bold;
+}
+
+.dashboard_site {
+  height: 100%;
+  width: 14%;
+  background-color: #f3f3f3;
+}
+
+.dashboard_site_content {
+  position: relative;
+  /*top: 248px;**/
+  top: 188px;
+  left: 15px;
+  z-index: 2;
+  height: calc(100% - 188px);
+  width: calc(100% - 15px);
+  overflow: auto;
+}
+
+.system_staus_bar {
+  left: -1px;
+  /*top : 150px;*/
+  top: 90px;
+  height: 88px;
+  width: 100%;
+  position: absolute;
+  z-index: 4;
+  background-color: #ffffff;
+  border-width: 1px;
+  border-style: solid;
+  border-color: black;
+  overflow: hidden;
+}
+
+.main_content {
+  position: absolute;
+  /*top: 240px;*/
+  top: 180px;
+  left: 14%;
+  right: 0%;
+  bottom: 0%;
+}
+
+/*.box
+{
+	float: left;
+	border-width: 1px;
+	border-style: solid;
+	border-color: gray;
+	margin: 10px 10px 10px 10px;
+}*/
+.box2 {
+  float: left;
+  border-width: 1px;
+  border-color: gray;
+  margin: 10px 10px 10px 10px;
+}
+
+.box_content {
+}
+
+/*
+.element_body
+{
+	margin: 150px 0px 0px 10px;
+	padding: 7px 5px 7px 5px;
+	width: 1190px;
+	height: 760px;
+	border-width: 1px;
+	border-style: solid;
+	border-color: grey;
+}
+.element_body_column
+{
+	float: left;
+	width: 595px;
+}
+.element_body_lastline
+{
+	position: absolute;
+	top: 935px;
+	left: 1130px;
+	height: 10px;
+	font-size: x-small;
+}
+
+.status_bar_table_tab
+{
+	width: 10px;
+}
+#logo_top
+{
+	float: right;
+	width: 300px;
+	margin-top: 20px;
+	margin-bottom: auto;
+}*/
+
+.table_row_head {
+  background-color: #74b130;
+  line-height: 150%;
+}
+
+.table_row_content {
+  background-color: #ebffd5;
+}
+
+.table_row_edit {
+  background-color: #ebffd5;
+}
+
+.headline {
+  line-height: 200%;
+  font-weight: bold;
+}
+
+/*.ntp_active_server
+{
+	border-color: #74B130;
+	border-width: 2px;
+	border-style: solid;
+}*/
+
+.overlay_window {
+  position: absolute;
+  z-index: 5;
+  border-width: 5px;
+  border-style: solid;
+  border-color: #74b130;
+  background-color: #ebffd5;
+}
+
+.overlay_window_background {
+  background-color: #ebffd5;
+}
+
+/*.overlay_alt_window
+{
+	z-index: 5;
+	border-width: 5px;
+	border-style: solid;
+	border-color: #74B130;
+	padding: 10px; 
+	margin: 15px;
+}*/
+
+.overlay_message_error {
+  position: absolute;
+  background: red;
+  height: 50px;
+  width: calc(100% - 4px);
+  top: 0px;
+  left: 0px;
+  z-index: 10;
+  border-width: 2px;
+  border-style: solid;
+}
+
+.overlay_message_ok {
+  position: absolute;
+  background: #74b130;
+  height: 50px;
+  width: calc(100% - 4px);
+  top: 0px;
+  left: 0px;
+  z-index: 10;
+  border-width: 2px;
+  border-style: solid;
+}
+
+.port_down {
+  background-color: #a2a2a2;
+}
+
+.crit_row {
+  background-color: #f4a491;
+}
+
+.error_row {
+  background-color: #fbd76b;
+}
+
+.warn_row {
+  background-color: #fcff9f;
+}
+
+.notice_row {
+  background-color: #ebffd5;
+}
+
+.col_spacer {
+  /*	background-color: #D1D1D1;*/
+}
+
+.col_spacerdashboard {
+  background-color: #ffffff;
+}
+
+/* Tooltip container */
+.tooltip {
+  position: relative;
+  border-bottom: 1px dotted black;
+  /* If you want dots under the hoverable text */
+}
+
+/* Tooltip text */
+.tooltip .tooltiptext {
+  visibility: hidden;
+  width: 120px;
+  background-color: #555;
+  color: #fff;
+  text-align: center;
+  padding: 5px 0;
+  border-radius: 6px;
+
+  /* Position the tooltip text */
+  position: absolute;
+  z-index: 1;
+  bottom: 125%;
+  left: 50%;
+  margin-left: -60px;
+
+  /* Fade in tooltip */
+  opacity: 0;
+  transition: opacity 0.3s;
+}
+
+/* Tooltip arrow */
+.tooltip .tooltiptext::after {
+  content: "";
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  margin-left: -5px;
+  border-width: 5px;
+  border-style: solid;
+  border-color: #555 transparent transparent transparent;
+}
+
+/* Show the tooltip text when you mouse over the tooltip container */
+.tooltip:hover .tooltiptext {
+  visibility: visible;
+  opacity: 1;
+}

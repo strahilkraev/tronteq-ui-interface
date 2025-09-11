@@ -1,0 +1,320 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
+<meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1" />
+<html style="height: 100%">
+  <head>
+    <link rel="stylesheet" type="text/css" href="basic_layout.css" />
+    <style type="text/css"></style>
+  </head>
+  <script type="text/javascript" src="basic_jscript.js"></script>
+  <script type="text/javascript" src="js/jquery-3.7.1.min.js"></script>
+  <script type="text/javascript">
+    $(document).ajaxError(function (event, request, settings) {
+      var obj = JSON.parse(request.responseText);
+      if (obj.msg) ffunc(obj.msg);
+      if (obj.error === "invalid rights")
+        window.top.location.href = "login.html";
+    });
+
+    $(document).ready(function () {
+      setupPortInfo(setupDone);
+    });
+
+    function setupDone() {
+      for (var i = 0; i < Order.length; i++) {
+        addInterfaceOpts(Order[i] + 1);
+        addInterfaceState(Order[i] + 1);
+      }
+
+      $("#getInterfaces").click(function () {
+        getInterfacesFn();
+      });
+
+      $("#SetBsp").click(function () {
+        $.post(
+          "/api",
+          JSON.stringify({
+            service: "interface",
+            access: "set",
+            command: "set bsp state",
+            parameters: { bsp: $("#bsp").prop("checked") },
+          }),
+          function (data, status) {
+            createOK(data);
+          }
+        );
+      });
+
+      $.post(
+        "/api",
+        '{"service":"interface","access":"get","command":"get bsp state"}',
+        function (data, status) {
+          $("#bsp").prop("checked", data.bsp);
+        }
+      );
+
+      $("#set_trigger").click(function () {
+        var parms = [];
+        for (var i = 1; i < NumberNetworkPorts + 1; i++) {
+          parms.push({
+            up: $("#up" + i).val() === "true",
+            name: $("#ifname" + i).val(),
+            interface: i,
+            autoneg: $("#autoneg" + i).val() === "true",
+            speed: parseInt($("#speed" + i).val(), 10),
+            duplex: $("#duplex" + i).val() === "true",
+            mdi: $("#mdi" + i).val(),
+            diagnostics: $("#diga" + i).prop("checked"),
+          });
+        }
+
+        $.post(
+          "/api",
+          JSON.stringify({
+            service: "interface",
+            access: "set",
+            command: "set interfaces",
+            parameters: parms,
+          }),
+          function (data, status) {
+            createOK(data);
+            getInterfacesFn();
+          }
+        );
+      });
+
+      getInterfacesFn();
+
+      getInterfacesStateFn();
+
+      setInterval(function () {
+        getInterfacesStateFn();
+      }, 1000);
+
+      //set username
+      var cookies = document.cookie.split("; ");
+      var found = false;
+      for (var i in cookies) {
+        if (cookies[i].split("=")[0].match("user")) {
+          $("#username").text(cookies[i].split("=")[1]);
+          found = true;
+        }
+      }
+
+      if (!found)
+        window.top.location.href =
+          window.top.location.protocol +
+          "//" +
+          window.top.location.host +
+          "/login.html";
+    }
+
+    function addInterfaceState(i) {
+      $("#interface_status_table > tbody:last-child").append(
+        '<tr class="table_row_content"><td>' +
+          SwitchPortNames[i - 1] +
+          "</td>" +
+          '<td id="StatusLink' +
+          i +
+          '"></td>' +
+          '<td id="StatusSpeed' +
+          i +
+          '"></td>' +
+          '<td id="StatusDuplex' +
+          i +
+          '"></td>' +
+          '<td id="MAC' +
+          i +
+          '"></td>' +
+          "</tr>"
+      );
+    }
+
+    function getInterfacesStateFn() {
+      $.post(
+        "/api",
+        '{"service":"interface","access":"get","command":"get interfaces state"}',
+        function (data, status) {
+          data.forEach(function (i) {
+            if (i.state == true) {
+              $("#StatusLink" + i["interface"]).text("up");
+              if (i.duplex) $("#StatusDuplex" + i["interface"]).text("full");
+              else $("#StatusDuplex" + i["interface"]).text("half");
+              $("#StatusSpeed" + i["interface"]).text(i.speed);
+            } else {
+              $("#StatusLink" + i["interface"]).text("down");
+              $("#StatusDuplex" + i["interface"]).text("-");
+              $("#StatusSpeed" + i["interface"]).text("-");
+            }
+            $("#MAC" + i["interface"]).text(i.mac);
+          });
+        }
+      );
+    }
+
+    function chnageAutoNeg(i) {
+      if ($("#autoneg" + i).val() == "true") {
+        $("#duplex" + i).attr("disabled", true);
+        $("#speed" + i).attr("disabled", true);
+      } else {
+        if ($("#speed" + i).val() == 1000) {
+          $("#duplex" + i).val("true");
+          $("#duplex" + i).attr("disabled", true);
+        } else {
+          $("#duplex" + i).attr("disabled", false);
+        }
+        $("#speed" + i).attr("disabled", false);
+      }
+    }
+
+    function addInterfaceOpts(i) {
+      $("#interface_setting_table > tbody:last-child").append(
+        '<tr class="table_row_content"><td>' +
+          SwitchPortNames[i - 1] +
+          "</td>" +
+          '<td><input id="ifname' +
+          i +
+          '" type="text" style="width: 98%"></td>' +
+          '<td><select id="up' +
+          i +
+          '" style="width: 98%"><option value=true>enabled</option><option value=false>disabled</option></select></td>' +
+          '<td><select id="autoneg' +
+          i +
+          '" style="width: 98%" onchange="chnageAutoNeg(' +
+          i +
+          ');" ><option value=true>enabled</option><option value=false>disabled</option></select></td>' +
+          '<td><select id="speed' +
+          i +
+          '" style="width: 98%"><option value=10>10</option><option value=100>100</option></select></td>' +
+          '<td><select id="duplex' +
+          i +
+          '" style="width: 98%"><option value=true>full</option><option value=false>half</option></select></td>' +
+          '<td><select id="mdi' +
+          i +
+          '" style="width: 98%"><option value="auto">auto</option><option value="mdi">MDI</option><option value="mdix">MDI-X</option></select></td>' +
+          '<td><input type="checkbox" id="diga' +
+          i +
+          '"></td>' +
+          "</tr>"
+      );
+    }
+
+    function getInterfacesFn() {
+      $.post(
+        "/api",
+        '{"service":"interface","access":"get","command":"get interfaces"}',
+        function (data, status) {
+          data.forEach(function (i) {
+            $("#ifname" + i["interface"].toString()).val(i.name);
+            $("#up" + i["interface"].toString()).val(i.up.toString());
+            $("#autoneg" + i["interface"].toString()).val(i.autoneg.toString());
+            if (i.speed > 100) i.speed = 100;
+            $("#speed" + i["interface"].toString()).val(i.speed);
+            $("#duplex" + i["interface"].toString()).val(i.duplex.toString());
+            $("#mdi" + i["interface"].toString()).val(i.mdi);
+            chnageAutoNeg(i["interface"].toString());
+
+            if (i.hasOwnProperty("diagnostics")) {
+              $("#diga" + i["interface"].toString()).prop(
+                "checked",
+                i.diagnostics
+              );
+            }
+          });
+        }
+      );
+    }
+  </script>
+  <body
+    style="
+      height: 100%;
+      width: 100%;
+      float: left;
+      margin: 0px;
+      font-family: Verdana;
+      overflow: hidden;
+    "
+  >
+    <div id="content" style="height: 100%; overflow: auto; width: 100%">
+      <div style="width: 100%; float: left">
+        <h2 style="margin-left: 10px">Settings &gt; Ports</h2>
+        <div class="box2" style="height: 45%; width: calc(75% - 20px)">
+          <a class="headline">Port Status</a>
+          <div class="box_content">
+            <table
+              style="
+                font-size: 80%;
+                margin: auto;
+                width: 100%;
+                text-align: center;
+              "
+              id="interface_status_table"
+            >
+              <tr class="table_row_head">
+                <td style="width: 10%">Port</td>
+                <td style="width: 20%">Link</td>
+                <td style="width: 20%">Speed</td>
+                <td style="width: 20%">Duplex</td>
+                <td style="width: 20%">MAC</td>
+              </tr>
+            </table>
+          </div>
+        </div>
+        <div class="box2" style="width: calc(25% - 20px); height: 45%">
+          <a class="headline">General Configuration</a>
+          <div class="box_content">
+            <table
+              style="
+                font-size: 80%;
+                margin: auto;
+                width: 100%;
+                text-align: center;
+              "
+            >
+              <tr class="table_row_head">
+                <td style="width: 60%">Option</td>
+                <td style="width: 40%">Enabled</td>
+              </tr>
+              <tr class="table_row_content">
+                <td><label for="bsp">Broadcast Storm Protection</label></td>
+                <td align="center"><input id="bsp" type="checkbox" /></td>
+              </tr>
+            </table>
+          </div>
+          <input type="button" id="SetBsp" value="Set General Configuration" />
+        </div>
+
+        <div class="box2" style="width: calc(100% - 20px); height: 45%">
+          <a class="headline">Port Configuration</a>
+          <div class="box_content">
+            <table
+              style="
+                font-size: 80%;
+                margin: auto;
+                width: 100%;
+                text-align: center;
+              "
+              id="interface_setting_table"
+            >
+              <tr class="table_row_head">
+                <td>Port</td>
+                <td>Name</td>
+                <td>Link</td>
+                <td>Auto Negotiation</td>
+                <td>Speed</td>
+                <td>Duplex</td>
+                <td>MDI-X</td>
+                <td>ITxPT xstatus</td>
+              </tr>
+            </table>
+            <input
+              type="button"
+              id="set_trigger"
+              value="Set Port Configuration"
+              class="btn"
+            />
+          </div>
+        </div>
+      </div>
+    </div>
+  </body>
+</html>

@@ -1,0 +1,233 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
+<meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1" />
+<html>
+  <head>
+    <link rel="stylesheet" type="text/css" href="basic_layout.css" />
+    <style type="text/css"></style>
+  </head>
+  <script type="text/javascript" src="basic_jscript.js"></script>
+  <script type="text/javascript" src="js/jquery-3.7.1.min.js"></script>
+  <script type="text/javascript">
+    var user;
+
+    $(document).ajaxError(function (event, request, settings) {
+      var obj = JSON.parse(request.responseText);
+      if (obj.msg) ffunc(obj.msg);
+      if (obj.error === "invalid rights")
+        window.top.location.href = "login.html";
+    });
+
+    function addUser() {
+      if ($("#addPassword").val() == $("#addPasswordRepeat").val()) {
+        parms = {};
+        parms.user = $("#addUsername").val();
+        parms.password = $("#addPassword").val();
+        parms.level = 0;
+        $.post(
+          "/api",
+          JSON.stringify({
+            service: "user",
+            access: "set",
+            command: "add user",
+            parameters: parms,
+          }),
+          function (data) {
+            createOK(data);
+            reloadUsers();
+          }
+        );
+      } else {
+        ffunc("password didn't match");
+      }
+    }
+
+    function reloadUsers() {
+      $.post(
+        "/api",
+        '{"service":"user","access":"get","command":"get users"}',
+        function (data, status) {
+          var user = $("#username").val();
+          $("#username > option").remove();
+          for (var i in data.users) {
+            var opt = document.createElement("option");
+            opt.value = data.users[i].user;
+            opt.text = data.users[i].user;
+            $("#username")[0].appendChild(opt);
+          }
+          if (user) {
+            $("#username").val(user);
+          }
+          if ($("#username")[0].selectedIndex == -1)
+            $("#username")[0].selectedIndex = 0;
+        }
+      );
+    }
+    function removeUser() {
+      parms = {};
+      parms.user = $("#username").val();
+
+      $.post(
+        "/api",
+        JSON.stringify({
+          service: "user",
+          access: "set",
+          command: "remove user",
+          parameters: parms,
+        }),
+        function (data) {
+          createOK(data);
+          reloadUsers();
+        }
+      );
+    }
+
+    function editUser() {
+      if ($("#editPW1").val() == $("#editPW2").val()) {
+        parms = {};
+        parms.user = $("#username").val();
+        parms.password = $("#editPW1").val();
+        $.post(
+          "/api",
+          JSON.stringify({
+            service: "user",
+            access: "set",
+            command: "change user password",
+            parameters: parms,
+          }),
+          function (data) {
+            createOK(data);
+            reloadUsers();
+          }
+        );
+      } else {
+        ffunc("password didn't match");
+      }
+    }
+
+    window.onload = function () {
+      reloadUsers();
+
+      $("#add_user_button").click(addUser);
+      $("#remove_user_button").click(removeUser);
+      $("#edit_user_button").click(editUser);
+    };
+  </script>
+  <body
+    style="
+      height: 100%;
+      width: 100%;
+      float: left;
+      margin: 0px;
+      font-family: Verdana;
+    "
+  >
+    <h2 style="margin-left: 10px">Maintenance &gt; Users</h2>
+
+    <div class="box2" style="width: calc(25% - 20px)">
+      <a class="headline">Add User</a>
+      <div class="box_content">
+        <table style="font-size: 80%; width: 100%">
+          <tr class="table_row_head">
+            <td>Setting</td>
+            <td>Status</td>
+          </tr>
+          <tr class="table_row_content">
+            <td>Username</td>
+            <td>
+              <input
+                type="text"
+                class="textbox"
+                id="addUsername"
+                style="width: 97%"
+              />
+            </td>
+          </tr>
+          <tr class="table_row_content">
+            <td>New Password</td>
+            <td>
+              <input
+                type="password"
+                class="textbox"
+                id="addPassword"
+                onchange="color_textbox(event,1,255)"
+                style="width: 97%"
+              />
+            </td>
+          </tr>
+          <tr class="table_row_content">
+            <td>New Password (Repeat)</td>
+            <td>
+              <input
+                type="password"
+                class="textbox"
+                id="addPasswordRepeat"
+                onchange="color_textbox(event,1,255)"
+                style="width: 97%"
+              />
+            </td>
+          </tr>
+        </table>
+        <input
+          type="button"
+          class="button"
+          id="add_user_button"
+          value="Add User"
+        />
+      </div>
+    </div>
+
+    <div class="box2" style="width: calc(25% - 20px)">
+      <a class="headline">Edit User</a>
+      <div class="box_content">
+        <table style="font-size: 80%; width: 100%">
+          <tr class="table_row_head">
+            <td>Setting</td>
+            <td>Status</td>
+          </tr>
+          <tr class="table_row_content">
+            <td>Username</td>
+            <td>
+              <select id="username" style="width: 100%"></select>
+            </td>
+          </tr>
+          <tr class="table_row_content">
+            <td>New Password</td>
+            <td>
+              <input
+                type="password"
+                class="textbox"
+                id="editPW1"
+                onchange="color_textbox(event,1,255)"
+                style="width: 97%"
+              />
+            </td>
+          </tr>
+          <tr class="table_row_content">
+            <td>New Password (Repeat)</td>
+            <td>
+              <input
+                type="password"
+                class="textbox"
+                id="editPW2"
+                onchange="color_textbox(event,1,255)"
+                style="width: 97%"
+              />
+            </td>
+          </tr>
+        </table>
+        <input
+          type="button"
+          class="button"
+          id="edit_user_button"
+          value="Change Password"
+        />
+        <input
+          type="button"
+          class="button"
+          id="remove_user_button"
+          value="Remove User"
+        />
+      </div>
+    </div>
+  </body>
+</html>

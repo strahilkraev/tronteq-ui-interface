@@ -1,0 +1,790 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
+<meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1" />
+<html>
+  <head>
+    <link rel="stylesheet" type="text/css" href="basic_layout.css" />
+    <style type="text/css"></style>
+  </head>
+  <script type="text/javascript" src="basic_jscript.js"></script>
+  <script type="text/javascript" src="js/jquery-3.7.1.min.js"></script>
+  <script type="text/javascript">
+    $(document).ajaxError(function (event, request, settings) {
+      var obj = JSON.parse(request.responseText);
+      if (obj.msg) ffunc(obj.msg);
+      if (obj.error === "invalid rights")
+        window.top.location.href = "login.html";
+    });
+
+    $(document).ready(function () {
+      $(document).ajaxError(function (data, a1) {
+        if (a1.responseJSON != undefined)
+          $("#infoline").text(a1.responseJSON.msg);
+      });
+
+      reloadInfo();
+      reloadDnsClient();
+      reloadFiles();
+      getUsbApiState();
+
+      $.post(
+        "/api",
+        '{"service":"system","access":"get","command":"get id"}',
+        function (data, status) {
+          $("#SerNum").text(data.sn);
+          $("#SwVersion").text(data["sw version"]);
+          $("#MgmtMac").text(data["mgmt mac"]);
+        }
+      );
+
+      $("#reloadInfo").click(function () {
+        reloadInfo();
+      });
+
+      $("#setInfo").click(function () {
+        $.post(
+          "/api",
+          JSON.stringify({
+            service: "system",
+            access: "set",
+            command: "set info",
+            parameters: {
+              description: $("#Description").val(),
+              location: $("#Location").val(),
+              contact: $("#Contact").val(),
+            },
+          }),
+          function (data, status) {
+            createOK(data);
+            reloadInfo();
+          }
+        );
+      });
+
+      $("#setDnsClient").click(function () {
+        $.post(
+          "/api",
+          JSON.stringify({
+            service: "system",
+            access: "set",
+            command: "dnsclient",
+            parameters: {
+              enabled: $("#ckb_dnsclient_enabled")[0].checked,
+              server_primary: $("#txt_dnsclient_server_primary").val(),
+              server_secondary: $("#txt_dnsclient_server_secondary").val(),
+              domain_name: $("#txt_dnsclient_domain_name").val(),
+              dns_query_timeout: parseInt(
+                $("#sel_dnsclient_query_timeout").val()
+              ),
+              dns_query_retries: parseInt(
+                $("#sel_dnsclient_query_retries").val()
+              ),
+              dns_over_tcp: $("#ckb_dnsclient_dns_over_tcp")[0].checked,
+            },
+          }),
+          function (data, status) {
+            createOK(data);
+
+            // keep dns client infos updated
+            updateDnsClient(data);
+          }
+        );
+      });
+
+      $("#setFilesSettings").click(function () {
+        $.post(
+          "/api",
+          JSON.stringify({
+            service: "system",
+            access: "set",
+            command: "files",
+            parameters: { webexport: $("#ckb_files_web_export")[0].checked },
+          }),
+          function (data, status) {
+            createOK(data);
+
+            // keep files updated
+            updateFiles(data, status);
+          }
+        );
+      });
+
+      $("#setSystemSettings").click(function () {
+        $.post(
+          "/api",
+          JSON.stringify({
+            service: "usbapi",
+            access: "set",
+            command: "state",
+            parameters: {
+              state: $("#ckb_usb_api")[0].checked,
+            },
+          }),
+          function (data, status) {
+            createOK(data);
+
+            // keep dns client infos updated
+            getUsbApiState(data);
+          }
+        );
+      });
+
+      //set username
+      var cookies = document.cookie.split("; ");
+      var found = false;
+      for (var i in cookies) {
+        if (cookies[i].split("=")[0].match("user")) {
+          $("#username").text(cookies[i].split("=")[1]);
+          found = true;
+        }
+      }
+
+      if (!found)
+        window.top.location.href =
+          window.top.location.protocol +
+          "//" +
+          window.top.location.host +
+          "/login.html";
+    });
+
+    function reloadInfo() {
+      $.post(
+        "/api",
+        '{"service":"system","access":"get","command":"get info"}',
+        function (data, status) {
+          $("#SysName").text(data.name);
+          $("#Description").val(data.description);
+          $("#Location").val(data.location);
+          $("#Contact").val(data.contact);
+        }
+      );
+    }
+
+    function updateDnsClient(data) {
+      $("#ckb_dnsclient_enabled")[0].checked = data.enabled;
+      $("#txt_dnsclient_server_primary").val(data.server_primary);
+      $("#txt_dnsclient_server_secondary").val(data.server_secondary);
+      $("#txt_dnsclient_domain_name").val(data.domain_name);
+      $("#sel_dnsclient_query_timeout").val("" + data.dns_query_timeout);
+      $("#sel_dnsclient_query_retries").val("" + data.dns_query_retries);
+      $("#ckb_dnsclient_dns_over_tcp")[0].checked = data.dns_over_tcp;
+    }
+
+    function reloadDnsClient() {
+      $.post(
+        "/api",
+        '{"service":"system","access":"get","command":"dnsclient"}',
+        function (data, status) {
+          updateDnsClient(data);
+        }
+      );
+    }
+
+    function reloadFiles() {
+      $.post(
+        "/api",
+        '{"service":"system","access":"get","command":"files", "parameters":{}}',
+        updateFiles
+      );
+    }
+
+    function updateFiles(data, status) {
+      updateFilesSettings(data);
+      renderFilesUploadTable();
+      renderFilesListTable(data);
+    }
+
+    function updateFilesSettings(data) {
+      var size_str = data.spacefree + " Bytes";
+
+      if (data.spacefree >= 1024 * 1024) {
+        size_str = ((data.spacefree / (1024 * 1024)) >> 0) + " MB";
+      } else if (data.spacefree >= 1024) {
+        size_str = ((data.spacefree / 1024) >> 0) + " KB";
+      }
+
+      $("#td_files_settings_free_space").html(size_str);
+      $("#ckb_files_web_export")[0].checked = data.webexport;
+    }
+
+    function renderFilesUploadTable() {
+      var tbl = null;
+      var tblBody = null;
+
+      tbl = document.getElementById("tbl_files_upload");
+      if (tbl == null) {
+        tbl = document.createElement("table");
+        tbl.id = "tbl_files_upload";
+        tbl.style.width = "100%";
+
+        document.getElementById("files_box").append(tbl);
+      }
+
+      tblBody = tbl.querySelector("#tbd_files_upload");
+      if (tblBody == null) {
+        tblBody = document.createElement("tbody");
+        tblBody.id = "tbd_files_upload";
+        var row = document.createElement("tr");
+        var browse_cell = document.createElement("td");
+        var upload_cell = document.createElement("td");
+
+        browse_cell.style.width = "65%";
+        browse_cell.style.textAlign = "center";
+        upload_cell.style.width = "35%";
+        upload_cell.style.textAlign = "center";
+
+        browse_cell.innerHTML =
+          '<input type="file" id="files_to_upload" style="width: 100%;" multiple>';
+        upload_cell.innerHTML =
+          '<input type="button" class="button" value="Upload File" onClick="uploadFile()">';
+
+        row.appendChild(browse_cell);
+        row.appendChild(upload_cell);
+
+        row.setAttribute("class", "table_row_content");
+
+        tblBody.appendChild(row);
+        tbl.appendChild(tblBody);
+      }
+    }
+
+    function renderFilesListTable(data) {
+      var tbl = null;
+      var tblBody = null;
+      var btn = null;
+
+      tbl = document.getElementById("tbl_files_list");
+      if (tbl == null) {
+        tbl = document.createElement("table");
+        var tblHead = document.createElement("thead");
+
+        tblHead.innerHTML =
+          "" +
+          '<tr class="table_row_head">' +
+          '<th style="width: 20%; text-align: left;">Name</th>' +
+          '<th style="width: 10%; text-align: center;">Size</th>' +
+          '<th style="width: 35%; text-align: center;">URL</th>' +
+          '<th style="width: 35%; text-align: center;">Operation</th>' +
+          "</tr>";
+
+        tblHead.style.backgroundColor = "#74B130";
+        tblHead.style.width = "100%";
+
+        tbl.id = "tbl_files_list";
+        tbl.style.fontSize = "80%";
+        tbl.style.width = "100%";
+        //tbl.style.tableLayout = "fixed";
+
+        tbl.appendChild(tblHead);
+
+        document.getElementById("files_box").append(tbl);
+      }
+
+      btn = document.getElementById("btn_files_clear_all");
+      if (btn == null) {
+        btn = document.createElement("input");
+        btn.type = "button";
+        btn.value = "Clear All Files";
+        btn.className = "button";
+        btn.id = "btn_files_clear_all";
+        btn.onclick = clearAllFiles;
+        document.getElementById("files_box").append(btn);
+      }
+
+      tblBody = tbl.querySelector("#tbd_files_list");
+      if (tblBody == null) {
+        tblBody = document.createElement("tbody");
+        tblBody.id = "tbd_files_list";
+        tbl.appendChild(tblBody);
+      } else {
+        $("#tbd_files_list").empty();
+      }
+
+      if (data.files.length) {
+        var fileList = [];
+        var tqf = null;
+
+        for (var i = 0; i < data.files.length; i++) {
+          if (data.files[i].name != "files.tar") {
+            if (!fileList.includes(data.files[i])) {
+              fileList.push(data.files[i]);
+            }
+          } else {
+            tqf = data.files[i];
+          }
+        }
+
+        fileList.sort(function (a, b) {
+          return a.name < b.name ? -1 : a.name > b.name ? 1 : 0;
+        });
+
+        if (tqf) {
+          fileList.unshift(tqf);
+        }
+
+        for (var i = 0; i < fileList.length; i++) {
+          var file = fileList[i];
+          var row = document.createElement("tr");
+          var name_cell = document.createElement("td");
+          var size_cell = document.createElement("td");
+          var url_cell = document.createElement("td");
+          var operation_cell = document.createElement("td");
+
+          name_cell.style.textAlign = "left";
+          size_cell.style.textAlign = "right";
+          operation_cell.style.textAlign = "center";
+
+          var size_str = file.size + " B";
+          if (file.size >= 1024 * 1024) {
+            size_str = ((file.size / (1024 * 1024)) >> 0) + " MB";
+          } else if (file.size >= 1024) {
+            size_str = ((file.size / 1024) >> 0) + " KB";
+          }
+
+          name_cell.innerHTML = file.name;
+          size_cell.innerHTML = size_str;
+          if (data.webexport) {
+            url_cell.style.textAlign = "left";
+            url_cell.innerHTML = window.location.origin + "/files/" + file.name;
+          } else {
+            url_cell.style.textAlign = "center";
+            url_cell.innerHTML = "N/A";
+          }
+
+          if (file.name == "files.tar") {
+            operation_cell.innerHTML =
+              "" +
+              '<input type="button" class="button" value="Apply" disabled>' +
+              "&nbsp;&nbsp;" +
+              '<input type="button" class="button" value="Download" onClick="downloadFile(\'' +
+              file.name +
+              "')\">" +
+              "&nbsp;&nbsp;" +
+              '<input type="button" class="button" value="Delete" disabled>';
+          } else {
+            operation_cell.innerHTML =
+              "" +
+              '<input type="button" class="button" value="Apply" onClick="applyFile(\'' +
+              file.name +
+              "')\">" +
+              "&nbsp;&nbsp;" +
+              '<input type="button" class="button" value="Download" onClick="downloadFile(\'' +
+              file.name +
+              "')\">" +
+              "&nbsp;&nbsp;" +
+              '<input type="button" class="button" value="Delete" onClick="deleteFile(\'' +
+              file.name +
+              "')\">";
+          }
+
+          row.appendChild(name_cell);
+          row.appendChild(size_cell);
+          row.appendChild(url_cell);
+          row.appendChild(operation_cell);
+
+          row.setAttribute("class", "table_row_content");
+
+          tblBody.appendChild(row);
+        }
+
+        $("#tbl_files_list").show();
+        btn.style.display = "block";
+      } else {
+        $("#tbl_files_list").hide();
+        btn.style.display = "none";
+      }
+    }
+
+    function applyFile(name) {
+      $.post(
+        "/api",
+        JSON.stringify({
+          service: "system",
+          access: "set",
+          command: "files apply",
+          parameters: { file: name },
+        }),
+        function (data, status) {
+          createOK(data);
+        }
+      );
+    }
+
+    function deleteFile(name) {
+      $.post(
+        "/api",
+        JSON.stringify({
+          service: "system",
+          access: "remove",
+          command: "files delete",
+          parameters: { file: name },
+        }),
+        function (data, status) {
+          createOK(data);
+
+          // keep files updated
+          updateFiles(data, status);
+        }
+      );
+    }
+
+    function clearAllFiles() {
+      $.post(
+        "/api",
+        JSON.stringify({
+          service: "system",
+          access: "remove",
+          command: "files delete",
+        }),
+        function (data, status) {
+          createOK(data);
+
+          // keep files updated
+          updateFiles(data);
+        }
+      );
+    }
+
+    function downloadFile(name) {
+      $.post(
+        "/api",
+        JSON.stringify({
+          service: "system",
+          access: "get",
+          command: "files content",
+          parameters: { file: name },
+        }),
+        function (data, status) {
+          var dec_content = window.atob(data.content);
+          //var json = JSON.stringify(dec_content, null, 4);
+          blob = new Blob([dec_content], { type: "octet/stream" });
+          if (navigator.msSaveOrOpenBlob) {
+            navigator.msSaveOrOpenBlob(blob, data.name);
+            return;
+          }
+          var a = document.createElement("a");
+          document.body.appendChild(a);
+          a.style = "display: none";
+          url = window.URL.createObjectURL(blob);
+          a.href = url;
+          a.download = data.name;
+          a.click();
+          window.URL.revokeObjectURL(url);
+        }
+      );
+    }
+
+    function uploadFile() {
+      var fileInput = document.getElementById("files_to_upload");
+
+      if (fileInput.files.length == 0) {
+        alert("No File selected");
+        return;
+      }
+
+      for (var i = 0; i < fileInput.files.length; i++) {
+        var file = fileInput.files[i];
+        var reader = new FileReader();
+
+        reader.onloadend = (function (f) {
+          return function (e) {
+            if (this.error !== null) {
+              alert("file " + f.name + " upload error");
+              return;
+            }
+
+            console.log(f.name);
+
+            var b64_content = window.btoa(
+              new Uint8Array(this.result).reduce(
+                (data, byte) => data + String.fromCharCode(byte),
+                ""
+              )
+            );
+
+            $.post(
+              "/api",
+              '{"service":"system","access":"add","command":"files from file","parameters":{"file": "' +
+                f.name +
+                '","content":"' +
+                b64_content +
+                '"}}',
+              function (data, status) {
+                create_overlay(
+                  "File '" + f.name + "' successfully uploaded",
+                  "overlay_message_ok",
+                  5000
+                );
+
+                // keep files updated
+                updateFiles(data, status);
+              }
+            );
+          };
+        })(file);
+        reader.readAsArrayBuffer(file);
+      }
+    }
+
+    function getUsbApiState() {
+      $.post(
+        "/api",
+        JSON.stringify({
+          service: "usbapi",
+          access: "get",
+          command: "state",
+        }),
+        function (data, status) {
+          $("#ckb_usb_api")[0].checked = data.state;
+        }
+      );
+    }
+  </script>
+  <body
+    style="
+      height: 100%;
+      width: 100%;
+      float: left;
+      margin: 0px;
+      font-family: Verdana;
+      overflow: hidden;
+      position: absolute;
+    "
+  >
+    <div id="content" style="height: 100%; overflow: auto; width: 100%">
+      <h2 style="margin-left: 10px">Settings &gt; System</h2>
+
+      <div class="box2" style="width: calc(35% - 20px)">
+        <a class="headline">System Info</a>
+        <div class="box_content">
+          <table style="font-size: 80%; width: 100%">
+            <tr class="table_row_head">
+              <td style="width: 30%">System</td>
+              <td>Status</td>
+            </tr>
+            <tr class="table_row_content">
+              <td>Name</td>
+              <td><label id="SysName"></label></td>
+            </tr>
+            <tr class="table_row_content">
+              <td>Serial Number</td>
+              <td><label id="SerNum"></label></td>
+            </tr>
+            <tr class="table_row_content">
+              <td>Software Version</td>
+              <td><label id="SwVersion"></label></td>
+            </tr>
+            <tr class="table_row_content">
+              <td>Management MAC</td>
+              <td><label id="MgmtMac"></label></td>
+            </tr>
+            <tr class="table_row_content">
+              <td>Description</td>
+              <td>
+                <input
+                  type="text"
+                  class="textbox"
+                  id="Description"
+                  style="width: 96%"
+                />
+              </td>
+            </tr>
+            <tr class="table_row_content">
+              <td>Contact</td>
+              <td>
+                <input
+                  type="text"
+                  class="textbox"
+                  id="Contact"
+                  style="width: 96%"
+                />
+              </td>
+            </tr>
+            <tr class="table_row_content">
+              <td>Location</td>
+              <td>
+                <input
+                  type="text"
+                  class="textbox"
+                  id="Location"
+                  style="width: 96%"
+                />
+              </td>
+            </tr>
+          </table>
+
+          <input
+            type="button"
+            class="button"
+            value="Set System Info"
+            id="setInfo"
+          />
+        </div>
+      </div>
+
+      <div class="box2" style="width: calc(30% - 20px)">
+        <a class="headline">DNS Client</a>
+        <div class="box_content">
+          <table style="font-size: 80%; width: 100%">
+            <tr class="table_row_head">
+              <td style="width: 30%">Name</td>
+              <td>Setting</td>
+            </tr>
+            <tr class="table_row_content">
+              <td>Enabled</td>
+              <td><input type="checkbox" id="ckb_dnsclient_enabled" /></td>
+            </tr>
+            <tr class="table_row_content">
+              <td>DNS Server Primary</td>
+              <td>
+                <input
+                  type="text"
+                  class="textbox"
+                  id="txt_dnsclient_server_primary"
+                  style="width: 94%"
+                />
+              </td>
+            </tr>
+            <tr class="table_row_content">
+              <td>DNS Server Secondary</td>
+              <td>
+                <input
+                  type="text"
+                  class="textbox"
+                  id="txt_dnsclient_server_secondary"
+                  style="width: 94%"
+                />
+              </td>
+            </tr>
+            <tr class="table_row_content">
+              <td>Domain Search Name</td>
+              <td>
+                <input
+                  type="text"
+                  class="textbox"
+                  id="txt_dnsclient_domain_name"
+                  style="width: 94%"
+                />
+              </td>
+            </tr>
+            <tr class="table_row_content">
+              <td>Timeout</td>
+              <td>
+                <select id="sel_dnsclient_query_timeout" style="width: 15%">
+                  <option value="1">1</option>
+                  <option value="2">2</option>
+                  <option value="3">3</option>
+                  <option value="4">4</option>
+                  <option value="5">5</option>
+                  <option value="6">6</option>
+                  <option value="7">7</option>
+                  <option value="8">8</option>
+                  <option value="9">9</option>
+                  <option value="10">10</option>
+                  <option value="11">11</option>
+                  <option value="12">12</option>
+                  <option value="13">13</option>
+                  <option value="14">14</option>
+                  <option value="15">15</option>
+                  <option value="16">16</option>
+                  <option value="17">17</option>
+                  <option value="18">18</option>
+                  <option value="19">19</option>
+                  <option value="20">20</option>
+                  <option value="21">21</option>
+                  <option value="22">22</option>
+                  <option value="23">23</option>
+                  <option value="24">24</option>
+                  <option value="25">25</option>
+                  <option value="26">26</option>
+                  <option value="27">27</option>
+                  <option value="28">28</option>
+                  <option value="29">29</option>
+                  <option value="30">30</option>
+                </select>
+                seconds
+              </td>
+            </tr>
+            <tr class="table_row_content">
+              <td>Retries</td>
+              <td>
+                <select id="sel_dnsclient_query_retries" style="width: 15%">
+                  <option value="1">1</option>
+                  <option value="2">2</option>
+                  <option value="3">3</option>
+                  <option value="4">4</option>
+                  <option value="5">5</option>
+                </select>
+              </td>
+            </tr>
+            <tr class="table_row_content">
+              <td>DNS over TCP</td>
+              <td><input type="checkbox" id="ckb_dnsclient_dns_over_tcp" /></td>
+            </tr>
+          </table>
+          <input
+            type="button"
+            class="button"
+            value="Set DNS Client"
+            id="setDnsClient"
+          />
+        </div>
+      </div>
+
+      <div class="box2" style="width: calc(65% - 20px)">
+        <a class="headline">System Settings</a>
+        <div class="box_content">
+          <table style="font-size: 80%; width: 100%">
+            <tr class="table_row_head">
+              <td style="width: 65%">Name</td>
+              <td style="width: 35%">Setting</td>
+            </tr>
+            <tr class="table_row_content">
+              <td>USB API access</td>
+              <td><input type="checkbox" id="ckb_usb_api" /></td>
+            </tr>
+          </table>
+          <input
+            type="button"
+            class="button"
+            value="Set System Settings"
+            id="setSystemSettings"
+          />
+        </div>
+      </div>
+
+      <div class="box2" style="width: calc(65% - 20px)">
+        <a class="headline">Files Settings</a>
+        <div class="box_content" id="files_box">
+          <table style="font-size: 80%; width: 100%">
+            <tr class="table_row_head">
+              <td style="width: 65%">Name</td>
+              <td style="width: 35%">Setting</td>
+            </tr>
+            <tr class="table_row_content">
+              <td>Remaining free space</td>
+              <td id="td_files_settings_free_space"></td>
+            </tr>
+            <tr class="table_row_content">
+              <td>Access files via URL</td>
+              <td><input type="checkbox" id="ckb_files_web_export" /></td>
+            </tr>
+          </table>
+          <input
+            type="button"
+            class="button"
+            value="Set Files"
+            id="setFilesSettings"
+          />
+          <div>&nbsp;</div>
+          <a class="headline">Files Upload</a>
+          <table
+            id="tbl_files_upload"
+            style="font-size: 80%; width: 100%"
+          ></table>
+          <div>&nbsp;</div>
+          <a class="headline">Files List</a>
+        </div>
+      </div>
+    </div>
+  </body>
+</html>

@@ -1,0 +1,231 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
+<meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1" />
+<html>
+  <head>
+    <link rel="stylesheet" type="text/css" href="basic_layout.css" />
+    <style type="text/css"></style>
+  </head>
+  <script type="text/javascript" src="basic_jscript.js"></script>
+  <script type="text/javascript" src="js/jquery-3.7.1.min.js"></script>
+  <script type="text/javascript">
+    $(document).ajaxError(function (event, request, settings) {
+      var obj = JSON.parse(request.responseText);
+      if (obj.msg) ffunc(obj.msg);
+      if (obj.error === "invalid rights")
+        window.top.location.href = "login.html";
+    });
+
+    function createTimeString() {
+      var now = new Date();
+      var year = now.getFullYear();
+      var mon = ("00" + (now.getMonth() + 1)).substr(-2);
+      var day = ("00" + now.getDate()).substr(-2);
+      var hh = ("00" + now.getHours()).substr(-2);
+      var mm = ("00" + now.getMinutes()).substr(-2);
+      var ss = ("00" + now.getSeconds()).substr(-2);
+      return year + mon + day + "_" + hh + mm + ss;
+    }
+
+    function downloadLog() {
+      var mgmtMac = "";
+      $.post(
+        "/api",
+        '{"service":"system","access":"get","command":"get id"}',
+        function (data) {
+          mgmtMac = data["mgmt mac"].replace(/:/g, "");
+        }
+      );
+      $.post(
+        "/api",
+        '{"service":"log","access":"get","command":"get log"}',
+        function (data, status) {
+          var a = document.createElement("a");
+          document.body.appendChild(a);
+          a.style = "display: none";
+          var csv = "sep=,\n";
+          var obj = data.msgs;
+          csv +=
+            "Impact,Total Runtime (sec),Synchronized Time (UTC),Service,Message\r\n";
+          for (var i = 0; i < obj.length; i++) {
+            csv += obj[i].pri;
+            csv += ",";
+            csv += obj[i].tr;
+            csv += ",";
+            csv += obj[i].st;
+            csv += ",";
+            csv += obj[i].service;
+            csv += ",";
+            csv += obj[i].msg;
+            csv += "\r\n";
+          }
+          (blob = new Blob([csv], { type: "octet/stream" })),
+            (url = window.URL.createObjectURL(blob));
+          a.href = url;
+          a.download = "log_" + mgmtMac + "_" + createTimeString() + ".csv";
+          a.click();
+          window.URL.revokeObjectURL(url);
+        }
+      );
+    }
+
+    $(document).ready(function () {
+      reloadLog();
+      autoRefreshFn({ fn: reloadLog });
+
+      $("#removebutton").click(function () {
+        if (confirm("This will remove the log! Are you sure?") == true) {
+          $.post(
+            "/api",
+            '{"service":"log","access":"set","command":"remove log"}',
+            function () {
+              reloadLog();
+            }
+          );
+        }
+      });
+
+      $("#reloadbutton").click(function () {
+        reloadLog();
+      });
+
+      $("#downloadbutton").click(function () {
+        downloadLog();
+      });
+    });
+
+    function secToString(runtime) {
+      var ret = "";
+      var days = Math.floor(runtime / (60 * 60 * 24));
+      if (days > 0) {
+        runtime -= days * 60 * 60 * 24;
+        if (days > 1) ret += days + " days ";
+        else ret += days + " day ";
+      }
+
+      var h = Math.floor(runtime / (60 * 60));
+      runtime -= h * 60 * 60;
+      ret += ("0" + h).slice(-2) + ":";
+
+      var min = Math.floor(runtime / 60);
+      runtime -= min * 60;
+      ret += ("0" + min).slice(-2) + ":";
+
+      ret += ("0" + runtime).slice(-2);
+      return ret;
+    }
+
+    function reloadLog() {
+      while ($("#log_table")[0].rows.length > 1)
+        $("#log_table")[0].rows[$("#log_table")[0].rows.length - 1].remove();
+      $.post(
+        "/api",
+        '{"service":"log","access":"get","command":"get log"}',
+        function (data, status) {
+          //var obj = JSON.parse(data);
+          var obj = data.msgs;
+          var tab = document.getElementById("log_table");
+
+          for (var i = 0; i < obj.length; i++) {
+            var j = i + 1;
+            var tr = tab.insertRow(j);
+            var t0 = tr.insertCell(0);
+            var t1 = tr.insertCell(1);
+            var t2 = tr.insertCell(2);
+            var t3 = tr.insertCell(3);
+            var t4 = tr.insertCell(4);
+
+            tr.classList.add("table_row_content");
+
+            switch (obj[obj.length - j].pri) {
+              case "CRITICAL": {
+                tr.className = "crit_row";
+                break;
+              }
+              case "ERROR": {
+                tr.className = "error_row";
+                break;
+              }
+              case "WARNING": {
+                tr.className = "warn_row";
+                break;
+              }
+              case "NOTICE": {
+                tr.className = "notice_row";
+                break;
+              }
+            }
+
+            t0.innerText = secToString(obj[obj.length - j].tr);
+            t1.innerText = obj[obj.length - j].st;
+            t2.innerText = obj[obj.length - j].pri;
+            t3.innerText = obj[obj.length - j].service;
+            t4.innerText = obj[obj.length - j].msg;
+            t4.style.textAlign = "left";
+          }
+          if (data.overflow == true) {
+            var tr = tab.insertRow(-1);
+            tr.className = "error_row";
+            var t0 = tr.insertCell(0);
+            t0.colSpan = 5;
+            t0.innerText = "Log entries limit 8000 exceeded.";
+          }
+        }
+      );
+    }
+  </script>
+  <body
+    style="
+      height: 100%;
+      width: 100%;
+      float: left;
+      margin: 0px;
+      font-family: Verdana;
+      overflow: hidden;
+      position: absolute;
+    "
+  >
+    <div id="content" style="height: 100%; overflow: auto; width: 100%">
+      <h2 style="margin-left: 10px">Status &gt; Logging</h2>
+      <div class="box2" style="width: calc(75% - 20px)">
+        <div class="box_content">
+          <table
+            style="width: 100%; table-layout: fixed; font-size: 80%"
+            id="log_table"
+          >
+            <tr class="table_row_head">
+              <td style="width: 12%; text-align: center">Total Runtime</td>
+              <td style="width: 15%; text-align: center">
+                Synchronized Time (UTC)
+              </td>
+              <td style="width: 6%; text-align: center">Impact</td>
+              <td style="width: 8%; text-align: center">Service</td>
+              <td style="text-align: center">Message</td>
+            </tr>
+          </table>
+        </div>
+      </div>
+      <div class="box2" style="width: calc(25% - 20px)">
+        <div class="box_content">
+          <input
+            type="button"
+            value="Reload Log"
+            id="reloadbutton"
+            style="width: 98%"
+          />
+          <input
+            type="button"
+            value="Download Log"
+            id="downloadbutton"
+            style="width: 98%"
+          />
+          <input
+            type="button"
+            value="Clear Log"
+            id="removebutton"
+            style="width: 98%"
+          />
+        </div>
+      </div>
+    </div>
+  </body>
+</html>

@@ -1,0 +1,299 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <link rel="stylesheet" type="text/css" href="basic_layout.css" />
+  </head>
+  <script type="text/javascript" src="basic_jscript.js"></script>
+  <script type="text/javascript" src="js/jquery-3.7.1.min.js"></script>
+  <script type="text/javascript">
+    var maxPwr = 62;
+    $(document).ajaxError(function (event, request, settings) {
+      var obj = JSON.parse(request.responseText);
+      if (obj.msg) ffunc(obj.msg);
+      if (obj.error === "invalid rights")
+        window.top.location.href = "login.html";
+    });
+
+    function get_poe_cfg_callback(data, status) {
+      var retobj = data;
+      for (var i = 0; i < retobj.length; i++) {
+        document.getElementById("name_" + (i + 1)).value = retobj[i].name;
+        document.getElementById("enabled_" + (i + 1)).checked =
+          retobj[i].enable;
+        document.getElementById("prio_" + (i + 1)).value = "" + retobj[i].prio;
+        document.getElementById("limit_" + (i + 1)).value =
+          "" + retobj[i].limit;
+        document.getElementById("limit_pwr_" + (i + 1)).value =
+          "" + retobj[i].limit_pwr;
+        document.getElementById("fc_" + (i + 1)).checked = retobj[i].fault;
+      }
+      calcSumOfLimits();
+    }
+
+    function getcfg() {
+      $.post(
+        "/api",
+        '{"service":"poe","command":"get port cfg state","access":"get"}',
+        get_poe_cfg_callback
+      );
+    }
+
+    function set_poe_ports() {
+      var obj = {
+        service: "poe",
+        command: "set port cfg state",
+        access: "set",
+        parameters: [],
+      };
+      for (var i = 1; i <= PoEPorts; i++) {
+        var it = {
+          name: document.getElementById("name_" + i).value,
+          enable: document.getElementById("enabled_" + i).checked,
+          limit: parseInt(document.getElementById("limit_" + i).value),
+          limit_pwr: parseInt(document.getElementById("limit_pwr_" + i).value),
+          prio: parseInt(document.getElementById("prio_" + i).value),
+          fault: document.getElementById("fc_" + i).checked,
+        };
+        obj.parameters.push(it);
+      }
+      $.post("/api", JSON.stringify(obj), set_poe_ports_cb);
+    }
+
+    function set_poe_ports_cb(data, status) {
+      createOK(data);
+      calcSumOfLimits();
+    }
+
+    function addPoEPortNumbers() {
+      for (var i = 0; i < PoEPorts; i++) {
+        $("#poePortName" + i).text(PoEPortName[i]);
+      }
+    }
+
+    function calcSumOfLimits() {
+      if (Array.isArray(maxPwr)) {
+        txt = "";
+        for (var j = 0; j < maxPwr.length; j++) {
+          var total = 0;
+          for (var z = 1; z <= 8; z++) {
+            i = z + j * 8;
+            if (!document.getElementById("enabled_" + i).checked) continue;
+            var lim_port =
+              PoEClassW[parseInt(document.getElementById("limit_" + i).value)];
+            var lim2 =
+              PoEUserPWRLimit[
+                parseInt(document.getElementById("limit_pwr_" + i).value)
+              ];
+            if (lim_port < lim2) total += lim_port;
+            else total += lim2;
+          }
+          if (txt.length > 0) {
+            txt += " / ";
+          }
+          if (total > maxPwr[j]) {
+            txt += "<font color='red'>" + total + "W</font>";
+          } else {
+            txt += total + "W";
+          }
+        }
+        document.getElementById("SumofLimits").innerHTML = txt;
+      } else {
+        var total = 0;
+        for (var i = 1; i <= PoEPorts; i++) {
+          if (!document.getElementById("enabled_" + i).checked) continue;
+          var lim_port =
+            PoEClassW[parseInt(document.getElementById("limit_" + i).value)];
+          var lim2 =
+            PoEUserPWRLimit[
+              parseInt(document.getElementById("limit_pwr_" + i).value)
+            ];
+          if (lim_port < lim2) total += lim_port;
+          else total += lim2;
+        }
+        if (total > maxPwr)
+          document.getElementById("SumofLimits").innerHTML =
+            "<font color='red'>" + total + "W</font>";
+        else document.getElementById("SumofLimits").innerHTML = total + "W";
+      }
+    }
+
+    function get_poe_limit_callback(retobj) {
+      if (Array.isArray(retobj)) {
+        maxPwr = [];
+        val = "";
+        for (var i = 0; i < retobj.length; i++) {
+          if (val.length > 0) {
+            val += " / ";
+          }
+          val += retobj[i].limit + "W";
+          maxPwr.push(retobj[i].limit);
+        }
+        document.getElementById("maxPwr").textContent = val;
+      } else {
+        maxPwr = retobj.limit;
+        document.getElementById("maxPwr").textContent = retobj.limit + "W";
+      }
+
+      getcfg();
+      addPoEPortNumbers();
+    }
+
+    function addPort() {
+      var tab = $("#tab_poe_ports")[0];
+      for (var i = 1; i <= PoEPorts; i++) {
+        var tr = tab.insertRow(-1);
+        tr.className = "table_row_content";
+
+        var t0 = tr.insertCell(0);
+        var t1 = tr.insertCell(1);
+        var t2 = tr.insertCell(2);
+        var t3 = tr.insertCell(3);
+        var t4 = tr.insertCell(4);
+        var t5 = tr.insertCell(5);
+        var t6 = tr.insertCell(6);
+
+        t0.id = "poePortName" + (i - 1);
+
+        input_port_name = document.createElement("input");
+        input_port_name.id = "name_" + i;
+        input_port_name.type = "text";
+        input_port_name.style.width = "97%";
+        t1.appendChild(input_port_name);
+
+        cb_enabled = document.createElement("input");
+        cb_enabled.type = "checkbox";
+        cb_enabled.id = "enabled_" + i;
+        t2.appendChild(cb_enabled);
+        t2.style["text-align"] = "center";
+
+        sel_class = document.createElement("select");
+        sel_class.id = "limit_" + i;
+        sel_class.style.width = "100%";
+
+        for (var j = 0; j < PoEClassW.length; j++) {
+          opt_c = document.createElement("option");
+          opt_c.value = "" + j;
+          opt_c.text = "Class " + j + " (" + PoEClassW[j] + "W)";
+          sel_class.appendChild(opt_c);
+        }
+        t3.appendChild(sel_class);
+
+        sel_pwr_limit = document.createElement("select");
+        sel_pwr_limit.id = "limit_pwr_" + i;
+        sel_pwr_limit.style.width = "100%";
+
+        opt_l = document.createElement("option");
+        opt_l.value = "0";
+        opt_l.text = "Class based";
+        sel_pwr_limit.appendChild(opt_l);
+
+        SortedPoELimit = PoEUserPWRLimit.slice(1).sort(function (a, b) {
+          return a - b;
+        });
+
+        for (var j = 0; j < SortedPoELimit.length; j++) {
+          opt_l = document.createElement("option");
+          opt_l.value = "" + PoEUserPWRLimit.indexOf(SortedPoELimit[j]);
+          opt_l.text = "" + SortedPoELimit[j] + "W";
+          sel_pwr_limit.appendChild(opt_l);
+        }
+        t4.appendChild(sel_pwr_limit);
+
+        sel_prio = document.createElement("select");
+        sel_prio.id = "prio_" + i;
+        sel_prio.style.width = "100%";
+
+        opt_pri_low = document.createElement("option");
+        opt_pri_low.value = "3";
+        opt_pri_low.text = "low";
+        sel_prio.appendChild(opt_pri_low);
+
+        opt_pri_high = document.createElement("option");
+        opt_pri_high.value = "2";
+        opt_pri_high.text = "high";
+        sel_prio.appendChild(opt_pri_high);
+
+        opt_pri_crit = document.createElement("option");
+        opt_pri_crit.value = "1";
+        opt_pri_crit.text = "critical";
+        sel_prio.appendChild(opt_pri_crit);
+        t5.appendChild(sel_prio);
+
+        cb_fc = document.createElement("input");
+        cb_fc.type = "checkbox";
+        cb_fc.id = "fc_" + i;
+        t6.appendChild(cb_fc);
+        t6.style["text-align"] = "center";
+      }
+    }
+
+    $(document).ready(function () {
+      addPort();
+      setupPortInfo(setupDone);
+    });
+
+    function setupDone() {
+      $.post(
+        "/api",
+        '{"service":"poe","command":"get limit","access":"get"}'
+      ).done(get_poe_limit_callback);
+    }
+  </script>
+  <body
+    style="
+      height: 100%;
+      width: 100%;
+      float: left;
+      margin: 0px;
+      font-family: Verdana;
+    "
+  >
+    <h2 style="margin-left: 10px">Settings &gt; PoE</h2>
+
+    <div>
+      <div class="box2" style="width: calc(25% - 20px)">
+        <a class="headline">Global Settings</a>
+        <div class="box_content">
+          <table style="font-size: 80%; width: 100%">
+            <tr class="table_row_head">
+              <td>Settings</td>
+              <td>Status</td>
+            </tr>
+            <tr class="table_row_content">
+              <td>Power Budget</td>
+              <td id="maxPwr">62W</td>
+            </tr>
+            <tr class="table_row_content">
+              <td>Power Budget Setting</td>
+              <td id="SumofLimits"></td>
+            </tr>
+          </table>
+        </div>
+      </div>
+
+      <div class="box2" style="width: calc(50% - 20px)">
+        <a class="headline">PD Settings</a>
+        <div class="box_content">
+          <table style="font-size: 80%; width: 100%" id="tab_poe_ports">
+            <tr class="table_row_head">
+              <td>Port</td>
+              <td>Powered Device Name</td>
+              <td>Enable PoE</td>
+              <td>Limit Class</td>
+              <td>nominal Power Limit</td>
+              <td>Priority</td>
+              <td>ITxPT xstatus</td>
+            </tr>
+          </table>
+          <input
+            type="button"
+            class="button"
+            id="set_port_settings"
+            value="Set Port Settings"
+            onclick="set_poe_ports();"
+          />
+        </div>
+      </div>
+    </div>
+  </body>
+</html>

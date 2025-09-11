@@ -1,0 +1,430 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <link rel="stylesheet" type="text/css" href="basic_layout.css" />
+    <style type="text/css"></style>
+  </head>
+  <script type="text/javascript" src="basic_jscript.js"></script>
+  <script type="text/javascript" src="js/jquery-3.7.1.min.js"></script>
+  <script type="text/javascript">
+    var vlanCfg = null;
+
+    $(document).ajaxError(function (event, request, settings) {
+      var obj = JSON.parse(request.responseText);
+      if (obj.msg) ffunc(obj.msg);
+      if (obj.error === "invalid rights")
+        window.top.location.href = "login.html";
+    });
+
+    $(document).ready(function () {
+      setupPortInfo(setupDone);
+    });
+
+    function setupDone() {
+      loadVlan();
+    }
+
+    function addEntry() {
+      ports = [];
+      device_ports = getPortsSorted(Object.keys(vlanCfg));
+      for (k = 0; k < device_ports.length; k++) {
+        if ($("#entry_port_" + device_ports[k]).is(":checked")) {
+          ports.push(device_ports[k]);
+        }
+      }
+      para = {
+        mac: $("#entry_mac").val(),
+        vid: parseInt($("#entry_fid").val()),
+        mgmtPort: $("#entry_mgmtPort")[0].checked,
+        ports: ports,
+        description: $("#entry_desc").val(),
+      };
+      $.post(
+        "/api",
+        JSON.stringify({
+          service: "staticmc",
+          access: "set",
+          command: "add entry",
+          parameters: para,
+        }),
+        ld
+      );
+    }
+
+    function updateEntry(e) {
+      num = e.target.id.split("_")[1];
+      ports = [];
+      device_ports = getPortsSorted(Object.keys(vlanCfg));
+      for (k = 0; k < device_ports.length; k++) {
+        //port_0_0
+        if ($("#port_" + num + "_" + device_ports[k]).is(":checked")) {
+          ports.push(device_ports[k]);
+        }
+      }
+      para = {
+        mac: $("#mac_" + num).text(),
+        vid: parseInt($("#vid_" + num).text()),
+        mgmtPort: $("#port_" + num + "_mgmtPort")[0].checked,
+        ports: ports,
+        description: $("#desc_" + num).val(),
+      };
+      $.post(
+        "/api",
+        JSON.stringify({
+          service: "staticmc",
+          access: "set",
+          command: "add entry",
+          parameters: para,
+        }),
+        ld
+      );
+    }
+
+    function removeEntry(e) {
+      num = e.target.id.split("_")[1];
+      para = {
+        mac: $("#mac_" + num).text(),
+        vid: parseInt($("#vid_" + num).text()),
+      };
+      $.post(
+        "/api",
+        JSON.stringify({
+          service: "staticmc",
+          access: "set",
+          command: "remove entry",
+          parameters: para,
+        }),
+        ld
+      );
+    }
+
+    function ld(data) {
+      createOK(data);
+      loadData();
+    }
+
+    function checked_exist(event) {
+      var id = event.currentTarget.id.split("_")[1];
+      if ($("#port_" + id + "_mgmtPort")[0].checked) {
+        $("#update_" + id)[0].disabled = false;
+        return true;
+      }
+      var boxes = $("[id^=port_" + id + "_]");
+      for (var i = 0; i < boxes.length; i++) {
+        if (boxes[i].checked) {
+          $("#update_" + id)[0].disabled = false;
+          return true;
+        }
+      }
+      $("#update_" + id)[0].disabled = true;
+    }
+
+    function checked_new() {
+      if ($("#entry_mgmtPort")[0].checked) {
+        $("#add_button")[0].disabled = false;
+        return true;
+      }
+      var boxes = $("[id^=entry_port]");
+      for (var i = 0; i < boxes.length; i++) {
+        if (boxes[i].checked) {
+          $("#add_button")[0].disabled = false;
+          return true;
+        }
+      }
+      $("#add_button")[0].disabled = true;
+    }
+
+    function loadData() {
+      $.post(
+        "/api",
+        JSON.stringify({
+          service: "staticmc",
+          access: "get",
+          command: "get entries",
+        }),
+        DataCallback
+      );
+    }
+
+    function DataCallback(data) {
+      var rowNum = 1;
+      var table = $("#macTable")[0];
+      var ports = getPortsSorted(Object.keys(vlanCfg));
+
+      while (table.rows.length > 2) table.deleteRow(1);
+
+      device_ports = getPortsSorted(Object.keys(vlanCfg));
+
+      for (var n = 0; n < data.length; n++) {
+        var i = 0;
+        var update_disable = true;
+
+        var row = table.insertRow(rowNum++);
+        row.className = "table_row_content";
+        var cell1 = row.insertCell(i++);
+        cell1.innerText = data[n].mac;
+        cell1.id = "mac_" + n;
+        var cell2 = row.insertCell(i++);
+        cell2.innerText = data[n].vid;
+        cell2.id = "vid_" + n;
+        var cell3 = row.insertCell(i++);
+        var mgmtPort_input = document.createElement("input");
+        mgmtPort_input.type = "checkbox";
+        mgmtPort_input.id = "port_" + n + "_mgmtPort";
+        mgmtPort_input.onclick = checked_exist;
+        if (data[n].mgmtPort) {
+          mgmtPort_input.checked = true;
+          update_disable = false;
+        } else mgmtPort_input.checked = false;
+        cell3.appendChild(mgmtPort_input);
+
+        for (k = 0; k < device_ports.length; k++) {
+          var c = row.insertCell(i++);
+          var inp = document.createElement("input");
+          inp.type = "checkbox";
+          inp.id = "port_" + n + "_" + device_ports[k];
+
+          if (
+            data[n].ports.find((element) => element == device_ports[k]) ==
+            device_ports[k]
+          ) {
+            update_disable = false;
+            inp.checked = true;
+          } else inp.checked = false;
+
+          if (data[n].vid != 0) {
+            if (
+              Object.keys(vlanCfg[ports[k]].vlan_map).includes("" + data[n].vid)
+            ) {
+              c.className = "";
+              inp.disabled = false;
+            } else {
+              inp.disabled = true;
+              inp.checked = false;
+              c.className = "port_down";
+            }
+          }
+          inp.onclick = checked_exist;
+          c.appendChild(inp);
+        }
+        var c4 = row.insertCell(i++);
+        var description_input = document.createElement("input");
+        description_input.type = "text";
+        description_input.style.width = "98%";
+        description_input.id = "desc_" + n;
+        description_input.value = data[n].description;
+        c4.appendChild(description_input);
+
+        var c5 = row.insertCell(i++);
+
+        //updateEntry
+        var update_input = document.createElement("input");
+        update_input.type = "button";
+        update_input.value = "Update";
+        update_input.id = "update_" + n;
+        update_input.onclick = updateEntry;
+        if (update_disable) {
+          update_input.disabled = true;
+        }
+        c5.appendChild(update_input);
+
+        // remove
+        var remove_input = document.createElement("input");
+        remove_input.type = "button";
+        remove_input.value = "Remove";
+        remove_input.id = "remove_" + n;
+        remove_input.onclick = removeEntry;
+        c5.appendChild(remove_input);
+      }
+    }
+
+    function loadVlan() {
+      $.post(
+        "/api",
+        JSON.stringify({
+          service: "vlan",
+          access: "get",
+          command: "vlan port settings",
+        }),
+        updateVlanCallback
+      );
+    }
+
+    function updateVlanCallback(data) {
+      vlanCfg = data;
+      $.post(
+        "/api",
+        JSON.stringify({
+          service: "vlan",
+          access: "get",
+          command: "get bridges",
+        }),
+        createBaseTable
+      );
+    }
+
+    function updateVlan() {
+      vid = parseInt($("#entry_fid").val());
+
+      ports = getPortsSorted(Object.keys(vlanCfg));
+
+      if (vid == 0) {
+        for (k = 0; k < ports.length; k++) {
+          $("#entry_port_" + ports[k])[0].disabled = false;
+          $("#port_cell_" + ports[k])[0].className = "";
+        }
+      } else {
+        for (k = 0; k < ports.length; k++) {
+          if (Object.keys(vlanCfg[ports[k]].vlan_map).includes("" + vid)) {
+            $("#port_cell_" + ports[k])[0].className = "";
+            $("#entry_port_" + ports[k])[0].disabled = false;
+          } else {
+            $("#entry_port_" + ports[k])[0].disabled = true;
+            $("#entry_port_" + ports[k])[0].checked = false;
+            $("#port_cell_" + ports[k])[0].className = "port_down";
+          }
+        }
+      }
+
+      for (var n = 0; n < vlanCfg.length; n++) {
+        if (vlanCfg[n].vlan_id != vid) continue;
+        for (k = 0; k < SwitchPorts.length; k++) {
+          var vlan_status = vlanCfg[n].members.find(
+            (element) => element.interface - 1 == k
+          );
+          if (
+            vlan_status != null &&
+            (vlan_status.egress == "tagged" || vlan_status.egress == "untagged")
+          ) {
+            $("#entry_port_" + k)[0].disabled = false;
+            $("#port_cell_" + k)[0].className = "";
+          } else {
+            $("#entry_port_" + k)[0].disabled = true;
+            $("#entry_port_" + k)[0].checked = false;
+            $("#port_cell_" + k)[0].className = "port_down";
+          }
+        }
+      }
+    }
+
+    function cmp(a, b) {
+      if (a.vlan_id < b.vlan_id) return -1;
+      if (a.vlan_id > b.vlan_id) return 1;
+      return 0;
+    }
+
+    function createBaseTable(data) {
+      var i = 0;
+      var table = $("#macTable")[0];
+      var row = table.insertRow(0);
+      row.className = "table_row_head";
+      var cell1 = row.insertCell(i++);
+      cell1.innerText = "Multicast MAC Address";
+      var cell2 = row.insertCell(i++);
+      cell2.innerText = "VLAN ID";
+      var cell3 = row.insertCell(i++);
+      cell3.innerText = "MGMT Port";
+
+      ports = getPortsSorted(Object.keys(vlanCfg));
+
+      for (k = 0; k < ports.length; k++) {
+        var c = row.insertCell(i++);
+        c.innerText = ports[k];
+      }
+
+      var cell4 = row.insertCell(i++);
+      cell4.innerText = "Description";
+
+      var cell5 = row.insertCell(i++);
+      cell5.innerText = "Action";
+
+      var row2 = table.insertRow(1);
+      row2.className = "table_row_content";
+      i = 0;
+
+      var c1 = row2.insertCell(i++);
+      var mac_input = document.createElement("input");
+      mac_input.type = "text";
+      mac_input.style.width = "98%";
+      mac_input.id = "entry_mac";
+      c1.appendChild(mac_input);
+
+      var c2 = row2.insertCell(i++);
+      var fid_input = document.createElement("select");
+      fid_input.id = "entry_fid";
+      fid_input.style.width = "98%";
+      fid_input.onchange = updateVlan;
+      if (data.length == 0) {
+        var option = document.createElement("option");
+        option.value = 0;
+        option.text = "no vlan";
+        fid_input.appendChild(option);
+      } else {
+        data.sort(cmp);
+        for (vlan_id = 0; vlan_id < data.length; ++vlan_id) {
+          var option = document.createElement("option");
+          option.value = data[vlan_id].vlan_id;
+          option.text = "" + data[vlan_id].vlan_id;
+          fid_input.appendChild(option);
+        }
+      }
+      c2.appendChild(fid_input);
+
+      var c3 = row2.insertCell(i++);
+      var mgmtPort_input = document.createElement("input");
+      mgmtPort_input.type = "checkbox";
+      mgmtPort_input.id = "entry_mgmtPort";
+      mgmtPort_input.onchange = checked_new;
+      c3.appendChild(mgmtPort_input);
+
+      for (k = 0; k < ports.length; k++) {
+        var c = row2.insertCell(i++);
+        c.id = "port_cell_" + ports[k];
+        var inp = document.createElement("input");
+        inp.type = "checkbox";
+        inp.id = "entry_port_" + ports[k];
+        inp.onchange = checked_new;
+        c.appendChild(inp);
+      }
+      var c4 = row2.insertCell(i++);
+      var description_input = document.createElement("input");
+      description_input.type = "text";
+      description_input.style.width = "98%";
+      description_input.id = "entry_desc";
+      c4.appendChild(description_input);
+
+      var c5 = row2.insertCell(i++);
+      var add_input = document.createElement("input");
+      add_input.type = "button";
+      add_input.value = "Add";
+      add_input.id = "add_button";
+      add_input.disabled = true;
+      add_input.onclick = addEntry;
+      c5.appendChild(add_input);
+
+      updateVlan();
+      loadData();
+    }
+  </script>
+  <body
+    style="
+      height: 100%;
+      width: 100%;
+      float: left;
+      margin: 0px;
+      font-family: Verdana;
+    "
+  >
+    <h2 style="margin-left: 10px">Settings &gt; Static Multicasts</h2>
+    <div class="box2" style="width: calc(100% - 20px)">
+      <a class="headline">Settings</a>
+      <div class="box_content">
+        <table
+          style="font-size: 80%; width: 100%; text-align: center"
+          id="macTable"
+        ></table>
+      </div>
+    </div>
+  </body>
+</html>

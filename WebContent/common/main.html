@@ -1,0 +1,466 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
+<meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1" />
+<html>
+  <head>
+    <link rel="stylesheet" type="text/css" href="basic_layout.css" />
+    <style type="text/css"></style>
+  </head>
+  <script type="text/javascript" src="basic_jscript.js"></script>
+  <script type="text/javascript" src="js/jquery-3.7.1.min.js"></script>
+  <script type="text/javascript">
+    $(document).ajaxError(function (event, request, settings) {
+      var obj = JSON.parse(request.responseText);
+      if (obj.error === "invalid rights" || obj.error === "invalid session")
+        window.top.location.href = "login.html";
+      if (obj.msg)
+        document.getElementById("content_iframe").contentWindow.ffunc(obj.msg);
+    });
+
+    function logout() {
+      var ii = { service: "user", access: "get", command: "logout" };
+      $.post("/api", JSON.stringify(ii), function (data, status) {
+        //if(status == "success")
+        {
+          //window.top.location.href=  window.top.location.protocol + "//" + window.top.location.host + "/2/main.html";
+          window.top.location.href = "login.html";
+        }
+      });
+    }
+
+    function saveChanges() {
+      $.post(
+        "/api",
+        '{"service":"system","access":"get","command":"get config name"}',
+        function (data, status) {
+          var cfgName = prompt(
+            "Please enter the config name (1-28 chars):",
+            data.cfgName.substring(0, data.cfgName.lastIndexOf("."))
+          );
+          if (cfgName == null || cfgName.trim() == "") {
+            // abort
+          } else {
+            if (cfgName.endsWith(".cfg")) {
+              cfgName = cfgName.substr(0, cfgName.length - 4);
+            }
+            var obj = {
+              service: "system",
+              access: "set",
+              command: "save config with name",
+              parameters: {},
+            };
+            if (cfgName.length > 255)
+              obj["parameters"].cfgName = cfgName.substr(0, 255);
+            else obj["parameters"].cfgName = cfgName;
+            $.post("/api", JSON.stringify(obj), function (data, status) {
+              checkedChanges();
+            });
+          }
+        }
+      );
+    }
+
+    function unsavedChanges(data, status) {
+      if (data.changes) {
+        var st =
+          '<input type="button" value="Save Changes" onclick="saveChanges()">';
+        $("#unsaved_changes")[0].innerHTML = st;
+      } else {
+        $("#unsaved_changes")[0].innerHTML = "no changes";
+      }
+    }
+
+    function checkedChanges() {
+      $.post(
+        "/api",
+        '{"service":"system","access":"get","command":"has unsaved changes"}',
+        unsavedChanges
+      );
+      getCfgName();
+      getUptime();
+      getSysInfo();
+      getSupplyInfo();
+    }
+
+    function getdevicenumbers(data) {
+      if (data["cfg number"]) {
+        $("#system_staus_bar_devCFGNOH").append("<b>CFG No.:</b>");
+        $("#system_staus_bar_devCFGNOB").text(data["cfg number"]);
+      }
+    }
+
+    function getIdCallback(data) {
+      $("#system_staus_bar_serial_nr").text(data.sn);
+      $("#system_staus_bar_firmware").text(data["sw version"]);
+      $("#system_staus_bar_mac").text(data["mgmt mac"]);
+      $("#system_staus_bar_device").text(data["part number"]);
+
+      if (data["poe"]) {
+        // add PoE to menu
+        $(
+          '<br><a class="subpoint" id="m_poe" onclick="navto(this);">&gt;PoE</a>'
+        ).insertAfter("#Traffic");
+        $(
+          '<a class="subpoint" id="poe" onclick="navto(this);">&gt;PoE</a><br>'
+        ).insertBefore("#ntp");
+      }
+    }
+
+    $(document).ready(function () {
+      setupPortInfo(setupDone);
+    });
+
+    function setupDone() {
+      $("#logout").click(logout);
+      $.post(
+        "/api",
+        '{"service":"system","access":"get","command":"get id"}',
+        getIdCallback
+      );
+      $.post(
+        "/api",
+        '{"service":"system","access":"get","command":"devicenumbers"}',
+        getdevicenumbers
+      );
+
+      getUptime();
+      getSysInfo();
+      getSupplyInfo();
+      getCfgName();
+      $.post(
+        "/api",
+        '{"service":"system","access":"get","command":"has unsaved changes"}',
+        unsavedChanges
+      );
+      autoRefreshFn({ fn: checkedChanges });
+    }
+
+    function navto(event) {
+      var jj = document.getElementsByClassName("selsubpoint");
+      jj[0].className = "subpoint";
+      event.className = "selsubpoint";
+      var iframe = document.getElementById("content_iframe");
+      if (iframe) iframe.src = event.id + ".html";
+    }
+
+    function getUptimeCallback(data) {
+      document.getElementById("system_staus_bar_uptime").textContent =
+        data.uptime;
+    }
+
+    function getUptime() {
+      $.post(
+        "/api",
+        '{"service":"system","access":"get","command":"get uptime"}',
+        getUptimeCallback
+      );
+    }
+
+    function getCfgName() {
+      $.post(
+        "/api",
+        '{"service":"system","access":"get","command":"get config name"}',
+        function (data, status) {
+          document.getElementById("system_status_bar_cfg_name").textContent =
+            data.cfgName;
+        }
+      );
+    }
+
+    function getSysInfoCallback(data) {
+      document.getElementById("system_staus_bar_location").textContent =
+        data.location;
+    }
+
+    function getSysInfo() {
+      $.post(
+        "/api",
+        '{"service":"system","access":"get","command":"get info"}',
+        getSysInfoCallback
+      );
+    }
+
+    function getSupplyCallback(data) {
+      if (data.v1 && data.v2)
+        document.getElementById("system_staus_bar_power").textContent =
+          "V1 + V2";
+      else if (data.v1)
+        document.getElementById("system_staus_bar_power").textContent = "V1";
+      else if (data.v2)
+        document.getElementById("system_staus_bar_power").textContent = "V2";
+    }
+
+    function getSupplyInfo() {
+      $.post(
+        "/api",
+        '{"service":"system","access":"get","command":"get supply"}',
+        getSupplyCallback
+      );
+    }
+  </script>
+
+  <body
+    style="margin: 0px; height: 100%; font-family: Verdana; min-height: 590px"
+  >
+    <div class="wrapper">
+      <div class="element_top">
+        <div class="element_top_pic">
+          <img
+            src="Logo.png"
+            style="max-width: 100%; max-height: 100%"
+          /><img />
+        </div>
+        <div style="width: 100%; height: 20%"></div>
+        <div style="width: 100%; height: 40%">
+          <font color="#ffffff">
+            <b style="margin-left: 20px; font-size: 200%; line-height: 25px"
+              >ROQSTAR</b
+            ><br />
+            <b style="margin-left: 20px; font-size: 150%; line-height: 40px"
+              >Managed Ethernet Switch</b
+            >
+          </font>
+        </div>
+        <div style="width: 100%; height: 40%"></div>
+      </div>
+      <div class="system_staus_bar">
+        <table style="height: 100%; width: 100%">
+          <tr>
+            <td
+              style="
+                border-right-width: 1px;
+                border-right-style: solid;
+                width: 14%;
+              "
+            >
+              <table
+                style="
+                  font-size: 80%;
+                  margin-left: 5%;
+                  width: 100%;
+                  table-layout: fixed;
+                "
+              >
+                <tr>
+                  <td style="text-align: center">
+                    <b>PWR</b>
+                  </td>
+                  <td>
+                    <div
+                      class="green_cir"
+                      style="width: 10px; height: 10px; margin-left: 8px"
+                      id="system_staus_bar_pwr_led"
+                    ></div>
+                  </td>
+                </tr>
+                <tr>
+                  <td style="text-align: center">
+                    <b>MOD</b>
+                  </td>
+                  <td>
+                    <div
+                      class="green_cir"
+                      style="width: 10px; height: 10px; margin-left: 8px"
+                      id="system_staus_bar_pwr_MOD"
+                    ></div>
+                  </td>
+                </tr>
+                <tr>
+                  <td style="text-align: center">
+                    <b>ERR</b>
+                  </td>
+                  <td>
+                    <div
+                      class="grey_cir"
+                      style="width: 10px; height: 10px; margin-left: 8px"
+                      id="system_staus_bar_pwr_err"
+                    ></div>
+                  </td>
+                </tr>
+                <tr>
+                  <td style="text-align: center">
+                    <b>CFG</b>
+                  </td>
+                  <td>
+                    <div
+                      class="grey_cir"
+                      style="width: 10px; height: 10px; margin-left: 8px"
+                      id="system_staus_bar_pwr_net"
+                    ></div>
+                  </td>
+                </tr>
+              </table>
+            </td>
+            <td>
+              <table style="width: 100%; font-size: 80%; table-layout: fixed">
+                <tr>
+                  <td style="width: 12.5%">
+                    <b>Power supply:</b>
+                  </td>
+                  <td id="system_staus_bar_power" style="width: 12.5%"></td>
+                  <td style="width: 12.5%">
+                    <b>Software:</b>
+                  </td>
+                  <td id="system_staus_bar_firmware" style="width: 12.5%"></td>
+                  <td style="width: 12.5%">
+                    <b>Part No.:</b>
+                  </td>
+                  <td id="system_staus_bar_device" style="width: 12.5%"></td>
+                  <td style="width: 12.5%">
+                    <b>Config Name:</b>
+                  </td>
+                  <td id="system_status_bar_cfg_name" style="width: 12.5%"></td>
+                </tr>
+                <tr>
+                  <td>
+                    <b>Location:</b>
+                  </td>
+                  <td id="system_staus_bar_location"></td>
+                  <td>
+                    <b>Serial number:</b>
+                  </td>
+                  <td id="system_staus_bar_serial_nr"></td>
+                  <td id="system_staus_bar_devCFGNOH"></td>
+                  <td id="system_staus_bar_devCFGNOB"></td>
+                  <td>
+                    <b>Config changed:</b>
+                  </td>
+                  <td id="unsaved_changes"></td>
+                </tr>
+                <tr>
+                  <td>
+                    <b>System uptime:</b>
+                  </td>
+                  <td id="system_staus_bar_uptime"></td>
+                  <td>
+                    <b>Management MAC:</b>
+                  </td>
+                  <td id="system_staus_bar_mac"></td>
+                  <td></td>
+                  <td></td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+        </table>
+      </div>
+      <div class="dashboard_site">
+        <div class="dashboard_site_content">
+          <a
+            class="selsubpoint"
+            id="dashboard"
+            onclick="navto(this);"
+            style="font-size: 100%"
+            >Dashboard</a
+          ><br />
+          <br />
+          Status<br />
+          <a class="subpoint" id="system" onclick="navto(this);">&gt;System </a
+          ><br />
+          <a class="subpoint" id="m_interfaces" onclick="navto(this);"
+            >&gt;Ports </a
+          ><br />
+          <a class="subpoint" id="Traffic" onclick="navto(this);"
+            >&gt;Traffic </a
+          ><br />
+          <a class="subpoint" id="m_lacp" onclick="navto(this);">&gt;LACP </a
+          ><br />
+          <a class="subpoint" id="m_dhcp" onclick="navto(this);"
+            >&gt;DHCP Leases </a
+          ><br />
+          <a class="subpoint" id="log" onclick="navto(this);">&gt;Logging</a
+          ><br />
+          <br />
+          Settings<br />
+          <a class="subpoint" id="c_system" onclick="navto(this);">&gt;System</a
+          ><br />
+          <a class="subpoint" id="ignition" onclick="navto(this);"
+            >&gt;Ignition</a
+          ><br />
+          <a class="subpoint" id="ports" onclick="navto(this);">&gt;Ports</a
+          ><br />
+          <a class="subpoint" id="lacp" onclick="navto(this);">&gt;LACP</a
+          ><br />
+          <a class="subpoint" id="vlan" onclick="navto(this);">&gt;VLAN</a
+          ><br />
+          <a class="subpoint" id="multicast" onclick="navto(this);"
+            >&gt;Multicasts</a
+          ><br />
+          <a class="subpoint" id="c_ip" onclick="navto(this);"
+            >&gt;Management Interfaces</a
+          ><br />
+          <!--<a class="subpoint" id="routing" onclick="navto(this);">&gt;IP Routing</a><br>-->
+          <a class="subpoint" id="qos" onclick="navto(this);">&gt;QoS</a><br />
+          <a class="subpoint" id="mirroring" onclick="navto(this);"
+            >&gt;Port Mirroring</a
+          ><br />
+          <a class="subpoint" id="lldp" onclick="navto(this);">&gt;LLDP</a
+          ><br />
+          <a class="subpoint" id="stp" onclick="navto(this);"
+            >&gt;Spanning Tree</a
+          ><br />
+          <a class="subpoint" id="c_dhcp" onclick="navto(this);"
+            >&gt;DHCP Server</a
+          ><br />
+          <a class="subpoint" id="dhcp_relay" onclick="navto(this);"
+            >&gt;DHCP Relay</a
+          ><br />
+          <a class="subpoint" id="dhcp_inserter" onclick="navto(this);"
+            >&gt;DHCP Inserter</a
+          ><br />
+          <!--<a class="subpoint" id="igmp" onclick="navto(this);">&gt;IGMP</a><br>-->
+          <a class="subpoint" id="ntp" onclick="navto(this);">&gt;NTP Client</a
+          ><br />
+          <a class="subpoint" id="c_rlogging" onclick="navto(this);"
+            >&gt;Remote Logging</a
+          ><br />
+          <a class="subpoint" id="snmp" onclick="navto(this);">&gt;SNMP</a
+          ><br />
+          <a class="subpoint" id="nat" onclick="navto(this);">&gt;NAT</a><br />
+          <a class="subpoint" id="mqtt" onclick="navto(this);">&gt;MQTT</a
+          ><br />
+          <!--<a class="subpoint" id="firewall" onclick="navto(this);">&gt;Firewall</a><br>-->
+          <!--<a class="subpoint" id="fault" onclick="navto(this);">&gt;Fault Contact</a><br>-->
+          <!--<a class="subpoint" id="cabletest" onclick="navto(this);">&gt;Cable Test</a><br>-->
+          <br />
+          Maintenance<br />
+          <a class="subpoint" id="users" onclick="navto(this);">&gt;Users</a
+          ><br />
+          <div id="prio_settings">
+            <a class="subpoint" id="settings" onclick="navto(this);"
+              >&gt;Configuration</a
+            ><br />
+            <a class="subpoint" id="tls" onclick="navto(this);"
+              >&gt;User Certificates</a
+            ><br />
+            <a class="subpoint" id="fwupdate" onclick="navto(this);"
+              >&gt;Software</a
+            ><br />
+          </div>
+          <br />
+          <!--<a class="subpoint" id="help" style="font-size: 100%;" onclick="navto(this);"> Help </a>-->
+          <br />
+          <a
+            class="subpoint"
+            id="licenses"
+            style="font-size: 100%"
+            onclick="navto(this);"
+            >Third Party Notices
+          </a>
+          <br /><br />
+          <a id="logout" style="cursor: pointer">Logout</a>
+        </div>
+      </div>
+
+      <div class="main_content">
+        <iframe
+          id="content_iframe"
+          src="dashboard.html"
+          width="100%"
+          height="100%"
+          style="border-width: 0px"
+          seamless
+        ></iframe>
+      </div>
+    </div>
+  </body>
+</html>

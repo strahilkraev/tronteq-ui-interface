@@ -1,0 +1,210 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
+<html>
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <link rel="stylesheet" type="text/css" href="basic_layout.css" />
+    <style type="text/css"></style>
+  </head>
+  <script type="text/javascript" src="basic_jscript.js"></script>
+  <script type="text/javascript" src="js/jquery-3.7.1.min.js"></script>
+  <script type="text/javascript">
+    var vidNames = {};
+
+    $(document).ajaxError(function (event, request, settings) {
+      var obj = JSON.parse(request.responseText);
+      if (obj.msg) ffunc(obj.msg);
+      if (obj.error === "invalid rights")
+        window.top.location.href = "login.html";
+    });
+
+    function getStpVersion(data) {
+      $("#lan").val(data["lan"]);
+      $("#lan_prio").val("" + data["lanprio"]);
+      if (data["lan"] != "none") {
+        document.getElementById("div_port_state").hidden = false;
+        document.getElementById("div_root").hidden = false;
+        getStpStates();
+      } else {
+        document.getElementById("div_port_state").hidden = true;
+        document.getElementById("div_root").hidden = true;
+      }
+    }
+
+    function SendGetPortState() {
+      $.post(
+        "/api",
+        '{"service":"stp","access":"get","command":"port state"}',
+        getPortState
+      );
+    }
+
+    function getPortState(data) {
+      var tab = $("#port_state")[0];
+
+      while (tab.rows.length > 1) tab.rows[tab.rows.length - 1].remove();
+      if (typeof data === "object" && data !== null) {
+        for (var l = 0; l < data.length; l++) {
+          var i = data[l];
+          var tr = tab.insertRow(-1);
+          var t0 = tr.insertCell(0);
+          var t1 = tr.insertCell(1);
+          var t2 = tr.insertCell(2);
+          if (i["state"] == "forwarding") {
+            tr.className = "table_row_content";
+          } else {
+            tr.className = "port_down";
+          }
+          t0.textContent = i["port"];
+          t1.textContent = i["state"];
+          t2.textContent = i["role"].toLowerCase();
+        }
+      }
+    }
+
+    function getStpStates() {
+      SendGetPortState();
+      $.post(
+        "/api",
+        '{"service":"stp","access":"get","command":"rootbridge"}',
+        getRootBridge
+      );
+    }
+
+    function getRootBridge(data) {
+      var br = $("#rootbridge")[0];
+      br.textContent = data["rootbridge"];
+    }
+
+    function setSTPVersion() {
+      $.post(
+        "/api",
+        '{"service":"stp","access":"set","command":"set stp version","parameters": {"lan":"' +
+          $("#lan").val() +
+          '","lanprio":' +
+          parseInt($("#lan_prio").val()) +
+          "}}",
+        function (data) {
+          createOK(data);
+          $.post(
+            "/api",
+            '{"service":"stp","access":"get","command":"get stp version"}',
+            getStpVersion
+          );
+        }
+      );
+    }
+
+    $(document).ready(function () {
+      setupPortInfo(setupDone);
+    });
+
+    function setupDone() {
+      $.post(
+        "/api",
+        '{"service":"stp","access":"get","command":"get stp version"}',
+        getStpVersion
+      );
+
+      $("#set_stp_version_button").click(setSTPVersion);
+    }
+  </script>
+  <body
+    style="
+      height: 100%;
+      width: 100%;
+      float: left;
+      margin: 0px;
+      font-family: Verdana;
+    "
+  >
+    <h2 style="margin-left: 10px">Settings &gt; Spanning Tree</h2>
+
+    <div class="box2" style="width: calc(25% - 20px)">
+      <a class="headline">Settings</a>
+      <div class="box_content">
+        <table style="font-size: 80%; width: 100%">
+          <tr class="table_row_head">
+            <td>Option</td>
+            <td>Setting</td>
+          </tr>
+          <tr class="table_row_content">
+            <td>Spanning Tree Protocol</td>
+            <td>
+              <select id="lan" style="width: 97%">
+                <option value="none">none</option>
+                <option value="rstp">RSTP</option>
+              </select>
+            </td>
+          </tr>
+          <tr class="table_row_content">
+            <td>Bridge Priority</td>
+            <td>
+              <!-- <input id="lan_prio" type="number" min="0" max="15" style="width: 97%;"> -->
+              <select id="lan_prio" style="width: 97%">
+                <option value="0">0</option>
+                <option value="1">4096</option>
+                <option value="2">8192</option>
+                <option value="3">12288</option>
+                <option value="4">16384</option>
+                <option value="5">20480</option>
+                <option value="6">24576</option>
+                <option value="7">28672</option>
+                <option value="8">32768</option>
+                <option value="9">36864</option>
+                <option value="10">40960</option>
+                <option value="11">45056</option>
+                <option value="12">49152</option>
+                <option value="13">53248</option>
+                <option value="14">57344</option>
+                <option value="15">61440</option>
+              </select>
+            </td>
+          </tr>
+        </table>
+        <input
+          type="button"
+          class="button"
+          id="set_stp_version_button"
+          value="Set Spanning Tree Configuration"
+        />
+      </div>
+    </div>
+    <div
+      class="box2"
+      style="width: calc(25% - 20px)"
+      id="div_root"
+      hidden="true"
+    >
+      <a class="headline">Instance Information</a>
+      <div class="box_content">
+        <table style="font-size: 80%; width: 100%">
+          <tr class="table_row_head">
+            <td>Parameter</td>
+            <td>Value</td>
+          </tr>
+          <tr class="table_row_content">
+            <td>Root Bridge ID</td>
+            <td id="rootbridge"></td>
+          </tr>
+        </table>
+      </div>
+    </div>
+    <div
+      class="box2"
+      style="width: calc(50% - 20px)"
+      id="div_port_state"
+      hidden="true"
+    >
+      <a class="headline">Ports</a>
+      <div class="box_content">
+        <table style="font-size: 80%; width: 100%" id="port_state">
+          <tr class="table_row_head">
+            <td>Port</td>
+            <td>State</td>
+            <td>Role</td>
+          </tr>
+        </table>
+      </div>
+    </div>
+  </body>
+</html>

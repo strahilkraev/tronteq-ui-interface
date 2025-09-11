@@ -1,0 +1,170 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
+<meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1" />
+<html style="height: 100%">
+  <head>
+    <link rel="stylesheet" type="text/css" href="basic_layout.css" />
+    <style type="text/css"></style>
+  </head>
+  <script type="text/javascript" src="basic_jscript.js"></script>
+  <script type="text/javascript" src="js/jquery-3.7.1.min.js"></script>
+  <script type="text/javascript">
+    $(document).ajaxError(function (event, request, settings) {
+      var obj = JSON.parse(request.responseText);
+      if (obj.msg) ffunc(obj.msg);
+      if (obj.error === "invalid rights")
+        window.top.location.href = "login.html";
+    });
+
+    $(document).ready(function () {
+      setupPortInfo(setupDone);
+      autoRefreshFn({ fn: setupDone });
+    });
+
+    function setupDone() {
+      for (var i = 0; i < Order.length; i++) {
+        addInterfaceOpts(Order[i] + 1);
+      }
+
+      getInterfacesFn();
+    }
+
+    function getInterfacesStateFn() {
+      $.post(
+        "/api",
+        '{"service":"interface","access":"get","command":"get interfaces state"}',
+        function (data, status) {
+          data.forEach(function (i) {
+            //addInterfaceState(i["interface"])
+            if (i.state == true) {
+              $("#StatusLink" + i["interface"]).text("up");
+              if (i.duplex) $("#StatusDuplex" + i["interface"]).text("full");
+              else $("#StatusDuplex" + i["interface"]).text("half");
+              $("#StatusSpeed" + i["interface"]).text(i.speed);
+            } else {
+              $("#StatusLink" + i["interface"]).text("down");
+              $("#StatusDuplex" + i["interface"]).text("-");
+              $("#StatusSpeed" + i["interface"]).text("-");
+            }
+            $("#MAC" + i["interface"]).text(i.mac);
+          });
+
+          document.body.style.width = "99.99999%";
+          setTimeout(function () {
+            document.body.style.width = "100%";
+          }, 50);
+        }
+      );
+    }
+
+    function addInterfaceOpts(i) {
+      $("#interface_table > tbody:last-child").append(
+        '<tr class="table_row_content"><td>' +
+          SwitchPortNames[i - 1] +
+          "</td>" +
+          '<td id="ifname' +
+          i +
+          '"></td>' +
+          '<td id="StatusLink' +
+          i +
+          '"></td>' +
+          '<td id="StatusSpeed' +
+          i +
+          '"></td>' +
+          '<td id="StatusDuplex' +
+          i +
+          '"></td>' +
+          '<td id="up' +
+          i +
+          '"></td>' +
+          '<td id="autoneg' +
+          i +
+          '"></td>' +
+          '<td id="speed' +
+          i +
+          '"></td>' +
+          '<td id="duplex' +
+          i +
+          '"></td>' +
+          '<td id="MAC' +
+          i +
+          '"></td>' +
+          "</tr>"
+      );
+    }
+
+    function getInterfacesFn() {
+      $.post(
+        "/api",
+        '{"service":"interface","access":"get","command":"get interfaces"}',
+        function (data, status) {
+          data.forEach(function (i) {
+            if (i.name.length > 20) {
+              var subdiv = document.createElement("div");
+              subdiv.innerText = i.name.substr(0, 19) + "   ...";
+              $("#ifname" + i["interface"].toString())
+                .append(subdiv)
+                .prop("title", i.name);
+            } else $("#ifname" + i["interface"].toString()).text(i.name);
+            if (i.up.toString() === "true") {
+              $("#up" + i["interface"].toString()).text("enabled");
+            } else {
+              $("#up" + i["interface"].toString()).text("disabled");
+            }
+            if (i.autoneg.toString() === "true") {
+              $("#autoneg" + i["interface"].toString()).text("enabled");
+              $("#speed" + i["interface"].toString()).text("-");
+              $("#duplex" + i["interface"].toString()).text("-");
+            } else {
+              $("#autoneg" + i["interface"].toString()).text("disabled");
+              $("#speed" + i["interface"].toString()).text(i.speed);
+              if (i.duplex.toString() === "true")
+                $("#duplex" + i["interface"].toString()).text("full");
+              else $("#duplex" + i["interface"].toString()).text("half");
+            }
+          });
+          getInterfacesStateFn();
+
+          setInterval(function () {
+            getInterfacesStateFn();
+          }, 1000);
+        }
+      );
+    }
+  </script>
+  <body
+    style="height:100%;width:100%;float:left;margin: 0px; font-family: Verdana;height 100%; overflow: hidden; position: absolute;"
+  >
+    <div id="content" style="height: 100%; overflow: auto; width: 100%">
+      <div style="width: 100%; float: left">
+        <h2 style="margin-left: 10px">Status &gt; Ports</h2>
+
+        <div class="box2" style="width: calc(100% - 20px)">
+          <div class="box_content">
+            <table
+              style="font-size: 80%; text-align: center; width: 100%"
+              id="interface_table"
+            >
+              <tr class="table_row_head">
+                <td colspan="2">Port</td>
+                <td colspan="3">Status</td>
+                <td colspan="4">Configuration</td>
+                <td rowspan="2">MACs</td>
+              </tr>
+              <tr class="table_row_head">
+                <td>Port</td>
+                <td>Name</td>
+                <td>Link</td>
+                <td>Speed</td>
+                <td>Duplex</td>
+                <td>Link</td>
+                <td>Auto Negotiation</td>
+                <td>Speed</td>
+                <td>Duplex</td>
+              </tr>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  </body>
+</html>

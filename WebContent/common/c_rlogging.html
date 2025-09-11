@@ -1,0 +1,152 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
+<meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1" />
+<html>
+  <head>
+    <link rel="stylesheet" type="text/css" href="basic_layout.css" />
+    <style type="text/css"></style>
+  </head>
+  <script type="text/javascript" src="basic_jscript.js"></script>
+  <script type="text/javascript" src="js/jquery-3.7.1.min.js"></script>
+  <script type="text/javascript">
+    $(document).ajaxError(function (event, request, settings) {
+      var obj = JSON.parse(request.responseText);
+      if (obj.msg) ffunc(obj.msg);
+      if (obj.error === "invalid rights")
+        window.top.location.href = "login.html";
+    });
+
+    function getRemote() {
+      $.post(
+        "/api",
+        '{"service":"log","access":"get","command":"get remote"}',
+        function (data) {
+          $("#inp_enabled").prop("checked", data.enabled);
+          $("#inp_destination").val(data.destination);
+          $("#inp_protocol").val(data.protocol);
+          $("#inp_port").val(data.port);
+          $("#inp_mark").prop("checked", data.mark);
+          $("#inp_interval").val(data.interval);
+        }
+      );
+    }
+
+    function setRemote() {
+      var obj = {
+        service: "log",
+        access: "set",
+        command: "set remote",
+        parameters: {},
+      };
+      obj.parameters.enabled = $("#inp_enabled").prop("checked");
+      obj.parameters.destination = $("#inp_destination").val();
+      obj.parameters.protocol = $("#inp_protocol").val();
+      obj.parameters.port = parseInt($("#inp_port").val());
+      obj.parameters.mark = $("#inp_mark").prop("checked");
+      obj.parameters.interval = parseInt($("#inp_interval").val());
+      $.post("/api", JSON.stringify(obj), function (data, status) {
+        createOK(data);
+      });
+    }
+
+    $(document).ready(function () {
+      getRemote();
+
+      $("#setremotebutton").click(function () {
+        setRemote();
+      });
+    });
+  </script>
+
+  <body
+    style="
+      height: 100%;
+      width: 100%;
+      float: left;
+      margin: 0px;
+      font-family: Verdana;
+      overflow: hidden;
+      position: absolute;
+    "
+  >
+    <div id="content" style="height: 100%; overflow: auto; width: 100%">
+      <h2 style="margin-left: 10px">Settings &gt; Remote Logging</h2>
+
+      <div class="box2" style="width: calc(50% - 20px)">
+        <div class="box_content">
+          <table
+            style="
+              width: 100%;
+              table-layout: fixed;
+              font-size: 80%;
+              text-align: center;
+            "
+          >
+            <tr class="table_row_head">
+              <td style="width: 40%">Setting</td>
+              <td style="width: 60%">Value</td>
+            </tr>
+            <tr class="table_row_content">
+              <td>Enabled</td>
+              <td><input type="checkbox" id="inp_enabled" /></td>
+            </tr>
+            <tr class="table_row_content">
+              <td>Destination</td>
+              <td>
+                <input
+                  id="inp_destination"
+                  title="hostname or IPv4 address"
+                  style="width: 92%"
+                />
+              </td>
+            </tr>
+            <tr class="table_row_content">
+              <td>Protocol</td>
+              <td>
+                <select id="inp_protocol" style="width: 97%">
+                  <option value="udp">UDP</option>
+                  <option value="tcp">TCP</option>
+                </select>
+              </td>
+            </tr>
+            <tr class="table_row_content">
+              <td>Port</td>
+              <td>
+                <input
+                  id="inp_port"
+                  type="number"
+                  min="1"
+                  max="65535"
+                  title="0..65535"
+                  style="width: 92%"
+                />
+              </td>
+            </tr>
+            <tr class="table_row_content">
+              <td>Periodic heartbeat messages</td>
+              <td><input type="checkbox" id="inp_mark" /></td>
+            </tr>
+            <tr class="table_row_content">
+              <td>Interval of heartbeat messages</td>
+              <td>
+                <input
+                  id="inp_interval"
+                  type="number"
+                  min="10"
+                  max="3600"
+                  title="100..3600 seconds"
+                  style="width: 75%"
+                />
+                seconds
+              </td>
+            </tr>
+          </table>
+          <input
+            type="button"
+            value="Set Remote Logging"
+            id="setremotebutton"
+          />
+        </div>
+      </div>
+    </div>
+  </body>
+</html>

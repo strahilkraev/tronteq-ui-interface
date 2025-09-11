@@ -1,0 +1,235 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
+<meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1" />
+<html>
+  <head>
+    <link rel="stylesheet" type="text/css" href="basic_layout.css" />
+  </head>
+  <script type="text/javascript" src="basic_jscript.js"></script>
+  <script type="text/javascript" src="js/jquery-3.7.1.min.js"></script>
+  <script type="text/javascript">
+    $(document).ajaxError(function (event, request, settings) {
+      var obj = JSON.parse(request.responseText);
+      if (obj.msg) ffunc(obj.msg);
+      if (obj.error === "invalid rights")
+        window.top.location.href = "login.html";
+    });
+
+    function getChildElement(obj, name) {
+      if (typeof obj !== "object") return "";
+      _keys = Object.keys(obj);
+      for (_i = 0; _i < _keys.length; _i++) {
+        if (_keys[_i] === name) return obj[_keys[_i]];
+      }
+
+      for (_i = 0; _i < _keys.length; _i++) {
+        _ret = getChildElement(obj[_keys[_i]], name);
+        if (_ret !== "") return _ret;
+      }
+      return "";
+    }
+
+    function AddLLDPNeighbor(data) {
+      if (typeof data === "undefined") return;
+      var locIfName = SwitchPortNames[data["interface"]];
+      var device = data["data"];
+      var deviceName = Object.keys(device.chassis)[0];
+
+      if (deviceName == "id") deviceName = "";
+
+      $("#lldp_neighbors_table > tbody:last-child").append(
+        '<tr class="table_row_content">' +
+          "<td>" +
+          locIfName +
+          "</td>" +
+          "<td>" +
+          deviceName +
+          "</td>" +
+          "<td>" +
+          getChildElement(device.chassis, "descr") +
+          "</td>" +
+          "<td>" +
+          getChildElement(device.chassis, "type") +
+          "</td>" +
+          "<td>" +
+          getChildElement(device.chassis, "value") +
+          "</td>" +
+          "<td>" +
+          device.port.id.type +
+          "</td>" +
+          "<td>" +
+          device.port.id.value +
+          "</td>" +
+          "<td>" +
+          getChildElement(device.port, "descr") +
+          "</td>" +
+          "<td>" +
+          device.age +
+          "</td></tr>"
+      );
+    }
+
+    function ReloadInterfaces() {
+      $.post(
+        "/api",
+        '{"service":"lldp","access":"get", "command":"get interfaces"}',
+        function (data, status) {
+          data.forEach(function (i) {
+            var iface = i.interface;
+            $("#lldpState" + iface).val(i.tx.toString());
+          });
+        }
+      );
+    }
+
+    function GetNeighborsData(data, s) {
+      $("#lldp_neighbors_table > tbody .table_row_content").remove();
+      if (data.lldp["interface"] instanceof Array) {
+        for (var i = 0; i < Object.keys(data.lldp["interface"]).length; i++) {
+          var n =
+            data.lldp["interface"][Object.keys(data.lldp["interface"])[i]];
+          AddLLDPNeighbor(n);
+        }
+      } else {
+        AddLLDPNeighbor(data.lldp["interface"]);
+      }
+    }
+
+    function createLLDInterfacePara() {
+      for (var j = 0; j < NumberSwitchPorts; j++) {
+        var i = Order[j] + 1;
+        $("#table_config > tbody:last-child").append(
+          '<tr class="table_row_content"><td>' +
+            SwitchPortNames[i - 1] +
+            "</td>" +
+            '<td><select id="lldpState' +
+            i +
+            '" style="width: 100%;">' +
+            '<option value="false">receive only</option>' +
+            '<option value="true">receive & transmit</option>' +
+            "</select></td></tr>"
+        );
+      }
+    }
+
+    $(document).ready(function () {
+      setupPortInfo(setupDone);
+    });
+
+    function setupDone() {
+      $(document).ajaxError(function (data, a1) {
+        if (a1.responseJSON != undefined)
+          $("#infoline").text(a1.responseJSON.msg);
+      });
+
+      createLLDInterfacePara();
+
+      $("#set_trigger").click(function () {
+        var parms = [];
+        for (var i = 1; i < NumberNetworkPorts + 1; i++) {
+          parms.push({
+            interface: i,
+            tx: $("#lldpState" + i).val() === "true",
+          });
+        }
+
+        $.post(
+          "/api",
+          JSON.stringify({
+            service: "lldp",
+            access: "set",
+            command: "set interfaces",
+            parameters: parms,
+          }),
+          function (data, status) {
+            createOK(data);
+          }
+        );
+      });
+
+      $("#reload_trigger").click(function () {
+        ReloadInterfaces();
+      });
+
+      $("#GetNeighbors").click(function () {
+        $.post(
+          "/api",
+          '{"service":"lldp","access":"get", "command":"get neighbors"}',
+          GetNeighborsData
+        );
+      });
+
+      //load data
+      ReloadInterfaces();
+
+      $.post(
+        "/api",
+        '{"service":"lldp","access":"get", "command":"get neighbors"}',
+        GetNeighborsData
+      );
+
+      //set username
+      var cookies = document.cookie.split("; ");
+      var found = false;
+      for (var i in cookies) {
+        if (cookies[i].split("=")[0].match("user")) {
+          $("#username").text(cookies[i].split("=")[1]);
+          found = true;
+        }
+      }
+
+      if (!found)
+        window.top.location.href =
+          window.top.location.protocol +
+          "//" +
+          window.top.location.host +
+          "/login.html";
+    }
+  </script>
+  <body
+    style="
+      height: 100%;
+      width: 100%;
+      float: left;
+      margin: 0px;
+      font-family: Verdana;
+      overflow: hidden;
+      position: absolute;
+    "
+  >
+    <div id="content" style="height: 100%; overflow: auto; width: 100%">
+      <h2 style="margin-left: 10px">Settings &gt; LLDP</h2>
+      <div class="box2" style="width: calc(25% - 20px)">
+        <a class="headline">Configuration</a>
+        <div class="box_content">
+          <table style="font-size: 80%; width: 100%" id="table_config">
+            <tr class="table_row_head">
+              <td>Port</td>
+              <td>Setting</td>
+            </tr>
+          </table>
+          <input type="button" value="Set" id="set_trigger" />
+        </div>
+      </div>
+
+      <div class="box2" style="width: calc(75% - 20px)">
+        <a class="headline">Neighbours</a>
+        <div class="box_content">
+          <table style="font-size: 80%; width: 100%" id="lldp_neighbors_table">
+            <tr class="table_row_head">
+              <td>Local Port</td>
+              <td>System Name</td>
+              <td>System Description</td>
+              <td>Chassis ID Type</td>
+              <td>Chassis ID Value</td>
+              <td>Port ID Type</td>
+              <td>Port ID Value</td>
+              <td>Port Description</td>
+              <td>Age</td>
+            </tr>
+          </table>
+          <input type="button" value="Refresh" id="GetNeighbors" />
+        </div>
+      </div>
+    </div>
+  </body>
+</html>

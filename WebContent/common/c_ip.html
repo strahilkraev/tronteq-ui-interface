@@ -1,0 +1,284 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
+<meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1" />
+<html>
+  <head>
+    <link rel="stylesheet" type="text/css" href="basic_layout.css" />
+    <style type="text/css"></style>
+  </head>
+  <script type="text/javascript" src="basic_jscript.js"></script>
+  <script type="text/javascript" src="js/jquery-3.7.1.min.js"></script>
+  <script type="text/javascript">
+    $(document).ajaxError(function (event, request, settings) {
+      var obj = JSON.parse(request.responseText);
+      if (obj.msg) ffunc(obj.msg);
+      if (obj.error === "invalid rights")
+        window.top.location.href = "login.html";
+    });
+    var isGWSet = false;
+
+    $(document).ready(function () {
+      $(document).ajaxError(function (data, a1) {
+        if (a1.responseJSON != undefined)
+          $("#infoline").text(a1.responseJSON.msg);
+      });
+
+      reloadBridges();
+
+      $("#setInterfaces").click(setBridges);
+
+      var cookies = document.cookie.split("; ");
+      var found = false;
+      for (var i in cookies) {
+        if (cookies[i].split("=")[0].match("user")) {
+          $("#username").text(cookies[i].split("=")[1]);
+          found = true;
+        }
+      }
+
+      if (!found)
+        window.top.location.href =
+          window.top.location.protocol +
+          "//" +
+          window.top.location.host +
+          "/login.html";
+    });
+
+    function ip_settings_input_state(id) {
+      if (!isGWSet || $('[id="txt_tab_intf_gw_' + id + '"]').val().length > 0)
+        document.getElementById(
+          "txt_tab_intf_gw_" + id.toString()
+        ).disabled = false;
+      else
+        document.getElementById(
+          "txt_tab_intf_gw_" + id.toString()
+        ).disabled = true;
+    }
+
+    function loadBridgeRunning() {
+      $.post(
+        "/api",
+        '{"service":"vlan","access":"get","command":"get current bridge config"}',
+        function (data, status) {
+          data.forEach(function (i) {
+            var vid = i.vlan_id;
+
+            $("#running_ip_" + i.vlan_id).text(i.ip);
+            $("#running_sub_" + i.vlan_id).text(i.sm);
+            $("#running_gw_" + i.vlan_id).text(i.gw);
+          });
+          document.body.style.width = "99.99999%";
+          setTimeout(function () {
+            document.body.style.width = "100%";
+          }, 50);
+        }
+      );
+    }
+
+    function reloadBridges() {
+      $("#table_ip_cfg > tbody .table_row_content").empty();
+      bridges = [];
+      $.post(
+        "/api",
+        '{"service":"vlan","access":"get","command":"get bridges"}',
+        function (data, status) {
+          $("#table_ip_cfg > tbody .table_row_content").remove();
+          bridges = [];
+          data.forEach(function (i) {
+            if (i.vlan_id === 0) {
+              name = "Lan";
+            } else {
+              name = "VLAN_ID" + i.vlan_id;
+            }
+
+            $("#table_ip_cfg  > tbody:last-child").append(
+              '<tr class="table_row_content">' +
+                "<td>" +
+                name +
+                "</td>" +
+                '<td><input type="text" id="txt_tab_intf_ip_' +
+                i.vlan_id +
+                '" value="' +
+                i.ip +
+                '" style="width: 92%;"></td>' +
+                '<td><input type="text" id="txt_tab_intf_cidr_' +
+                i.vlan_id +
+                '" value="' +
+                i.sm +
+                '" style="width: 92%;"></td>' +
+                '<td><input type="text" id="txt_tab_intf_gw_' +
+                i.vlan_id +
+                '" value="' +
+                i.gw +
+                '" style="width: 92%;" onchange="checkGateways();"></td>' +
+                '<td><input type="checkbox" id="check_forward_' +
+                i.vlan_id +
+                '" style="width: 92%;" ' +
+                (i.forward ? "checked" : "") +
+                "></td>" +
+                '<td><input type="checkbox" id="check_proxy_arp_' +
+                i.vlan_id +
+                '" style="width: 92%;" ' +
+                (i.proxy_arp ? "checked" : "") +
+                "></td>" +
+                '<td align="center"><input type="checkbox" id="check_dhcpclient_operation' +
+                i.vlan_id +
+                '" ' +
+                (i.dhcp_client ? "checked" : "") +
+                ' onclick="ip_settings_input_state(' +
+                i.vid +
+                ')"></td>' +
+                '<td align="center"><input type="checkbox" id="check_dhcpclient_provision' +
+                i.vlan_id +
+                '" ' +
+                (i.dhcp_provision ? "checked" : "") +
+                "></td>" +
+                '<td align="center"><input type="checkbox" id="check_dhcpclient_filter' +
+                i.vlan_id +
+                '" ' +
+                (i.dhcp_filter ? "checked" : "") +
+                "></td>" +
+                '<td id="running_ip_' +
+                i.vlan_id +
+                '"></td>' +
+                '<td id="running_sub_' +
+                i.vlan_id +
+                '"></td>' +
+                '<td id="running_gw_' +
+                i.vlan_id +
+                '"></td>' +
+                "</tr>"
+            );
+          });
+          loadBridgeRunning();
+          checkGateways();
+          document.body.style.width = "99.99999%";
+          setTimeout(function () {
+            document.body.style.width = "100%";
+          }, 50);
+        }
+      );
+    }
+
+    function checkGateways() {
+      isGWSet = false;
+      var all = $('[id^="txt_tab_intf_gw_"]');
+      for (var i = 0; i < all.length; i++) {
+        if (all[i].value != 0) {
+          isGWSet = true;
+          break;
+        }
+      }
+      if (isGWSet) {
+        var found = false;
+        for (var i = 0; i < all.length; i++) {
+          if (!found && all[i].value != 0) {
+            all[i].disabled = false;
+            found = true;
+          } else {
+            all[i].disabled = true;
+            all[i].value = "";
+          }
+        }
+      } else {
+        for (var i = 0; i < all.length; i++) {
+          all[i].disabled = false;
+          all[i].value = "";
+
+          ip_settings_input_state(all[i].id.split("_")[4]);
+        }
+      }
+    }
+
+    function setBridges() {
+      var list = $("[id^=txt_tab_intf_ip_]");
+      var obj = {
+        service: "vlan",
+        access: "set",
+        command: "set bridges",
+        parameters: [],
+      };
+
+      for (var i = 0; i < list.length; i++) {
+        var vid = Number(list[i].id.split("_")[4]);
+        var dhcpc_active = document.getElementById(
+          "txt_tab_intf_ip_" + vid.toString()
+        ).disabled;
+
+        var tmp = {};
+        tmp.vlan_id = vid;
+        if (list[i].value.empty) {
+          tmp.ip = "0.0.0.0";
+        } else {
+          tmp.ip = list[i].value;
+        }
+        tmp.sm = $("[id=txt_tab_intf_cidr_" + vid + "]").val();
+        tmp.gw = $("[id=txt_tab_intf_gw_" + vid + "]").val();
+        tmp.forward = $("[id=check_forward_" + vid + "]").prop("checked");
+        tmp.proxy_arp = $("[id=check_proxy_arp_" + vid + "]").prop("checked");
+        tmp.dhcp_client = $("[id=check_dhcpclient_operation" + vid + "]").prop(
+          "checked"
+        );
+        tmp.dhcp_provision = $(
+          "[id=check_dhcpclient_provision" + vid + "]"
+        ).prop("checked");
+        tmp.dhcp_filter = $("[id=check_dhcpclient_filter" + vid + "]").prop(
+          "checked"
+        );
+        obj.parameters.push(tmp);
+      }
+
+      $.post("/api", JSON.stringify(obj), function (data, status) {
+        reloadBridges();
+        createOK(data);
+      });
+    }
+  </script>
+  <body
+    style="
+      height: 100%;
+      width: 100%;
+      float: left;
+      margin: 0px;
+      font-family: Verdana;
+      overflow: hidden;
+      position: absolute;
+    "
+  >
+    <div id="content" style="height: 100%; overflow: auto; width: 100%">
+      <h2 style="margin-left: 10px">Settings &gt; Management Interfaces</h2>
+
+      <div class="box2" style="width: calc(100% - 20px)">
+        <div class="box_content">
+          <table style="font-size: 80%; width: 100%" id="table_ip_cfg">
+            <tr class="table_row_head">
+              <td rowspan="2">Interface</td>
+              <td colspan="3" align="center">Settings</td>
+              <td colspan="2" align="center">NAT</td>
+              <td colspan="3" align="center">DHCP Client</td>
+              <td colspan="3" align="center">Status</td>
+            </tr>
+            <tr class="table_row_head">
+              <td>IP Address</td>
+              <td>Netmask</td>
+              <td>Gateway</td>
+              <td>IP Forwarding</td>
+              <td>Proxy ARP</td>
+              <td align="center">Operation</td>
+              <td align="center">Provision</td>
+              <td align="center">Filter</td>
+              <td>IP Address</td>
+              <td>Netmask</td>
+              <td>Gateway</td>
+            </tr>
+          </table>
+          <input
+            type="button"
+            class="button"
+            value="Set Management Interfaces"
+            id="setInterfaces"
+          />
+        </div>
+      </div>
+    </div>
+  </body>
+</html>

@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <link rel="stylesheet" type="text/css" href="basic_layout.css" />
+    <style type="text/css"></style>
+  </head>
+  <script type="text/javascript" src="basic_jscript.js"></script>
+  <script type="text/javascript" src="js/jquery-3.7.1.min.js"></script>
+  <script type="text/javascript">
+    $(document).ajaxError(function (event, request, settings) {
+      var obj = JSON.parse(request.responseText);
+      if (obj.msg) ffunc(obj.msg);
+      if (obj.error === "invalid rights")
+        window.top.location.href = "login.html";
+    });
+
+    $(document).ready(function () {
+      setupPortInfo(setupDone);
+    });
+
+    function setupDone() {
+      getSettings();
+      getStatus();
+      $("#set").click(setSettings);
+      $("#update").click(getStatus);
+    }
+
+    function getSettings() {
+      $.post(
+        "/api",
+        '{"service":"ignition","access":"get","command":"settings"}',
+        function (data) {
+          //alert(data);
+          $("#active").val("" + data["enabled"]);
+          $("#timeout").val(data["timeout"]);
+        }
+      );
+    }
+
+    function setSettings() {
+      $.post(
+        "/api",
+        JSON.stringify({
+          service: "ignition",
+          access: "set",
+          command: "settings",
+          parameters: {
+            enabled: $("#active").val() == "true",
+            timeout: parseInt($("#timeout").val()),
+          },
+        }),
+        function (data, status) {
+          createOK(data);
+          getSettings();
+          getStatus();
+        }
+      );
+    }
+
+    function getStatus() {
+      $.post(
+        "/api",
+        '{"service":"ignition","access":"get","command":"status"}',
+        function (data) {
+          //alert(data);
+          $("#timerRemaining")[0].textContent = data["timer"];
+          if (data["V2Active"]) $("#v2")[0].textContent = "powered";
+          else $("#v2")[0].textContent = "not powered";
+        }
+      );
+    }
+  </script>
+  <body
+    style="
+      height: 100%;
+      width: 100%;
+      float: left;
+      margin: 0px;
+      font-family: Verdana;
+    "
+  >
+    <h2 style="margin-left: 10px">Settings &gt; Ignition</h2>
+
+    <div class="box2" style="width: calc(25% - 20px)">
+      <a class="headline">Settings</a>
+      <div class="box_content">
+        <table style="font-size: 80%; width: 100%">
+          <tr class="table_row_head">
+            <td style="width: 50%">Option</td>
+            <td style="width: 50%">Setting</td>
+          </tr>
+          <tr class="table_row_content">
+            <td>Ignition</td>
+            <td>
+              <select id="active" style="width: 97%">
+                <option value="true">enabled</option>
+                <option value="false">disabled</option>
+              </select>
+            </td>
+          </tr>
+          <tr class="table_row_content">
+            <td>Timeout in seconds</td>
+            <td>
+              <input
+                type="number"
+                id="timeout"
+                min="60"
+                max="86400"
+                style="width: 97%"
+              />
+            </td>
+          </tr>
+        </table>
+        <input
+          type="button"
+          class="button"
+          id="set"
+          value="Update Ignition Settings"
+        />
+      </div>
+    </div>
+    <div class="box2" style="width: calc(25% - 20px)">
+      <a class="headline">Status</a>
+      <div class="box_content">
+        <table style="font-size: 80%; width: 100%">
+          <tr class="table_row_head">
+            <td style="width: 50%">Parameter</td>
+            <td style="width: 50%">Value</td>
+          </tr>
+          <tr class="table_row_content">
+            <td>V2 / Ignition</td>
+            <td id="v2"></td>
+          </tr>
+          <tr class="table_row_content">
+            <td>Timer value in seconds</td>
+            <td id="timerRemaining"></td>
+          </tr>
+        </table>
+        <input type="button" class="button" id="update" value="update" />
+      </div>
+    </div>
+  </body>
+</html>

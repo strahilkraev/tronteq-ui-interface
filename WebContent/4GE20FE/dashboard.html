@@ -1,0 +1,505 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
+<meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1" />
+<html style="height: 100%">
+  <head>
+    <link rel="stylesheet" type="text/css" href="basic_layout.css" />
+  </head>
+  <script type="text/javascript" src="basic_jscript.js"></script>
+  <script type="text/javascript" src="js/jquery-3.7.1.min.js"></script>
+  <script type="text/javascript">
+    var poecfg;
+
+    $(document).ajaxError(function (event, request, settings) {
+      var obj = JSON.parse(request.responseText);
+      if (obj.msg) ffunc(obj.msg);
+      if (obj.error === "invalid rights")
+        window.top.location.href = "login.html";
+    });
+
+    $(document).ready(function () {
+      setupPortInfo(setupDone);
+    });
+
+    function setupDone() {
+      $.post(
+        "/api",
+        '{"service":"system","access":"get","command":"get id"}',
+        getIdCallback
+      );
+      getInterfacesStateFn();
+
+      setInterval(function () {
+        getInterfacesStateFn();
+      }, 1000);
+
+      //getDHCPServer();
+      getUptime();
+      getSysInfo();
+      getSupplyInfo();
+    }
+
+    function addPoEPortNumbers() {
+      for (var i = 0; i < PoEPorts; i++) {
+        $("#poePortName" + i).text(PoEPortName[i]);
+      }
+    }
+
+    function getIdCallback(data) {
+      $("#image")[0].src = data["part number"] + ".png";
+      if (data["poe"]) {
+        loadPoE();
+        addPoEPortNumbers();
+      } else {
+        $("#poebox").css("display", "none");
+        $("#portbox").css("width", "calc(100% - 20px)");
+        $("#diag_poe_budget_all").css("display", "none");
+        $("#diag_poe_budget_txt").css("display", "none");
+      }
+    }
+
+    function addInterfaceState(i) {
+      $("#interface_status_table > tbody:last-child").append(
+        '<tr class="table_row_content"><td>' +
+          SwitchPortNames[i - 1] +
+          "</td>" +
+          '<td id="StatusLink' +
+          i +
+          '"></td>' +
+          '<td id="StatusSpeed' +
+          i +
+          '"></td>' +
+          '<td id="StatusDuplex' +
+          i +
+          '"></td>' +
+          "</tr>"
+      );
+    }
+
+    function getInterfacesStateFn() {
+      $.post(
+        "/api",
+        '{"service":"interface","access":"get","command":"get interfaces state"}',
+        function (data, status) {
+          $("#interface_status_table > tbody .table_row_content").remove();
+
+          for (var i = 0; i < Order.length; i++) {
+            addInterfaceState(Order[i] + 1);
+          }
+
+          data.forEach(function (i) {
+            if (i.state == true) {
+              $("#StatusLink" + i["interface"]).text("up");
+              if (i.duplex) $("#StatusDuplex" + i["interface"]).text("full");
+              else $("#StatusDuplex" + i["interface"]).text("half");
+              $("#StatusSpeed" + i["interface"]).text(i.speed);
+            } else {
+              $("#StatusLink" + i["interface"]).text("down");
+              $("#StatusDuplex" + i["interface"]).text("-");
+              $("#StatusSpeed" + i["interface"]).text("-");
+            }
+          });
+
+          /*// add 100 MBit/s ports
+						data.forEach(function(i)
+						{
+							if(SwitchPortNames[i["interface"] - 1].charAt(0) == "P")
+							{
+								addInterfaceState(i["interface"])
+								if(i.state == true)
+								{
+									$('#StatusLink' + i["interface"]).text('up');
+									if(i.duplex)
+										$('#StatusDuplex' + i["interface"]).text('full');
+									else
+										$('#StatusDuplex' + i["interface"]).text('half');
+									$('#StatusSpeed' + i["interface"]).text(i.speed);
+								}
+								else
+								{
+									$('#StatusLink' + i["interface"]).text('down');
+									$('#StatusDuplex' + i["interface"]).text('-');
+									$('#StatusSpeed' + i["interface"]).text('-');
+								}
+							}
+						});
+						
+						// add 1000 MBit/s ports
+						data.forEach(function(i)
+						{
+							if(SwitchPortNames[i["interface"] - 1].charAt(0) == "G")
+							{
+								addInterfaceState(i["interface"])
+								if(i.state == true)
+								{
+									$('#StatusLink' + i["interface"]).text('up');
+									if(i.duplex)
+										$('#StatusDuplex' + i["interface"]).text('full');
+									else
+										$('#StatusDuplex' + i["interface"]).text('half');
+									$('#StatusSpeed' + i["interface"]).text(i.speed);
+								}
+								else
+								{
+									$('#StatusLink' + i["interface"]).text('down');
+									$('#StatusDuplex' + i["interface"]).text('-');
+									$('#StatusSpeed' + i["interface"]).text('-');
+								}
+							}
+						});
+						*/
+        }
+      );
+    }
+
+    function PoEPortState(data) {
+      for (var i = 0; i < data.length; i++) {
+        if (data[i].poeclass == -1) {
+          document.getElementById("PoE_Class" + (i + 1)).textContent = "-";
+          document.getElementById("PoE_port" + (i + 1)).className = "port_down";
+        } else {
+          if (
+            PoEClassW[data[i].poeclass] < PoEUserPWRLimit[poecfg[i].limit_pwr]
+          ) {
+            document.getElementById("PoE_Class" + (i + 1)).textContent =
+              PoEClassW[data[i].poeclass] + "W";
+          } else {
+            document.getElementById("PoE_Class" + (i + 1)).textContent =
+              PoEUserPWRLimit[poecfg[i].limit_pwr] + "W";
+          }
+        }
+
+        if (data[i].status == 0) {
+          document.getElementById("PoE_Status" + (i + 1)).textContent =
+            "disabled";
+        } else if (data[i].status == 1) {
+          document.getElementById("PoE_Status" + (i + 1)).textContent =
+            "not detected";
+        } else if (data[i].status == 2) {
+          document.getElementById("PoE_Status" + (i + 1)).textContent =
+            "powered";
+        } else if (data[i].status == 3) {
+          document.getElementById("PoE_Status" + (i + 1)).textContent =
+            "blocked";
+        } else if (data[i].status == 4) {
+          document.getElementById("PoE_Status" + (i + 1)).textContent =
+            "dropped";
+        } else if (data[i].status == 5) {
+          document.getElementById("PoE_Status" + (i + 1)).textContent = "error";
+        }
+      }
+    }
+
+    function PoEPortCfgState(data) {
+      poecfg = data;
+      $.post(
+        "/api",
+        '{"service":"poe","access":"get","command":"get poe state"}',
+        PoEPortState
+      );
+    }
+
+    function PoEGlobalState(retobj) {
+      var err = false;
+      var val = 0;
+      for (var i = 0; i < retobj.length; i++) {
+        if (parseInt(retobj[i].usedBudget) >= 0) {
+          val += (parseInt(retobj[i].usedBudget) * 1.0) / 10;
+        } else {
+          err = true;
+        }
+      }
+      if (err) {
+        document.getElementById("diag_poe_budget_all").textContent =
+          "PoE Failure";
+      } else {
+        document.getElementById("diag_poe_budget_all").textContent = val + "W";
+      }
+    }
+
+    function loadPoE() {
+      $.post(
+        "/api",
+        '{"service":"poe","access":"get","command":"get port cfg state"}',
+        PoEPortCfgState
+      );
+      $.post(
+        "/api",
+        '{"service":"poe","command":"get global state","access":"get"}',
+        PoEGlobalState
+      );
+    }
+
+    /*function DHCPServerCallback(data)
+			{
+				if(data.state)
+					document.getElementById("diag_dhcp_server").textContent =  "enabled";
+				else
+					document.getElementById("diag_dhcp_server").textContent =  "disabled";
+			}*/
+
+    /*function getDHCPServer()
+			{
+				$.post("/api",'{"service":"dhcp","access":"get","command":"get config"}',DHCPServerCallback);
+			}*/
+
+    function getUptimeCallback(data) {
+      document.getElementById("diag_sysup").textContent = data.uptime;
+    }
+
+    function getUptime() {
+      $.post(
+        "/api",
+        '{"service":"system","access":"get","command":"get uptime"}',
+        getUptimeCallback
+      );
+    }
+
+    function getSysInfoCallback(data) {
+      document.getElementById("sys_name").textContent = data.name;
+      document.getElementById("sys_desc").textContent = data.description;
+    }
+
+    function getSysInfo() {
+      $.post(
+        "/api",
+        '{"service":"system","access":"get","command":"get info"}',
+        getSysInfoCallback
+      );
+    }
+
+    function getSupplyCallback(data) {
+      if (data.v1) document.getElementById("diag_pwr1").textContent = "Present";
+      else document.getElementById("diag_pwr1").textContent = "Not present";
+
+      if (data.v2) document.getElementById("diag_pwr2").textContent = "Present";
+      else document.getElementById("diag_pwr2").textContent = "Not present";
+    }
+
+    function getSupplyInfo() {
+      $.post(
+        "/api",
+        '{"service":"system","access":"get","command":"get supply"}',
+        getSupplyCallback
+      );
+    }
+  </script>
+  <body
+    style="
+      margin: 0px;
+      height: 100%;
+      font-family: Verdana;
+      float: left;
+      overflow: hidden;
+      width: 100%;
+    "
+  >
+    <div id="content" style="height: 100%; overflow: auto; width: 100%">
+      <h2 style="margin-left: 10px">Dashboard</h2>
+      <div style="float: left; width: 50%">
+        <div class="box2" style="width: calc(50% - 20px)">
+          <a class="headline">Quick Diagnostics</a>
+          <div class="box_content">
+            <table
+              style="
+                font-size: 80%;
+                margin: auto;
+                width: 100%;
+                text-align: center;
+              "
+            >
+              <tr class="table_row_head">
+                <td>Parameter</td>
+                <td>Status</td>
+              </tr>
+              <tr class="table_row_content">
+                <td>Uptime</td>
+                <td id="diag_sysup" style="overflow: hidden"></td>
+              </tr>
+              <tr class="table_row_content">
+                <td>Power supply V1</td>
+                <td id="diag_pwr1" style="overflow: hidden"></td>
+              </tr>
+              <tr class="table_row_content">
+                <td>Power supply V2</td>
+                <td id="diag_pwr2" style="overflow: hidden"></td>
+              </tr>
+            </table>
+          </div>
+        </div>
+
+        <div class="box2" style="width: calc(50% - 20px)">
+          <a class="headline">Current Settings</a>
+          <div class="box_content">
+            <table
+              style="
+                font-size: 80%;
+                margin: auto;
+                width: 100%;
+                text-align: center;
+              "
+            >
+              <tr class="table_row_head">
+                <td>Parameter</td>
+                <td>Status</td>
+              </tr>
+              <tr class="table_row_content">
+                <td>System Name</td>
+                <td id="sys_name" style="overflow: hidden"></td>
+              </tr>
+              <tr class="table_row_content">
+                <td>System Description</td>
+                <td id="sys_desc" style="overflow: hidden"></td>
+              </tr>
+              <tr class="table_row_content">
+                <td id="diag_poe_budget_txt">PoE budget allocated</td>
+                <td id="diag_poe_budget_all" style="overflow: hidden"></td>
+              </tr>
+            </table>
+          </div>
+        </div>
+
+        <div class="box2" style="width: calc(50% - 20px)" id="portbox">
+          <a class="headline">Port Status</a>
+          <div class="box_content">
+            <table
+              style="
+                font-size: 80%;
+                margin: auto;
+                width: 100%;
+                text-align: center;
+              "
+              id="interface_status_table"
+            >
+              <tr class="table_row_head">
+                <td>Port</td>
+                <td>Link Status</td>
+                <td>Speed</td>
+                <td>Duplex</td>
+              </tr>
+            </table>
+          </div>
+        </div>
+
+        <div class="box2" style="width: calc(50% - 20px)" id="poebox">
+          <a class="headline">PoE Status</a>
+          <div class="box_content">
+            <table
+              style="
+                font-size: 80%;
+                margin: auto;
+                width: 100%;
+                text-align: center;
+              "
+            >
+              <tr class="table_row_head">
+                <td>Port</td>
+                <td>PoE Status</td>
+                <td>Allocated</td>
+              </tr>
+              <tr id="PoE_port1" class="table_row_content">
+                <td id="poePortName0"></td>
+                <td id="PoE_Status1"></td>
+                <td id="PoE_Class1"></td>
+              </tr>
+              <tr id="PoE_port2" class="table_row_content">
+                <td id="poePortName1"></td>
+                <td id="PoE_Status2"></td>
+                <td id="PoE_Class2"></td>
+              </tr>
+              <tr id="PoE_port3" class="table_row_content">
+                <td id="poePortName2"></td>
+                <td id="PoE_Status3"></td>
+                <td id="PoE_Class3"></td>
+              </tr>
+              <tr id="PoE_port4" class="table_row_content">
+                <td id="poePortName3"></td>
+                <td id="PoE_Status4"></td>
+                <td id="PoE_Class4"></td>
+              </tr>
+              <tr id="PoE_port5" class="table_row_content">
+                <td id="poePortName4"></td>
+                <td id="PoE_Status5"></td>
+                <td id="PoE_Class5"></td>
+              </tr>
+              <tr id="PoE_port6" class="table_row_content">
+                <td id="poePortName5"></td>
+                <td id="PoE_Status6"></td>
+                <td id="PoE_Class6"></td>
+              </tr>
+              <tr id="PoE_port7" class="table_row_content">
+                <td id="poePortName6"></td>
+                <td id="PoE_Status7"></td>
+                <td id="PoE_Class7"></td>
+              </tr>
+              <tr id="PoE_port8" class="table_row_content">
+                <td id="poePortName7"></td>
+                <td id="PoE_Status8"></td>
+                <td id="PoE_Class8"></td>
+              </tr>
+              <tr id="PoE_port9" class="table_row_content">
+                <td id="poePortName8"></td>
+                <td id="PoE_Status9"></td>
+                <td id="PoE_Class9"></td>
+              </tr>
+              <tr id="PoE_port10" class="table_row_content">
+                <td id="poePortName9"></td>
+                <td id="PoE_Status10"></td>
+                <td id="PoE_Class10"></td>
+              </tr>
+              <tr id="PoE_port11" class="table_row_content">
+                <td id="poePortName10"></td>
+                <td id="PoE_Status11"></td>
+                <td id="PoE_Class11"></td>
+              </tr>
+              <tr id="PoE_port12" class="table_row_content">
+                <td id="poePortName11"></td>
+                <td id="PoE_Status12"></td>
+                <td id="PoE_Class12"></td>
+              </tr>
+              <tr id="PoE_port13" class="table_row_content">
+                <td id="poePortName12"></td>
+                <td id="PoE_Status13"></td>
+                <td id="PoE_Class13"></td>
+              </tr>
+              <tr id="PoE_port14" class="table_row_content">
+                <td id="poePortName13"></td>
+                <td id="PoE_Status14"></td>
+                <td id="PoE_Class14"></td>
+              </tr>
+              <tr id="PoE_port15" class="table_row_content">
+                <td id="poePortName14"></td>
+                <td id="PoE_Status15"></td>
+                <td id="PoE_Class15"></td>
+              </tr>
+              <tr id="PoE_port16" class="table_row_content">
+                <td id="poePortName15"></td>
+                <td id="PoE_Status16"></td>
+                <td id="PoE_Class16"></td>
+              </tr>
+            </table>
+          </div>
+        </div>
+      </div>
+      <div
+        style="
+          margin-right: 0px;
+          width: 50%;
+          right: 5%;
+          float: left;
+          height: 85%;
+        "
+      >
+        <img
+          id="image"
+          style="
+            position: relative;
+            left: 5%;
+            top: 25%;
+            max-height: 90%;
+            max-width: 90%;
+          "
+        />
+      </div>
+    </div>
+  </body>
+</html>
