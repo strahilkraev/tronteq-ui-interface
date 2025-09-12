@@ -57,6 +57,78 @@
           }
         }
       );
+
+      // Get configuration status
+      $.post(
+        "/api",
+        '{"service":"system","access":"get","command":"has unsaved changes"}',
+        function (data, status) {
+          if (data.changes) {
+            $("#cfg_status").text("unsaved changes");
+          } else {
+            $("#cfg_status").text("saved");
+          }
+        }
+      );
+
+      // Get files list
+      $.post(
+        "/api",
+        '{"service":"files","access":"get","command":"get files list"}',
+        function (data, status) {
+          renderFilesList(data);
+        }
+      );
+    }
+
+    function renderFilesList(data) {
+      var tbody = document.getElementById("files_list_body");
+      tbody.innerHTML = ""; // Clear existing content
+
+      if (data && data.length > 0) {
+        for (var i = 0; i < data.length; i++) {
+          var file = data[i];
+          var row = document.createElement("tr");
+          row.className = "table_row_content";
+          row.style.fontSize = "80%";
+
+          var nameCell = document.createElement("td");
+          nameCell.style.overflow = "hidden";
+          nameCell.textContent = file.name;
+
+          var sizeCell = document.createElement("td");
+          sizeCell.style.overflow = "hidden";
+          sizeCell.style.textAlign = "right";
+          var sizeStr = file.size + " B";
+          if (file.size >= 1024 * 1024) {
+            sizeStr = ((file.size / (1024 * 1024)) >> 0) + " MB";
+          } else if (file.size >= 1024) {
+            sizeStr = ((file.size / 1024) >> 0) + " KB";
+          }
+          sizeCell.textContent = sizeStr;
+
+          var dateCell = document.createElement("td");
+          dateCell.style.overflow = "hidden";
+          dateCell.textContent = file.date;
+
+          row.appendChild(nameCell);
+          row.appendChild(sizeCell);
+          row.appendChild(dateCell);
+          tbody.appendChild(row);
+        }
+      } else {
+        var row = document.createElement("tr");
+        row.className = "table_row_content";
+        row.style.fontSize = "80%";
+
+        var noFilesCell = document.createElement("td");
+        noFilesCell.colSpan = 3;
+        noFilesCell.style.textAlign = "center";
+        noFilesCell.textContent = "No files found";
+
+        row.appendChild(noFilesCell);
+        tbody.appendChild(row);
+      }
     }
   </script>
   <body
@@ -117,6 +189,10 @@
               <td id="cfg_name" style="overflow: hidden"></td>
             </tr>
             <tr class="table_row_content" style="font-size: 80%">
+              <td>Configuration Status</td>
+              <td id="cfg_status" style="overflow: hidden"></td>
+            </tr>
+            <tr class="table_row_content" style="font-size: 80%">
               <td>User-defined Description</td>
               <td id="Description" style="overflow: hidden"></td>
             </tr>
@@ -128,6 +204,25 @@
               <td>User-defined Contact</td>
               <td id="Contact" style="overflow: hidden"></td>
             </tr>
+          </table>
+        </div>
+      </div>
+
+      <div class="box2" style="width: calc(75% - 20px); margin-top: 20px">
+        <div class="box_content">
+          <table style="width: 100%; table-layout: fixed">
+            <col />
+            <col />
+            <col />
+            <tr>
+              <td colspan="3"><a class="headline">Files List</a></td>
+            </tr>
+            <tr class="table_row_head" style="font-size: 80%">
+              <td>Name</td>
+              <td>Size</td>
+              <td>URL</td>
+            </tr>
+            <tbody id="files_list_body"></tbody>
           </table>
         </div>
       </div>

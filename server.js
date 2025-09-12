@@ -3,6 +3,7 @@ const path = require("path");
 const fs = require("fs");
 const cors = require("cors");
 const session = require("express-session");
+const MemoryStore = require("memorystore")(session);
 require("dotenv").config({ path: "./config.env" });
 
 const app = express();
@@ -25,11 +26,14 @@ app.use(
     secret: "roq-ui-secret-key",
     resave: false,
     saveUninitialized: false,
+    store: new MemoryStore({
+      checkPeriod: 86400000, // prune expired entries every 24h
+    }),
     cookie: {
-      secure: false, // Set to true if using HTTPS
+      secure: false,
       maxAge: 24 * 60 * 60 * 1000, // 24 hours
-      httpOnly: false, // Allow client-side access for debugging
-      sameSite: "lax", // Support cross-origin requests
+      httpOnly: false,
+      sameSite: "lax",
     },
   })
 );
@@ -201,11 +205,14 @@ app.get("/debug-session", (req, res) => {
     session: req.session,
     isLoggedIn: req.session?.isLoggedIn,
     user: req.session?.user,
+    cookies: req.headers.cookie,
+    sessionId: req.sessionID,
+    sessionData: req.session,
   });
 });
 
 // API endpoints for dummy data
-app.post("/api", (req, res) => {
+app.post("/api", async (req, res) => {
   let requestData = req.body;
 
   // Handle both JSON and form-encoded data
@@ -245,7 +252,7 @@ app.post("/api", (req, res) => {
       response = handleSystemAPI(access, command, parameters);
       break;
     case "user":
-      response = handleUserAPI(access, command, parameters, req);
+      response = await handleUserAPI(access, command, parameters, req);
       break;
     case "interface":
       response = handleInterfaceAPI(access, command, parameters);
@@ -290,13 +297,13 @@ function handleSystemAPI(access, command, parameters) {
         poe: DEVICE_TYPE.includes("4GE"),
       };
     case "get uptime":
-      return { uptime: "5 days, 12 hours, 30 minutes" };
+      return { uptime: "00:00:00" };
     case "get config name":
       return { cfgName: "default.cfg" };
     case "get info":
       return { location: "Data Center A" };
     case "get supply":
-      return { v1: true, v2: true };
+      return { v1: true, v2: false };
     case "has unsaved changes":
       return { changes: false };
     case "devicenumbers":
@@ -313,13 +320,26 @@ function handleSystemAPI(access, command, parameters) {
 }
 
 // User API handlers
-function handleUserAPI(access, command, parameters, req) {
+async function handleUserAPI(access, command, parameters, req) {
   switch (command) {
     case "login":
       // Simulate successful login and set session
       if (parameters && parameters.user && parameters.password) {
         req.session.isLoggedIn = true;
         req.session.user = parameters.user;
+        console.log("Session before save:", req.session);
+        // Force session save and wait for it
+        await new Promise((resolve, reject) => {
+          req.session.save((err) => {
+            if (err) {
+              console.error("Session save error:", err);
+              reject(err);
+            } else {
+              console.log("Session after save:", req.session);
+              resolve();
+            }
+          });
+        });
         return { success: true, msg: "Login successful" };
       }
       return { error: "Invalid credentials" };
@@ -327,6 +347,12 @@ function handleUserAPI(access, command, parameters, req) {
       // Clear session
       req.session.destroy();
       return { success: true };
+    case "get current user":
+      // Return current user information
+      if (req.session && req.session.user) {
+        return { username: req.session.user };
+      }
+      return { error: "No user logged in" };
     default:
       return { error: "Unknown command" };
   }
@@ -339,6 +365,16 @@ function handleInterfaceAPI(access, command, parameters) {
       return getInterfacesState();
     case "get interfaces":
       return getInterfaces();
+    case "get counters":
+      return getInterfaceCounters();
+    case "get load":
+      return getInterfaceLoad();
+    case "get bsp state":
+      return { bsp: true };
+    case "set interfaces":
+      return { success: true, msg: "Interfaces updated" };
+    case "set bsp state":
+      return { success: true, msg: "BSP state updated" };
     default:
       return { error: "Unknown command" };
   }
@@ -364,8 +400,52 @@ function handlePoEAPI(access, command, parameters) {
 // Vlan API handlers
 function handleVlanAPI(access, command, parameters) {
   switch (command) {
+    case "get vlan interfaces":
+      return getVlanInterfaces();
+    case "get vids":
+      return getVids();
+    case "get vid members":
+      return getVidMembers();
+    case "get bridges":
+      return getBridges();
+    case "get current bridge config":
+      return getCurrentBridgeConfig();
+    case "get global vlans":
+      return { enable: true };
     case "get bonds status":
       return getBondsStatus();
+    case "vlan port settings":
+      return getVlanPortSettings();
+    case "get bridges":
+      return getBridges();
+    case "get vid":
+      return getVids();
+    case "get bonds":
+      return getBondsStatus();
+    case "set vlan interfaces":
+      return { success: true, msg: "VLAN interfaces updated" };
+    case "add vids":
+      return { success: true, msg: "VLAN IDs added" };
+    case "remove vids":
+      return { success: true, msg: "VLAN IDs removed" };
+    case "set vid members":
+      return { success: true, msg: "VLAN members updated" };
+    case "set bridges":
+      return { success: true, msg: "Bridges updated" };
+    case "set bridge temporary":
+      return { success: true, msg: "Bridge temporary updated" };
+    case "set global vlans":
+      return { success: true, msg: "Global VLANs updated" };
+    case "update vlan port settings":
+      return { success: true, msg: "VLAN port settings updated" };
+    case "set bridges":
+      return { success: true, msg: "Bridges updated" };
+    case "add vlan id":
+      return { success: true, msg: "VLAN ID added" };
+    case "remove vlan id":
+      return { success: true, msg: "VLAN ID removed" };
+    case "set bonds":
+      return { success: true, msg: "Bonds updated" };
     default:
       return { error: "Unknown command" };
   }
@@ -374,8 +454,40 @@ function handleVlanAPI(access, command, parameters) {
 // DHCP API handlers
 function handleDhcpAPI(access, command, parameters) {
   switch (command) {
-    case "get active leases":
+    case "get vids":
+      return getVids();
+    case "get cfg leases":
       return getDhcpLeases();
+    case "get subnet":
+      return getSubnets();
+    case "get active leases":
+      return getActiveLeases();
+    case "subnets":
+      return getSubnets();
+    case "set vids":
+      return { success: true, msg: "VLAN IDs updated" };
+    case "add cfg leases":
+      return { success: true, msg: "Static lease added" };
+    case "remove cfg leases":
+      return { success: true, msg: "Static lease removed" };
+    case "set subnet":
+      return { success: true, msg: "Subnet updated" };
+    case "remove subnet":
+      return { success: true, msg: "Subnet removed" };
+    case "edit subnet":
+      return { success: true, msg: "Subnet edited" };
+    case "relay settings":
+      return getRelaySettings();
+    case "relay update subnet":
+      return { success: true, msg: "Relay subnet updated" };
+    case "server id override":
+      return { success: true, msg: "Server ID override updated" };
+    case "remote id":
+      return { success: true, msg: "Remote ID updated" };
+    case "inserter settings":
+      return getInserterSettings();
+    case "inserter update subnet":
+      return { success: true, msg: "Inserter subnet updated" };
     default:
       return { error: "Unknown command" };
   }
@@ -609,18 +721,21 @@ function getFilesList() {
     {
       name: "config.cfg",
       size: "2048",
+      url: "http://192.168.1.1/config.cfg",
       date: "2024-01-15 10:30:00",
       type: "config",
     },
     {
       name: "backup.cfg",
       size: "2048",
+      url: "http://192.168.1.1/backup.cfg",
       date: "2024-01-14 15:45:00",
       type: "backup",
     },
     {
       name: "firmware.bin",
       size: "8192",
+      url: "http://192.168.1.1/firmware.bin",
       date: "2024-01-10 09:20:00",
       type: "firmware",
     },
@@ -632,6 +747,175 @@ function getSystemFiles() {
     spacefree: 10485760, // 10MB free space
     files: getFilesList(),
   };
+}
+
+// Additional DHCP helper functions
+function getActiveLeases() {
+  return [
+    {
+      mac: "00:11:22:33:44:55",
+      ip: "192.168.1.100",
+      hostname: "device1",
+      expires: "2024-01-01 12:00:00",
+    },
+    {
+      mac: "00:11:22:33:44:56",
+      ip: "192.168.1.101",
+      hostname: "device2",
+      expires: "2024-01-01 12:30:00",
+    },
+    {
+      mac: "00:11:22:33:44:57",
+      ip: "192.168.1.102",
+      hostname: "device3",
+      expires: "2024-01-01 13:00:00",
+    },
+  ];
+}
+
+function getVids() {
+  return [
+    { vid: 1, name: "Default" },
+    { vid: 10, name: "Management" },
+    { vid: 20, name: "Guest" },
+    { vid: 30, name: "IoT" },
+  ];
+}
+
+function getRelaySettings() {
+  return {
+    enabled: true,
+    subnets: [
+      { vid: 10, servers: ["192.168.10.1"], ports: [1, 2, 3] },
+      { vid: 20, servers: ["192.168.20.1"], ports: [4, 5, 6] },
+    ],
+  };
+}
+
+function getInserterSettings() {
+  return {
+    enabled: true,
+    subnets: [
+      { vid: 10, ports: [1, 2, 3] },
+      { vid: 20, ports: [4, 5, 6] },
+    ],
+  };
+}
+
+// Interface helper functions
+function getInterfaceCounters() {
+  const portConfig = getPortConfiguration();
+  return portConfig.names.map((name, index) => ({
+    interface: index + 1,
+    name: name,
+    rx_bytes: Math.floor(Math.random() * 1000000),
+    tx_bytes: Math.floor(Math.random() * 1000000),
+    rx_packets: Math.floor(Math.random() * 10000),
+    tx_packets: Math.floor(Math.random() * 10000),
+    rx_errors: Math.floor(Math.random() * 10),
+    tx_errors: Math.floor(Math.random() * 10),
+  }));
+}
+
+function getInterfaceLoad() {
+  const portConfig = getPortConfiguration();
+  return portConfig.names.map((name, index) => ({
+    interface: index + 1,
+    name: name,
+    load: Math.floor(Math.random() * 100),
+    utilization: Math.floor(Math.random() * 100),
+  }));
+}
+
+// VLAN helper functions
+function getVlanInterfaces() {
+  const portConfig = getPortConfiguration();
+  return portConfig.names.map((name, index) => ({
+    interface: index + 1,
+    name: name,
+    tags: Math.floor(Math.random() * 10) + 1,
+    discardtagged: false,
+    discarduntagged: false,
+    forcedefaultvid: false,
+  }));
+}
+
+function getVidMembers() {
+  return [
+    { vid: 1, members: [1, 2, 3, 4, 5, 6, 7, 8] },
+    { vid: 10, members: [1, 2] },
+    { vid: 20, members: [3, 4] },
+    { vid: 30, members: [5, 6] },
+  ];
+}
+
+function getBridges() {
+  return [
+    {
+      wan: false,
+      vid: 1,
+      ip: "192.168.1.1",
+      sm: "255.255.255.0",
+      gw: "192.168.1.1",
+      forward: true,
+      proxy_arp: false,
+    },
+    {
+      wan: true,
+      vid: 10,
+      ip: "192.168.10.1",
+      sm: "255.255.255.0",
+      gw: "192.168.10.1",
+      forward: true,
+      proxy_arp: true,
+    },
+  ];
+}
+
+function getCurrentBridgeConfig() {
+  return {
+    bridges: getBridges(),
+    global_vlans: { enable: true },
+  };
+}
+
+function getVlanPortSettings() {
+  const portConfig = getPortConfiguration();
+  return portConfig.names.map((name, index) => ({
+    interface: index + 1,
+    name: name,
+    pvid: 1,
+    tagged: [],
+    untagged: [1],
+  }));
+}
+
+// DHCP helper functions
+function getSubnets() {
+  return [
+    {
+      ip: "192.168.1.0",
+      mask: "255.255.255.0",
+      leasetime: 3600,
+      pool_start: "192.168.1.100",
+      pool_end: "192.168.1.200",
+      options: [
+        { code: 3, value: "192.168.1.1" }, // Gateway
+        { code: 6, value: "8.8.8.8,8.8.4.4" }, // DNS
+      ],
+    },
+    {
+      ip: "192.168.10.0",
+      mask: "255.255.255.0",
+      leasetime: 7200,
+      pool_start: "192.168.10.100",
+      pool_end: "192.168.10.200",
+      options: [
+        { code: 3, value: "192.168.10.1" },
+        { code: 6, value: "8.8.8.8,8.8.4.4" },
+      ],
+    },
+  ];
 }
 
 // Error handling middleware

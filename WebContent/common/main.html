@@ -62,7 +62,7 @@
     function unsavedChanges(data, status) {
       if (data.changes) {
         var st =
-          '<input type="button" value="Save Changes" onclick="saveChanges()">';
+          '<input type="button" value="Save Changes" onclick="saveChanges()" style="background-color: #ff0000; color: white; font-weight: bold; border: 2px solid #cc0000; padding: 5px 10px; border-radius: 3px;">';
         $("#unsaved_changes")[0].innerHTML = st;
       } else {
         $("#unsaved_changes")[0].innerHTML = "no changes";
@@ -97,10 +97,10 @@
       if (data["poe"]) {
         // add PoE to menu
         $(
-          '<br><a class="subpoint" id="m_poe" onclick="navto(this);">&gt;PoE</a>'
+          '<a class="subpoint menu-content-item" id="m_poe" onclick="navto(this);">PoE</a>'
         ).insertAfter("#Traffic");
         $(
-          '<a class="subpoint" id="poe" onclick="navto(this);">&gt;PoE</a><br>'
+          '<a class="subpoint menu-content-item" id="poe" onclick="navto(this);">PoE</a>'
         ).insertBefore("#ntp");
       }
     }
@@ -126,6 +126,8 @@
       getSysInfo();
       getSupplyInfo();
       getCfgName();
+      getIgnitionStatus();
+      getCurrentUser(); // Get current user information
       $.post(
         "/api",
         '{"service":"system","access":"get","command":"has unsaved changes"}',
@@ -136,8 +138,8 @@
 
     function navto(event) {
       var jj = document.getElementsByClassName("selsubpoint");
-      jj[0].className = "subpoint";
-      event.className = "selsubpoint";
+      jj[0].className = "subpoint menu-content-item";
+      event.className = "selsubpoint menu-content-item";
       var iframe = document.getElementById("content_iframe");
       if (iframe) iframe.src = event.id + ".html";
     }
@@ -171,6 +173,26 @@
         data.location;
     }
 
+    function getIgnitionStatus() {
+      $.post(
+        "/api",
+        '{"service":"ignition","access":"get","command":"status"}',
+        function (data) {
+          var status = "disabled";
+          if (data["V2Active"]) {
+            if (data["timer"] && data["timer"] > 0) {
+              status = "timer (" + data["timer"] + "s)";
+            } else {
+              status = "active";
+            }
+          }
+          document.getElementById(
+            "system_staus_bar_ignition_status"
+          ).textContent = status;
+        }
+      );
+    }
+
     function getSysInfo() {
       $.post(
         "/api",
@@ -195,6 +217,38 @@
         '{"service":"system","access":"get","command":"get supply"}',
         getSupplyCallback
       );
+    }
+
+    // Menu collapse/expand functionality
+    function toggleMenuSection(sectionName) {
+      var content = document.getElementById(sectionName + "-content");
+      var arrow = document.getElementById(sectionName + "-arrow");
+
+      if (content.style.display === "none") {
+        content.style.display = "block";
+        arrow.textContent = "▲";
+      } else {
+        content.style.display = "none";
+        arrow.textContent = "▼";
+      }
+    }
+
+    // Get current user information
+    function getCurrentUser() {
+      $.post(
+        "/api",
+        '{"service":"user","access":"get","command":"get current user"}',
+        function (data, status) {
+          if (status === "success" && data.username) {
+            document.getElementById("username-display").textContent =
+              data.username;
+          } else {
+            document.getElementById("username-display").textContent = "Unknown";
+          }
+        }
+      ).fail(function () {
+        document.getElementById("username-display").textContent = "Unknown";
+      });
     }
   </script>
 
@@ -225,71 +279,6 @@
       <div class="system_staus_bar">
         <table style="height: 100%; width: 100%">
           <tr>
-            <td
-              style="
-                border-right-width: 1px;
-                border-right-style: solid;
-                width: 14%;
-              "
-            >
-              <table
-                style="
-                  font-size: 80%;
-                  margin-left: 5%;
-                  width: 100%;
-                  table-layout: fixed;
-                "
-              >
-                <tr>
-                  <td style="text-align: center">
-                    <b>PWR</b>
-                  </td>
-                  <td>
-                    <div
-                      class="green_cir"
-                      style="width: 10px; height: 10px; margin-left: 8px"
-                      id="system_staus_bar_pwr_led"
-                    ></div>
-                  </td>
-                </tr>
-                <tr>
-                  <td style="text-align: center">
-                    <b>MOD</b>
-                  </td>
-                  <td>
-                    <div
-                      class="green_cir"
-                      style="width: 10px; height: 10px; margin-left: 8px"
-                      id="system_staus_bar_pwr_MOD"
-                    ></div>
-                  </td>
-                </tr>
-                <tr>
-                  <td style="text-align: center">
-                    <b>ERR</b>
-                  </td>
-                  <td>
-                    <div
-                      class="grey_cir"
-                      style="width: 10px; height: 10px; margin-left: 8px"
-                      id="system_staus_bar_pwr_err"
-                    ></div>
-                  </td>
-                </tr>
-                <tr>
-                  <td style="text-align: center">
-                    <b>CFG</b>
-                  </td>
-                  <td>
-                    <div
-                      class="grey_cir"
-                      style="width: 10px; height: 10px; margin-left: 8px"
-                      id="system_staus_bar_pwr_net"
-                    ></div>
-                  </td>
-                </tr>
-              </table>
-            </td>
             <td>
               <table style="width: 100%; font-size: 80%; table-layout: fixed">
                 <tr>
@@ -312,15 +301,17 @@
                 </tr>
                 <tr>
                   <td>
-                    <b>Location:</b>
+                    <b>Ignition status:</b>
                   </td>
-                  <td id="system_staus_bar_location"></td>
+                  <td id="system_staus_bar_ignition_status"></td>
                   <td>
                     <b>Serial number:</b>
                   </td>
                   <td id="system_staus_bar_serial_nr"></td>
-                  <td id="system_staus_bar_devCFGNOH"></td>
-                  <td id="system_staus_bar_devCFGNOB"></td>
+                  <td>
+                    <b>Location:</b>
+                  </td>
+                  <td id="system_staus_bar_location"></td>
                   <td>
                     <b>Config changed:</b>
                   </td>
@@ -335,8 +326,8 @@
                     <b>Management MAC:</b>
                   </td>
                   <td id="system_staus_bar_mac"></td>
-                  <td></td>
-                  <td></td>
+                  <td id="system_staus_bar_devCFGNOH"></td>
+                  <td id="system_staus_bar_devCFGNOB"></td>
                 </tr>
               </table>
             </td>
@@ -351,103 +342,251 @@
             onclick="navto(this);"
             style="font-size: 100%"
             >Dashboard</a
-          ><br />
-          <br />
-          Status<br />
-          <a class="subpoint" id="system" onclick="navto(this);">&gt;System </a
-          ><br />
-          <a class="subpoint" id="m_interfaces" onclick="navto(this);"
-            >&gt;Ports </a
-          ><br />
-          <a class="subpoint" id="Traffic" onclick="navto(this);"
-            >&gt;Traffic </a
-          ><br />
-          <a class="subpoint" id="m_lacp" onclick="navto(this);">&gt;LACP </a
-          ><br />
-          <a class="subpoint" id="m_dhcp" onclick="navto(this);"
-            >&gt;DHCP Leases </a
-          ><br />
-          <a class="subpoint" id="log" onclick="navto(this);">&gt;Logging</a
-          ><br />
-          <br />
-          Settings<br />
-          <a class="subpoint" id="c_system" onclick="navto(this);">&gt;System</a
-          ><br />
-          <a class="subpoint" id="ignition" onclick="navto(this);"
-            >&gt;Ignition</a
-          ><br />
-          <a class="subpoint" id="ports" onclick="navto(this);">&gt;Ports</a
-          ><br />
-          <a class="subpoint" id="lacp" onclick="navto(this);">&gt;LACP</a
-          ><br />
-          <a class="subpoint" id="vlan" onclick="navto(this);">&gt;VLAN</a
-          ><br />
-          <a class="subpoint" id="multicast" onclick="navto(this);"
-            >&gt;Multicasts</a
-          ><br />
-          <a class="subpoint" id="c_ip" onclick="navto(this);"
-            >&gt;Management Interfaces</a
-          ><br />
-          <!--<a class="subpoint" id="routing" onclick="navto(this);">&gt;IP Routing</a><br>-->
-          <a class="subpoint" id="qos" onclick="navto(this);">&gt;QoS</a><br />
-          <a class="subpoint" id="mirroring" onclick="navto(this);"
-            >&gt;Port Mirroring</a
-          ><br />
-          <a class="subpoint" id="lldp" onclick="navto(this);">&gt;LLDP</a
-          ><br />
-          <a class="subpoint" id="stp" onclick="navto(this);"
-            >&gt;Spanning Tree</a
-          ><br />
-          <a class="subpoint" id="c_dhcp" onclick="navto(this);"
-            >&gt;DHCP Server</a
-          ><br />
-          <a class="subpoint" id="dhcp_relay" onclick="navto(this);"
-            >&gt;DHCP Relay</a
-          ><br />
-          <a class="subpoint" id="dhcp_inserter" onclick="navto(this);"
-            >&gt;DHCP Inserter</a
-          ><br />
-          <!--<a class="subpoint" id="igmp" onclick="navto(this);">&gt;IGMP</a><br>-->
-          <a class="subpoint" id="ntp" onclick="navto(this);">&gt;NTP Client</a
-          ><br />
-          <a class="subpoint" id="c_rlogging" onclick="navto(this);"
-            >&gt;Remote Logging</a
-          ><br />
-          <a class="subpoint" id="snmp" onclick="navto(this);">&gt;SNMP</a
-          ><br />
-          <a class="subpoint" id="nat" onclick="navto(this);">&gt;NAT</a><br />
-          <a class="subpoint" id="mqtt" onclick="navto(this);">&gt;MQTT</a
-          ><br />
-          <!--<a class="subpoint" id="firewall" onclick="navto(this);">&gt;Firewall</a><br>-->
-          <!--<a class="subpoint" id="fault" onclick="navto(this);">&gt;Fault Contact</a><br>-->
-          <!--<a class="subpoint" id="cabletest" onclick="navto(this);">&gt;Cable Test</a><br>-->
-          <br />
-          Maintenance<br />
-          <a class="subpoint" id="users" onclick="navto(this);">&gt;Users</a
-          ><br />
-          <div id="prio_settings">
-            <a class="subpoint" id="settings" onclick="navto(this);"
-              >&gt;Configuration</a
-            ><br />
-            <a class="subpoint" id="tls" onclick="navto(this);"
-              >&gt;User Certificates</a
-            ><br />
-            <a class="subpoint" id="fwupdate" onclick="navto(this);"
-              >&gt;Software</a
-            ><br />
+          >
+          <!-- Status Section -->
+          <div class="menu-section mt-5">
+            <div class="menu-header" onclick="toggleMenuSection('status')">
+              <span class="menu-title">Status</span>
+              <span class="menu-arrow" id="status-arrow">▼</span>
+            </div>
+            <div class="menu-content" id="status-content" style="display: none">
+              <div class="menu-content-list">
+                <a
+                  class="subpoint menu-content-item"
+                  id="system"
+                  onclick="navto(this);"
+                  >System
+                </a>
+                <a
+                  class="subpoint menu-content-item"
+                  id="m_interfaces"
+                  onclick="navto(this);"
+                  >Ports
+                </a>
+                <a
+                  class="subpoint menu-content-item"
+                  id="Traffic"
+                  onclick="navto(this);"
+                  >Traffic
+                </a>
+                <a
+                  class="subpoint menu-content-item"
+                  id="m_lacp"
+                  onclick="navto(this);"
+                  >LACP
+                </a>
+                <a
+                  class="subpoint menu-content-item"
+                  id="m_dhcp"
+                  onclick="navto(this);"
+                  >DHCP Leases
+                </a>
+                <a
+                  class="subpoint menu-content-item"
+                  id="log"
+                  onclick="navto(this);"
+                  >Logging</a
+                >
+              </div>
+            </div>
           </div>
-          <br />
-          <!--<a class="subpoint" id="help" style="font-size: 100%;" onclick="navto(this);"> Help </a>-->
+
+          <!-- Settings Section -->
+          <div class="menu-section">
+            <div class="menu-header" onclick="toggleMenuSection('settings')">
+              <span class="menu-title">Settings</span>
+              <span class="menu-arrow" id="settings-arrow">▼</span>
+            </div>
+            <div
+              class="menu-content"
+              id="settings-content"
+              style="display: none"
+            >
+              <div class="menu-content-list">
+                <a
+                  class="subpoint menu-content-item"
+                  id="c_system"
+                  onclick="navto(this);"
+                  >System</a
+                >
+                <a
+                  class="subpoint menu-content-item"
+                  id="ignition"
+                  onclick="navto(this);"
+                >
+                  Ignition</a
+                >
+                <a
+                  class="subpoint menu-content-item"
+                  id="ports"
+                  onclick="navto(this);"
+                  >Ports</a
+                >
+                <a
+                  class="subpoint menu-content-item"
+                  id="lacp"
+                  onclick="navto(this);"
+                  >LACP</a
+                >
+                <a
+                  class="subpoint menu-content-item"
+                  id="vlan"
+                  onclick="navto(this);"
+                  >VLAN</a
+                >
+                <a
+                  class="subpoint menu-content-item"
+                  id="multicast"
+                  onclick="navto(this);"
+                  >Multicasts</a
+                >
+                <a
+                  class="subpoint menu-content-item"
+                  id="c_ip"
+                  onclick="navto(this);"
+                  >Management Interfaces</a
+                >
+                <!--<a class="subpoint menu-content-item" id="routing" onclick="navto(this);">IP Routing</a>-->
+                <a
+                  class="subpoint menu-content-item"
+                  id="qos"
+                  onclick="navto(this);"
+                  >QoS</a
+                >
+                <a
+                  class="subpoint menu-content-item"
+                  id="mirroring"
+                  onclick="navto(this);"
+                  >Port Mirroring</a
+                >
+                <a
+                  class="subpoint menu-content-item"
+                  id="lldp"
+                  onclick="navto(this);"
+                  >LLDP</a
+                >
+                <a
+                  class="subpoint menu-content-item"
+                  id="stp"
+                  onclick="navto(this);"
+                  >Spanning Tree</a
+                >
+                <a
+                  class="subpoint menu-content-item"
+                  id="c_dhcp"
+                  onclick="navto(this);"
+                  >DHCP Server</a
+                >
+                <a
+                  class="subpoint menu-content-item"
+                  id="dhcp_relay"
+                  onclick="navto(this);"
+                  >DHCP Relay</a
+                >
+                <a
+                  class="subpoint menu-content-item"
+                  id="dhcp_inserter"
+                  onclick="navto(this);"
+                  >DHCP Inserter</a
+                >
+                <!--<a class="subpoint menu-content-item" id="igmp" onclick="navto(this);">IGMP</a>-->
+                <a
+                  class="subpoint menu-content-item"
+                  id="ntp"
+                  onclick="navto(this);"
+                  >NTP Client</a
+                >
+                <a
+                  class="subpoint menu-content-item"
+                  id="c_rlogging"
+                  onclick="navto(this);"
+                  >Remote Logging</a
+                >
+                <a
+                  class="subpoint menu-content-item"
+                  id="snmp"
+                  onclick="navto(this);"
+                  >SNMP</a
+                >
+                <a
+                  class="subpoint menu-content-item"
+                  id="nat"
+                  onclick="navto(this);"
+                  >NAT</a
+                >
+                <a
+                  class="subpoint menu-content-item"
+                  id="mqtt"
+                  onclick="navto(this);"
+                  >MQTT</a
+                >
+                <!--<a class="subpoint menu-content-item" id="firewall" onclick="navto(this);">Firewall</a>-->
+                <!--<a class="subpoint menu-content-item" id="fault" onclick="navto(this);">Fault Contact</a>-->
+                <!--<a class="subpoint menu-content-item" id="cabletest" onclick="navto(this);">Cable Test</a>-->
+              </div>
+            </div>
+          </div>
+
+          <!-- Maintenance Section -->
+          <div class="menu-section">
+            <div class="menu-header" onclick="toggleMenuSection('maintenance')">
+              <span class="menu-title">Maintenance</span>
+              <span class="menu-arrow" id="maintenance-arrow">▼</span>
+            </div>
+            <div
+              class="menu-content"
+              id="maintenance-content"
+              style="display: none"
+            >
+              <div class="menu-content-list">
+                <a
+                  class="subpoint menu-content-item"
+                  id="users"
+                  onclick="navto(this);"
+                  >Users</a
+                >
+                <div id="prio_settings">
+                  <a
+                    class="subpoint menu-content-item"
+                    id="settings"
+                    onclick="navto(this);"
+                    >Configuration</a
+                  >
+                  <a
+                    class="subpoint menu-content-item"
+                    id="tls"
+                    onclick="navto(this);"
+                    >User Certificates</a
+                  >
+                  <a
+                    class="subpoint menu-content-item"
+                    id="fwupdate"
+                    onclick="navto(this);"
+                    >Software</a
+                  >
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!--<a class="subpoint menu-content-item" id="help" style="font-size: 100%;" onclick="navto(this);"> Help </a>-->
           <br />
           <a
-            class="subpoint"
+            class="subpoint mt-5"
             id="licenses"
             style="font-size: 100%"
             onclick="navto(this);"
             >Third Party Notices
           </a>
-          <br /><br />
-          <a id="logout" style="cursor: pointer">Logout</a>
+
+          <div class="logout-section mt-5">
+            <span id="current-user" class="current-user"
+              >User: <span id="username-display">Loading...</span></span
+            >
+            <div class="mt-5">
+              <button id="logout" style="cursor: pointer">Logout</button>
+            </div>
+          </div>
         </div>
       </div>
 

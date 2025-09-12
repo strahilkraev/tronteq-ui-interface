@@ -133,7 +133,7 @@ h3 {
   position: relative;
   /*top: 248px;**/
   top: 188px;
-  left: 15px;
+  left: 5px;
   z-index: 2;
   height: calc(100% - 188px);
   width: calc(100% - 15px);
@@ -364,4 +364,100 @@ h3 {
 .tooltip:hover .tooltiptext {
   visibility: visible;
   opacity: 1;
+}
+
+/* Menu section styles */
+.menu-section {
+  margin-bottom: 10px;
+}
+
+.menu-header {
+  cursor: pointer;
+  font-weight: bold;
+  font-size: 90%;
+  color: #333;
+  padding: 5px 2px;
+  border-bottom: 1px solid #ddd;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.menu-header:hover {
+  background-color: #e8e8e8;
+}
+
+.menu-title {
+  flex-grow: 1;
+}
+
+.menu-arrow {
+  font-size: 12px;
+  color: #666;
+  transition: transform 0.2s ease;
+}
+
+.menu-content {
+  padding-left: 10px;
+  margin-top: 5px;
+}
+
+.menu-content-list {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.menu-content-item {
+  cursor: pointer;
+}
+
+.menu-content-item:before {
+  content: ">";
+  margin-right: 3px;
+}
+
+.menu-content-item:hover {
+  color: #74b130;
+  font-weight: bold;
+}
+
+.menu-content-item:hover:before {
+  color: #74b130;
+}
+
+/* User display styles */
+.logout-section {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  margin-top: 10px;
+}
+
+.current-user {
+  font-size: 80%;
+  color: #666;
+  font-weight: bold;
+}
+
+#username-display {
+  color: #74b130;
+  font-weight: bold;
+}
+
+.mt-5 {
+  margin-top: 5px;
+}
+
+#prio_settings {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+#dashboard {
+  font-weight: bold;
+  cursor: pointer;
+  color: #74b130;
+  font-weight: bold;
 }
