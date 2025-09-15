@@ -751,26 +751,27 @@ function getSystemFiles() {
 
 // Additional DHCP helper functions
 function getActiveLeases() {
-  return [
-    {
-      mac: "00:11:22:33:44:55",
-      ip: "192.168.1.100",
-      hostname: "device1",
-      expires: "2024-01-01 12:00:00",
-    },
-    {
-      mac: "00:11:22:33:44:56",
-      ip: "192.168.1.101",
-      hostname: "device2",
-      expires: "2024-01-01 12:30:00",
-    },
-    {
-      mac: "00:11:22:33:44:57",
-      ip: "192.168.1.102",
-      hostname: "device3",
-      expires: "2024-01-01 13:00:00",
-    },
-  ];
+  return {
+    static: [
+      {
+        mac: "00:11:22:33:44:55",
+        ip: "192.168.1.100",
+        time: "3600",
+      },
+    ],
+    dynamic: [
+      {
+        mac: "00:11:22:33:44:56",
+        ip: "192.168.1.101",
+        time: "1800",
+      },
+      {
+        mac: "00:11:22:33:44:57",
+        ip: "192.168.1.102",
+        time: "7200",
+      },
+    ],
+  };
 }
 
 function getVids() {

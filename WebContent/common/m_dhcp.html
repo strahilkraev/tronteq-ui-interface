@@ -27,7 +27,11 @@
         function (data, status) {
           var tab = $("#lease_table")[0];
           while (tab.rows.length > 1) tab.rows[1].remove();
+
+          var hasLeases = false;
+
           data["static"].forEach(function (lease) {
+            hasLeases = true;
             var tr = tab.insertRow(-1);
             tr.className = "table_row_content";
 
@@ -42,6 +46,7 @@
             t3.textContent = lease.time;
           });
           data["dynamic"].forEach(function (lease) {
+            hasLeases = true;
             var tr = tab.insertRow(-1);
             tr.className = "table_row_content";
 
@@ -55,6 +60,19 @@
             t2.textContent = "dynamic";
             t3.textContent = lease.time;
           });
+
+          // Show message if no leases
+          if (!hasLeases) {
+            var tr = tab.insertRow(-1);
+            tr.className = "table_row_content";
+            tr.style.textAlign = "center";
+
+            var messageCell = tr.insertCell(0);
+            messageCell.colSpan = 4;
+            messageCell.textContent = "No active DHCP leases.";
+            messageCell.style.fontStyle = "italic";
+            messageCell.style.color = "#666";
+          }
         }
       );
     }
