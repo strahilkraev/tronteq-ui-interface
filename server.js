@@ -72,6 +72,10 @@ app.get("/login.html", (req, res) => {
       'src="/common/js/jquery-3.7.1.min.js"'
     );
     modifiedContent = modifiedContent.replace(
+      'src="/js/utils.js"',
+      'src="/common/js/utils.js"'
+    );
+    modifiedContent = modifiedContent.replace(
       'src="/Logo.png"',
       'src="/common/Logo.png"'
     );
@@ -111,6 +115,12 @@ app.get("/main.html", (req, res) => {
       'src="js/jquery-3.7.1.min.js"',
       'src="/common/js/jquery-3.7.1.min.js"'
     );
+
+    modifiedContent = modifiedContent.replace(
+      'src="js/utils.js"',
+      'src="/common/js/utils.js"'
+    );
+
     modifiedContent = modifiedContent.replace(
       'src="Logo.png"',
       'src="/common/Logo.png"'
@@ -228,65 +238,115 @@ app.post("/api", async (req, res) => {
     }
   }
 
-  const { service, access, command, parameters } = requestData;
+  const {
+    service,
+    access,
+    command,
+    parameters,
+    sessionKeepAlive = true,
+  } = requestData;
 
   // Check authentication for non-login requests
   if (service !== "user" || command !== "login") {
     console.log("API Request:", {
       service,
       command,
+      sessionKeepAlive,
       session: req.session,
       isLoggedIn: req.session?.isLoggedIn,
     });
+
     if (!req.session || !req.session.isLoggedIn) {
       console.log("Authentication failed - no session or not logged in");
-      return res.json({ error: "invalid rights" });
+      return res.status(401).json({ error: "No active Session" });
+    }
+
+    // Check session timeout (10 minutes = 600000 ms)
+    const now = Date.now();
+    const lastActivity = req.session.lastActivity || now;
+    const sessionTimeout = 10 * 60 * 1000; // 10 minutes
+
+    if (now - lastActivity > sessionTimeout) {
+      console.log("Session timeout - clearing session");
+      req.session.destroy();
+      return res.status(401).json({ error: "No active Session" });
+    }
+
+    // Update last activity if sessionKeepAlive is true (default)
+    if (sessionKeepAlive !== false) {
+      req.session.lastActivity = now;
+    }
+
+    // Check user level for write operations
+    if (access === "set" && req.session.userLevel === 1) {
+      console.log("Access denied - read only user attempting write operation");
+      return res.status(403).json({ msg: "invalid rights" });
     }
   }
 
   // Simulate API response based on service and command
   let response = {};
 
-  switch (service) {
-    case "system":
-      response = handleSystemAPI(access, command, parameters);
-      break;
-    case "user":
-      response = await handleUserAPI(access, command, parameters, req);
-      break;
-    case "interface":
-      response = handleInterfaceAPI(access, command, parameters);
-      break;
-    case "interfaces":
-      response = handleInterfacesAPI(access, command, parameters);
-      break;
-    case "poe":
-      response = handlePoEAPI(access, command, parameters);
-      break;
-    case "vlan":
-      response = handleVlanAPI(access, command, parameters);
-      break;
-    case "dhcp":
-      response = handleDhcpAPI(access, command, parameters);
-      break;
-    case "log":
-      response = handleLogAPI(access, command, parameters);
-      break;
-    case "files":
-      response = handleFilesAPI(access, command, parameters);
-      break;
-    default:
-      response = { error: "Unknown service" };
-  }
+  try {
+    switch (service) {
+      case "system":
+        response = handleSystemAPI(access, command, parameters, req);
+        break;
+      case "user":
+        response = await handleUserAPI(access, command, parameters, req);
+        break;
+      case "interface":
+        response = handleInterfaceAPI(access, command, parameters, req);
+        break;
+      case "interfaces":
+        response = handleInterfacesAPI(access, command, parameters, req);
+        break;
+      case "poe":
+        response = handlePoEAPI(access, command, parameters, req);
+        break;
+      case "vlan":
+        response = handleVlanAPI(access, command, parameters, req);
+        break;
+      case "dhcp":
+        response = handleDhcpAPI(access, command, parameters, req);
+        break;
+      case "log":
+        response = handleLogAPI(access, command, parameters, req);
+        break;
+      case "files":
+        response = handleFilesAPI(access, command, parameters, req);
+        break;
+      case "ignition":
+        response = handleIgnitionAPI(access, command, parameters, req);
+        break;
+      case "stp":
+        response = handleStpAPI(access, command, parameters, req);
+        break;
+      case "lldp":
+        response = handleLldpAPI(access, command, parameters, req);
+        break;
+      default:
+        response = { error: "invalid command" };
+    }
 
-  // Add random delay to simulate real API
-  setTimeout(() => {
-    res.json(response);
-  }, Math.random() * 1000);
+    // Check if response contains error
+    if (response.error || response.msg) {
+      const statusCode = response.error === "invalid command" ? 400 : 200;
+      return res.status(statusCode).json(response);
+    }
+
+    // Add random delay to simulate real API
+    setTimeout(() => {
+      res.json(response);
+    }, Math.random() * 1000);
+  } catch (error) {
+    console.error("API Error:", error);
+    return res.status(400).json({ error: "Command failed" });
+  }
 });
 
 // System API handlers
-function handleSystemAPI(access, command, parameters) {
+function handleSystemAPI(access, command, parameters, req) {
   switch (command) {
     case "get id":
       return {
@@ -325,8 +385,20 @@ async function handleUserAPI(access, command, parameters, req) {
     case "login":
       // Simulate successful login and set session
       if (parameters && parameters.user && parameters.password) {
+        // Simulate different user levels based on username
+        let userLevel = 0; // Default to full access
+        if (
+          parameters.user.toLowerCase().includes("readonly") ||
+          parameters.user.toLowerCase().includes("viewer")
+        ) {
+          userLevel = 1; // Read only access
+        }
+
         req.session.isLoggedIn = true;
         req.session.user = parameters.user;
+        req.session.userLevel = userLevel;
+        req.session.lastActivity = Date.now();
+
         console.log("Session before save:", req.session);
         // Force session save and wait for it
         await new Promise((resolve, reject) => {
@@ -353,13 +425,19 @@ async function handleUserAPI(access, command, parameters, req) {
         return { username: req.session.user };
       }
       return { error: "No user logged in" };
+    case "get level":
+      // Return user level (read only)
+      if (req.session && req.session.user) {
+        return { level: req.session.userLevel || 0 };
+      }
+      return { error: "No user logged in" };
     default:
       return { error: "Unknown command" };
   }
 }
 
 // Interface API handlers
-function handleInterfaceAPI(access, command, parameters) {
+function handleInterfaceAPI(access, command, parameters, req) {
   switch (command) {
     case "get interfaces state":
       return getInterfacesState();
@@ -381,7 +459,7 @@ function handleInterfaceAPI(access, command, parameters) {
 }
 
 // Interfaces API handlers
-function handleInterfacesAPI(access, command, parameters) {
+function handleInterfacesAPI(access, command, parameters, req) {
   return {
     ports: getPortConfiguration(),
     status: "active",
@@ -389,7 +467,7 @@ function handleInterfacesAPI(access, command, parameters) {
 }
 
 // PoE API handlers
-function handlePoEAPI(access, command, parameters) {
+function handlePoEAPI(access, command, parameters, req) {
   return {
     enabled: true,
     ports: getPoEPorts(),
@@ -398,7 +476,7 @@ function handlePoEAPI(access, command, parameters) {
 }
 
 // Vlan API handlers
-function handleVlanAPI(access, command, parameters) {
+function handleVlanAPI(access, command, parameters, req) {
   switch (command) {
     case "get vlan interfaces":
       return getVlanInterfaces();
@@ -452,7 +530,7 @@ function handleVlanAPI(access, command, parameters) {
 }
 
 // DHCP API handlers
-function handleDhcpAPI(access, command, parameters) {
+function handleDhcpAPI(access, command, parameters, req) {
   switch (command) {
     case "get vids":
       return getVids();
@@ -494,7 +572,7 @@ function handleDhcpAPI(access, command, parameters) {
 }
 
 // Log API handlers
-function handleLogAPI(access, command, parameters) {
+function handleLogAPI(access, command, parameters, req) {
   switch (command) {
     case "get log":
       return getLogMessages();
@@ -504,13 +582,107 @@ function handleLogAPI(access, command, parameters) {
 }
 
 // Files API handlers
-function handleFilesAPI(access, command, parameters) {
+function handleFilesAPI(access, command, parameters, req) {
   switch (command) {
     case "get files list":
       return getFilesList();
     default:
       return { error: "Unknown command" };
   }
+}
+
+// Ignition API handlers
+function handleIgnitionAPI(access, command, parameters, req) {
+  switch (command) {
+    case "settings":
+      if (access === "get") {
+        return {
+          enabled: true,
+          timeout: 60,
+        };
+      } else if (access === "set") {
+        return { success: true, msg: "Ignition settings updated" };
+      }
+      break;
+    case "status":
+      if (access === "get") {
+        // Simulate different responses based on request count
+        // In a real implementation, this would track state properly
+        const requestCount = req.session.ignitionRequestCount || 0;
+        req.session.ignitionRequestCount = requestCount + 1;
+
+        if (requestCount % 2 === 0) {
+          // First request - return enabled/timeout
+          return {
+            enabled: true,
+            timeout: 60,
+          };
+        } else {
+          // Second request - return V2Active/timer
+          return {
+            V2Active: true,
+            timer: 0,
+          };
+        }
+      }
+      break;
+    default:
+      return { error: "Unknown command" };
+  }
+  return { error: "Unknown command" };
+}
+
+// STP API handlers
+function handleStpAPI(access, command, parameters, req) {
+  switch (command) {
+    case "get stp version":
+      if (access === "get") {
+        return getStpVersion();
+      }
+      break;
+    case "set stp version":
+      if (access === "set" && parameters) {
+        return setStpVersion(parameters);
+      }
+      break;
+    case "port state":
+      if (access === "get") {
+        return getStpPortState();
+      }
+      break;
+    case "rootbridge":
+      if (access === "get") {
+        return getStpRootBridge();
+      }
+      break;
+    default:
+      return { error: "Unknown command" };
+  }
+  return { error: "Unknown command" };
+}
+
+// LLDP API handlers
+function handleLldpAPI(access, command, parameters, req) {
+  switch (command) {
+    case "get neighbors":
+      if (access === "get") {
+        return getLldpNeighbors();
+      }
+      break;
+    case "get interfaces":
+      if (access === "get") {
+        return getLldpInterfaces();
+      }
+      break;
+    case "set interfaces":
+      if (access === "set" && parameters) {
+        return setLldpInterfaces(parameters);
+      }
+      break;
+    default:
+      return { error: "Unknown command" };
+  }
+  return { error: "Unknown command" };
 }
 
 // Helper functions
@@ -854,21 +1026,42 @@ function getBridges() {
   return [
     {
       wan: false,
+      vlan_id: 0,
       vid: 1,
       ip: "192.168.1.1",
       sm: "255.255.255.0",
       gw: "192.168.1.1",
       forward: true,
       proxy_arp: false,
+      dhcp_client: true,
+      dhcp_provision: false,
+      dhcp_filter: true,
     },
     {
       wan: true,
+      vlan_id: 10,
       vid: 10,
       ip: "192.168.10.1",
       sm: "255.255.255.0",
       gw: "192.168.10.1",
       forward: true,
       proxy_arp: true,
+      dhcp_client: false,
+      dhcp_provision: true,
+      dhcp_filter: false,
+    },
+    {
+      wan: false,
+      vlan_id: 20,
+      vid: 20,
+      ip: "192.168.20.1",
+      sm: "255.255.255.0",
+      gw: "192.168.20.1",
+      forward: true,
+      proxy_arp: false,
+      dhcp_client: true,
+      dhcp_provision: true,
+      dhcp_filter: true,
     },
   ];
 }
@@ -889,6 +1082,154 @@ function getVlanPortSettings() {
     tagged: [],
     untagged: [1],
   }));
+}
+
+// STP helper functions
+function getStpVersion() {
+  // Simulate STP configuration - can be enabled/disabled
+  const stpEnabled = Math.random() > 0.3; // 70% chance of being enabled
+  return {
+    lan: stpEnabled ? "rstp" : "none",
+    lanprio: Math.floor(Math.random() * 16), // Random priority 0-15
+  };
+}
+
+function setStpVersion(parameters) {
+  // Simulate setting STP version
+  return { success: true, msg: "STP configuration updated" };
+}
+
+function getStpPortState() {
+  const portConfig = getPortConfiguration();
+  const portStates = [];
+
+  for (let i = 0; i < portConfig.count; i++) {
+    const portName = portConfig.names[i] || `Port${i + 1}`;
+    const states = ["forwarding", "blocking", "learning", "discarding"];
+    const roles = ["root", "designated", "alternate", "backup"];
+
+    // Simulate realistic STP states
+    const state = states[Math.floor(Math.random() * states.length)];
+    const role = roles[Math.floor(Math.random() * roles.length)];
+
+    portStates.push({
+      port: portName,
+      state: state,
+      role: role,
+    });
+  }
+
+  return portStates;
+}
+
+function getStpRootBridge() {
+  // Generate a random MAC address for root bridge
+  const macParts = [];
+  for (let i = 0; i < 6; i++) {
+    macParts.push(
+      Math.floor(Math.random() * 256)
+        .toString(16)
+        .padStart(2, "0")
+    );
+  }
+  const macAddress = macParts.join(":");
+  const priority = Math.floor(Math.random() * 16) * 4096; // STP priority values
+
+  return {
+    rootbridge: `${priority.toString(16).padStart(4, "0")}.${macAddress}`,
+  };
+}
+
+// LLDP helper functions
+function getLldpNeighbors() {
+  const portConfig = getPortConfiguration();
+  const neighbors = [];
+
+  // Generate some sample LLDP neighbors for a few ports
+  const sampleNeighbors = [
+    {
+      interface: 1,
+      data: {
+        chassis: {
+          id: "00:11:22:33:44:55",
+          descr: "Cisco Catalyst 2960",
+          type: "macAddress",
+          value: "00:11:22:33:44:55",
+        },
+        port: {
+          id: {
+            type: "macAddress",
+            value: "00:11:22:33:44:56",
+          },
+          descr: "GigabitEthernet0/1",
+        },
+        age: "120",
+      },
+    },
+    {
+      interface: 3,
+      data: {
+        chassis: {
+          id: "00:aa:bb:cc:dd:ee",
+          descr: "HP ProCurve 2520",
+          type: "macAddress",
+          value: "00:aa:bb:cc:dd:ee",
+        },
+        port: {
+          id: {
+            type: "macAddress",
+            value: "00:aa:bb:cc:dd:ef",
+          },
+          descr: "Port 1",
+        },
+        age: "45",
+      },
+    },
+    {
+      interface: 5,
+      data: {
+        chassis: {
+          id: "00:ff:ee:dd:cc:bb",
+          descr: "Dell PowerConnect 2824",
+          type: "macAddress",
+          value: "00:ff:ee:dd:cc:bb",
+        },
+        port: {
+          id: {
+            type: "macAddress",
+            value: "00:ff:ee:dd:cc:bc",
+          },
+          descr: "Port 24",
+        },
+        age: "200",
+      },
+    },
+  ];
+
+  return {
+    lldp: {
+      interface: sampleNeighbors,
+    },
+  };
+}
+
+function getLldpInterfaces() {
+  const portConfig = getPortConfiguration();
+  const interfaces = [];
+
+  for (let i = 0; i < portConfig.count; i++) {
+    interfaces.push({
+      interface: i + 1,
+      tx: Math.random() > 0.5, // Randomly enable/disable transmit
+    });
+  }
+
+  return interfaces;
+}
+
+function setLldpInterfaces(parameters) {
+  // Simulate setting LLDP interfaces
+  return { success: true, msg: "LLDP interfaces updated" };
 }
 
 // DHCP helper functions

@@ -7,15 +7,8 @@
   </head>
   <script type="text/javascript" src="basic_jscript.js"></script>
   <script type="text/javascript" src="js/jquery-3.7.1.min.js"></script>
+  <script type="text/javascript" src="js/utils.js"></script>
   <script type="text/javascript">
-    $(document).ajaxError(function (event, request, settings) {
-      var obj = JSON.parse(request.responseText);
-      if (obj.error === "invalid rights" || obj.error === "invalid session")
-        window.top.location.href = "login.html";
-      if (obj.msg)
-        document.getElementById("content_iframe").contentWindow.ffunc(obj.msg);
-    });
-
     function logout() {
       var ii = { service: "user", access: "get", command: "logout" };
       $.post("/api", JSON.stringify(ii), function (data, status) {
@@ -72,7 +65,7 @@
     function checkedChanges() {
       $.post(
         "/api",
-        '{"service":"system","access":"get","command":"has unsaved changes"}',
+        '{"service":"system","access":"get","command":"has unsaved changes","sessionKeepAlive":false}',
         unsavedChanges
       );
       getCfgName();
@@ -386,6 +379,30 @@
                   id="log"
                   onclick="navto(this);"
                   >Logging</a
+                >
+                <a
+                  class="subpoint menu-content-item"
+                  id="ignition_status"
+                  onclick="navto(this);"
+                  >Ignition</a
+                >
+                <a
+                  class="subpoint menu-content-item"
+                  id="status_stp"
+                  onclick="navto(this);"
+                  >Spanning Tree</a
+                >
+                <a
+                  class="subpoint menu-content-item"
+                  id="status_dhcp_client"
+                  onclick="navto(this);"
+                  >DHCP Client</a
+                >
+                <a
+                  class="subpoint menu-content-item"
+                  id="status_lldp"
+                  onclick="navto(this);"
+                  >LLDP</a
                 >
               </div>
             </div>

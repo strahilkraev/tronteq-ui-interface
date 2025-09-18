@@ -6,15 +6,9 @@
   </head>
   <script type="text/javascript" src="basic_jscript.js"></script>
   <script type="text/javascript" src="js/jquery-3.7.1.min.js"></script>
+  <script type="text/javascript" src="js/utils.js"></script>
   <script type="text/javascript">
     var poecfg;
-
-    $(document).ajaxError(function (event, request, settings) {
-      var obj = JSON.parse(request.responseText);
-      if (obj.msg) ffunc(obj.msg);
-      if (obj.error === "invalid rights")
-        window.top.location.href = "login.html";
-    });
 
     $(document).ready(function () {
       genPoERows();
@@ -79,7 +73,7 @@
     function getInterfacesStateFn() {
       $.post(
         "/api",
-        '{"service":"interface","access":"get","command":"get interfaces state"}',
+        '{"service":"interface","access":"get","command":"get interfaces state","sessionKeepAlive":false}',
         function (data, status) {
           $("#interface_status_table > tbody .table_row_content").remove();
 

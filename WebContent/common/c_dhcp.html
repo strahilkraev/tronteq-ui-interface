@@ -7,14 +7,8 @@
   </head>
   <script type="text/javascript" src="basic_jscript.js"></script>
   <script type="text/javascript" src="js/jquery-3.7.1.min.js"></script>
+  <script type="text/javascript" src="js/utils.js"></script>
   <script type="text/javascript">
-    $(document).ajaxError(function (event, request, settings) {
-      var obj = JSON.parse(request.responseText);
-      if (obj.msg) ffunc(obj.msg);
-      if (obj.error === "invalid rights")
-        window.top.location.href = "login.html";
-    });
-
     function deepcopy(obj) {
       if (typeof obj == typeof {}) return $.extend(true, {}, obj);
       else if (typeof obj == typeof []) return $.extend(true, [], obj);

@@ -1,0 +1,137 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
+<meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1" />
+<html>
+  <head>
+    <link rel="stylesheet" type="text/css" href="basic_layout.css" />
+  </head>
+  <script type="text/javascript" src="basic_jscript.js"></script>
+  <script type="text/javascript" src="js/jquery-3.7.1.min.js"></script>
+  <script type="text/javascript" src="js/utils.js"></script>
+  <script type="text/javascript">
+    function getChildElement(obj, name) {
+      if (typeof obj !== "object") return "";
+      _keys = Object.keys(obj);
+      for (_i = 0; _i < _keys.length; _i++) {
+        if (_keys[_i] === name) return obj[_keys[_i]];
+      }
+
+      for (_i = 0; _i < _keys.length; _i++) {
+        _ret = getChildElement(obj[_keys[_i]], name);
+        if (_ret !== "") return _ret;
+      }
+      return "";
+    }
+
+    function AddLLDPNeighbor(data) {
+      if (typeof data === "undefined") return;
+      var locIfName = SwitchPortNames[data["interface"]];
+      var device = data["data"];
+      var deviceName = Object.keys(device.chassis)[0];
+
+      if (deviceName == "id") deviceName = "";
+
+      $("#lldp_neighbors_table > tbody:last-child").append(
+        '<tr class="table_row_content">' +
+          "<td>" +
+          locIfName +
+          "</td>" +
+          "<td>" +
+          deviceName +
+          "</td>" +
+          "<td>" +
+          getChildElement(device.chassis, "descr") +
+          "</td>" +
+          "<td>" +
+          getChildElement(device.chassis, "type") +
+          "</td>" +
+          "<td>" +
+          getChildElement(device.chassis, "value") +
+          "</td>" +
+          "<td>" +
+          device.port.id.type +
+          "</td>" +
+          "<td>" +
+          device.port.id.value +
+          "</td>" +
+          "<td>" +
+          getChildElement(device.port, "descr") +
+          "</td>" +
+          "<td>" +
+          device.age +
+          "</td></tr>"
+      );
+    }
+
+    function GetNeighborsData(data, s) {
+      $("#lldp_neighbors_table > tbody .table_row_content").remove();
+      if (data.lldp["interface"] instanceof Array) {
+        for (var i = 0; i < Object.keys(data.lldp["interface"]).length; i++) {
+          var n =
+            data.lldp["interface"][Object.keys(data.lldp["interface"])[i]];
+          AddLLDPNeighbor(n);
+        }
+      } else {
+        AddLLDPNeighbor(data.lldp["interface"]);
+      }
+    }
+
+    function loadLldpNeighbors() {
+      $.post(
+        "/api",
+        '{"service":"lldp","access":"get", "command":"get neighbors"}',
+        GetNeighborsData
+      );
+    }
+
+    $(document).ready(function () {
+      setupPortInfo(setupDone);
+    });
+
+    function setupDone() {
+      $(document).ajaxError(function (data, a1) {
+        if (a1.responseJSON != undefined)
+          $("#infoline").text(a1.responseJSON.msg);
+      });
+
+      // Load initial data
+      loadLldpNeighbors();
+
+      // Auto-refresh every 10 seconds
+      autoRefreshFn({ fn: loadLldpNeighbors });
+    }
+  </script>
+  <body
+    style="
+      height: 100%;
+      width: 100%;
+      float: left;
+      margin: 0px;
+      font-family: Verdana;
+      overflow: hidden;
+      position: absolute;
+    "
+  >
+    <div id="content" style="height: 100%; overflow: auto; width: 100%">
+      <h2 style="margin-left: 10px">Status &gt; LLDP</h2>
+
+      <div class="box2" style="width: calc(100% - 20px)">
+        <a class="headline">LLDP Neighbours</a>
+        <div class="box_content">
+          <table style="font-size: 80%; width: 100%" id="lldp_neighbors_table">
+            <tr class="table_row_head">
+              <td align="center">Local Port</td>
+              <td align="center">System Name</td>
+              <td align="center">System Description</td>
+              <td align="center">Chassis ID Type</td>
+              <td align="center">Chassis ID Value</td>
+              <td align="center">Port ID Type</td>
+              <td align="center">Port ID Value</td>
+              <td align="center">Port Description</td>
+              <td align="center">Age</td>
+            </tr>
+          </table>
+        </div>
+      </div>
+    </div>
+  </body>
+</html>

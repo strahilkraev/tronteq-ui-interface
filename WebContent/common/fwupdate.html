@@ -7,17 +7,11 @@
   </head>
   <script type="text/javascript" src="basic_jscript.js"></script>
   <script type="text/javascript" src="js/jquery-3.7.1.min.js"></script>
+  <script type="text/javascript" src="js/utils.js"></script>
   <script type="text/javascript">
     var m_count;
     var ignore = 0;
     var diable_upload_prog = 0;
-
-    $(document).ajaxError(function (event, request, settings) {
-      var obj = JSON.parse(request.responseText);
-      if (obj.msg) ffunc(obj.msg);
-      if (obj.error === "invalid rights")
-        window.top.location.href = "login.html";
-    });
 
     function file_onprogress(e) {
       if (diable_upload_prog == 0) {

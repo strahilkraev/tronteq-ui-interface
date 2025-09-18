@@ -218,9 +218,3 @@ function getPortsSorted(data) {
 
   return g.concat(p).concat(bonds);
 }
-
-function autoRefreshFn({ time = 10000, fn = () => {} }) {
-  setInterval(function () {
-    fn();
-  }, time);
-}

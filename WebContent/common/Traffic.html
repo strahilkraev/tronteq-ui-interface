@@ -7,22 +7,10 @@
   </head>
   <script type="text/javascript" src="basic_jscript.js"></script>
   <script type="text/javascript" src="js/jquery-3.7.1.min.js"></script>
+  <script type="text/javascript" src="js/utils.js"></script>
   <script type="text/javascript">
-    function autoRefreshFn({ time = 10000, fn = () => {} }) {
-      setInterval(function () {
-        fn();
-      }, time);
-    }
-    function setupPortInfo(sss) {}
-
-    $(document).ajaxError(function (event, request, settings) {
-      var obj = JSON.parse(request.responseText);
-      if (obj.msg) ffunc(obj.msg);
-      if (obj.error === "invalid rights")
-        window.top.location.href = "login.html";
-    });
-
     function addcommas(num) {
+      if (!num) return "";
       return num.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
     }
 

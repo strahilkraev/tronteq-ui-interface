@@ -6,14 +6,8 @@
   </head>
   <script type="text/javascript" src="basic_jscript.js"></script>
   <script type="text/javascript" src="js/jquery-3.7.1.min.js"></script>
+  <script type="text/javascript" src="js/utils.js"></script>
   <script type="text/javascript">
-    $(document).ajaxError(function (event, request, settings) {
-      var obj = JSON.parse(request.responseText);
-      if (obj.msg) ffunc(obj.msg);
-      if (obj.error === "invalid rights")
-        window.top.location.href = "login.html";
-    });
-
     function getChildElement(obj, name) {
       if (typeof obj !== "object") return "";
       _keys = Object.keys(obj);
@@ -167,22 +161,22 @@
         GetNeighborsData
       );
 
-      //set username
-      var cookies = document.cookie.split("; ");
-      var found = false;
-      for (var i in cookies) {
-        if (cookies[i].split("=")[0].match("user")) {
-          $("#username").text(cookies[i].split("=")[1]);
-          found = true;
-        }
-      }
+      // //set username
+      // var cookies = document.cookie.split("; ");
+      // var found = false;
+      // for (var i in cookies) {
+      //   if (cookies[i].split("=")[0].match("user")) {
+      //     $("#username").text(cookies[i].split("=")[1]);
+      //     found = true;
+      //   }
+      // }
 
-      if (!found)
-        window.top.location.href =
-          window.top.location.protocol +
-          "//" +
-          window.top.location.host +
-          "/login.html";
+      // if (!found)
+      //   window.top.location.href =
+      //     window.top.location.protocol +
+      //     "//" +
+      //     window.top.location.host +
+      //     "/login.html";
     }
   </script>
   <body

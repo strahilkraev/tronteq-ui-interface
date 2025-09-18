@@ -11,12 +11,29 @@
   <script type="text/javascript">
     $(document).ajaxError(function (event, request, settings) {
       var obj = JSON.parse(request.responseText);
-      if (obj.msg) ffunc(obj.msg);
-      if (obj.error === "invalid rights") {
+      // Handle 401 - No active Session
+      if (request.status === 401 || obj.error === "No active Session") {
         if (!(window.top.location.pathname === "/login.html")) {
           window.top.location.href = "/login.html";
         }
+        return;
       }
+      // Handle 403 - invalid rights
+      if (request.status === 403 || obj.msg === "invalid rights") {
+        if (!(window.top.location.pathname === "/login.html")) {
+          window.top.location.href = "/login.html";
+        }
+        return;
+      }
+      // Handle 400 - Invalid command/Command failed
+      if (request.status === 400) {
+        if (obj.error) {
+          ffunc(obj.error);
+        }
+        return;
+      }
+      // Handle other errors
+      if (obj.msg) ffunc(obj.msg);
     });
 
     $(document).ready(function () {

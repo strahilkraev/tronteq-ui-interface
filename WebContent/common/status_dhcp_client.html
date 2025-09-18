@@ -1,0 +1,125 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
+<meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1" />
+<html>
+  <head>
+    <link rel="stylesheet" type="text/css" href="basic_layout.css" />
+    <style type="text/css"></style>
+  </head>
+  <script type="text/javascript" src="basic_jscript.js"></script>
+  <script type="text/javascript" src="js/jquery-3.7.1.min.js"></script>
+  <script type="text/javascript" src="js/utils.js"></script>
+  <script type="text/javascript">
+    $(document).ready(function () {
+      $(document).ajaxError(function (data, a1) {
+        if (a1.responseJSON != undefined)
+          $("#infoline").text(a1.responseJSON.msg);
+      });
+
+      loadDhcpClientStatus();
+      autoRefreshFn({ fn: loadDhcpClientStatus });
+    });
+
+    function loadDhcpClientStatus() {
+      $("#table_dhcp_status > tbody .table_row_content").empty();
+      $.post(
+        "/api",
+        '{"service":"vlan","access":"get","command":"get bridges"}',
+        function (data, status) {
+          $("#table_dhcp_status > tbody .table_row_content").remove();
+          data.forEach(function (i) {
+            if (i.vlan_id === 0) {
+              name = "Lan";
+            } else {
+              name = "VLAN_ID" + i.vlan_id;
+            }
+
+            $("#table_dhcp_status > tbody:last-child").append(
+              '<tr class="table_row_content">' +
+                "<td>" +
+                name +
+                "</td>" +
+                '<td align="center" id="dhcp_operation_' +
+                i.vlan_id +
+                '">' +
+                (i.dhcp_client ? "Enabled" : "Disabled") +
+                "</td>" +
+                '<td align="center" id="dhcp_provision_' +
+                i.vlan_id +
+                '">' +
+                (i.dhcp_provision ? "Enabled" : "Disabled") +
+                "</td>" +
+                '<td align="center" id="dhcp_filter_' +
+                i.vlan_id +
+                '">' +
+                (i.dhcp_filter ? "Enabled" : "Disabled") +
+                "</td>" +
+                '<td align="center" id="status_ip_' +
+                i.vlan_id +
+                '">' +
+                i.ip +
+                "</td>" +
+                '<td align="center" id="status_subnet_' +
+                i.vlan_id +
+                '">' +
+                i.sm +
+                "</td>" +
+                '<td align="center" id="status_gateway_' +
+                i.vlan_id +
+                '">' +
+                i.gw +
+                "</td>" +
+                '<td align="center" id="dhcp_status_' +
+                i.vlan_id +
+                '">' +
+                (i.dhcp_client ? "Active" : "Inactive") +
+                "</td>" +
+                "</tr>"
+            );
+          });
+          document.body.style.width = "99.99999%";
+          setTimeout(function () {
+            document.body.style.width = "100%";
+          }, 50);
+        }
+      );
+    }
+  </script>
+  <body
+    style="
+      height: 100%;
+      width: 100%;
+      float: left;
+      margin: 0px;
+      font-family: Verdana;
+      overflow: hidden;
+      position: absolute;
+    "
+  >
+    <div id="content" style="height: 100%; overflow: auto; width: 100%">
+      <h2 style="margin-left: 10px">Status &gt; DHCP Client</h2>
+
+      <div class="box2" style="width: calc(100% - 20px)">
+        <a class="headline">DHCP Client Status</a>
+        <div class="box_content">
+          <table style="font-size: 80%; width: 100%" id="table_dhcp_status">
+            <tr class="table_row_head">
+              <td rowspan="2" align="center">Interface</td>
+              <td colspan="3" align="center">DHCP Client Configuration</td>
+              <td colspan="3" align="center">Current Status</td>
+              <td align="center">Status</td>
+            </tr>
+            <tr class="table_row_head">
+              <td align="center">Operation</td>
+              <td align="center">Provision</td>
+              <td align="center">Filter</td>
+              <td align="center">IP Address</td>
+              <td align="center">Netmask</td>
+              <td align="center">Gateway</td>
+              <td align="center">DHCP Status</td>
+            </tr>
+          </table>
+        </div>
+      </div>
+    </div>
+  </body>
+</html>

@@ -12,8 +12,8 @@
     var vidNames = {};
 
     function getStpVersion(data) {
-      $("#lan").val(data["lan"]);
-      $("#lan_prio").val("" + data["lanprio"]);
+      $("#lan").text(data["lan"]);
+      $("#lan_prio").text("" + data["lanprio"]);
       if (data["lan"] != "none") {
         document.getElementById("div_port_state").hidden = false;
         document.getElementById("div_root").hidden = false;
@@ -69,27 +69,9 @@
       br.textContent = data["rootbridge"];
     }
 
-    function setSTPVersion() {
-      $.post(
-        "/api",
-        '{"service":"stp","access":"set","command":"set stp version","parameters": {"lan":"' +
-          $("#lan").val() +
-          '","lanprio":' +
-          parseInt($("#lan_prio").val()) +
-          "}}",
-        function (data) {
-          createOK(data);
-          $.post(
-            "/api",
-            '{"service":"stp","access":"get","command":"get stp version"}',
-            getStpVersion
-          );
-        }
-      );
-    }
-
     $(document).ready(function () {
       setupPortInfo(setupDone);
+      autoRefreshFn({ fn: setupDone });
     });
 
     function setupDone() {
@@ -98,8 +80,6 @@
         '{"service":"stp","access":"get","command":"get stp version"}',
         getStpVersion
       );
-
-      $("#set_stp_version_button").click(setSTPVersion);
     }
   </script>
   <body
@@ -111,56 +91,25 @@
       font-family: Verdana;
     "
   >
-    <h2 style="margin-left: 10px">Settings &gt; Spanning Tree</h2>
+    <h2 style="margin-left: 10px">Status &gt; Spanning Tree</h2>
 
     <div class="box2" style="width: calc(25% - 20px)">
-      <a class="headline">Settings</a>
+      <a class="headline">Current Configuration</a>
       <div class="box_content">
         <table style="font-size: 80%; width: 100%">
           <tr class="table_row_head">
-            <td>Option</td>
-            <td>Setting</td>
+            <td>Parameter</td>
+            <td>Value</td>
           </tr>
           <tr class="table_row_content">
             <td>Spanning Tree Protocol</td>
-            <td>
-              <select id="lan" style="width: 97%">
-                <option value="none">none</option>
-                <option value="rstp">RSTP</option>
-              </select>
-            </td>
+            <td id="lan"></td>
           </tr>
           <tr class="table_row_content">
             <td>Bridge Priority</td>
-            <td>
-              <!-- <input id="lan_prio" type="number" min="0" max="15" style="width: 97%;"> -->
-              <select id="lan_prio" style="width: 97%">
-                <option value="0">0</option>
-                <option value="1">4096</option>
-                <option value="2">8192</option>
-                <option value="3">12288</option>
-                <option value="4">16384</option>
-                <option value="5">20480</option>
-                <option value="6">24576</option>
-                <option value="7">28672</option>
-                <option value="8">32768</option>
-                <option value="9">36864</option>
-                <option value="10">40960</option>
-                <option value="11">45056</option>
-                <option value="12">49152</option>
-                <option value="13">53248</option>
-                <option value="14">57344</option>
-                <option value="15">61440</option>
-              </select>
-            </td>
+            <td id="lan_prio"></td>
           </tr>
         </table>
-        <input
-          type="button"
-          class="button"
-          id="set_stp_version_button"
-          value="Set Spanning Tree Configuration"
-        />
       </div>
     </div>
     <div
@@ -189,7 +138,7 @@
       id="div_port_state"
       hidden="true"
     >
-      <a class="headline">Ports</a>
+      <a class="headline">Port Status</a>
       <div class="box_content">
         <table style="font-size: 80%; width: 100%" id="port_state">
           <tr class="table_row_head">

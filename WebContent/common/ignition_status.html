@@ -14,42 +14,9 @@
     });
 
     function setupDone() {
-      getSettings();
       getStatus();
-      $("#set").click(setSettings);
       $("#update").click(getStatus);
-    }
-
-    function getSettings() {
-      $.post(
-        "/api",
-        '{"service":"ignition","access":"get","command":"settings"}',
-        function (data) {
-          //alert(data);
-          $("#active").val("" + data["enabled"]);
-          $("#timeout").val(data["timeout"]);
-        }
-      );
-    }
-
-    function setSettings() {
-      $.post(
-        "/api",
-        JSON.stringify({
-          service: "ignition",
-          access: "set",
-          command: "settings",
-          parameters: {
-            enabled: $("#active").val() == "true",
-            timeout: parseInt($("#timeout").val()),
-          },
-        }),
-        function (data, status) {
-          createOK(data);
-          getSettings();
-          getStatus();
-        }
-      );
+      autoRefreshFn({ fn: getStatus });
     }
 
     function getStatus() {
@@ -98,48 +65,10 @@
       font-family: Verdana;
     "
   >
-    <h2 style="margin-left: 10px">Settings &gt; Ignition</h2>
+    <h2 style="margin-left: 10px">Status &gt; Ignition</h2>
 
-    <div class="box2" style="width: calc(25% - 20px)">
-      <a class="headline">Settings</a>
-      <div class="box_content">
-        <table style="font-size: 80%; width: 100%">
-          <tr class="table_row_head">
-            <td style="width: 50%">Option</td>
-            <td style="width: 50%">Setting</td>
-          </tr>
-          <tr class="table_row_content">
-            <td>Ignition</td>
-            <td>
-              <select id="active" style="width: 97%">
-                <option value="true">enabled</option>
-                <option value="false">disabled</option>
-              </select>
-            </td>
-          </tr>
-          <tr class="table_row_content">
-            <td>Timeout in seconds</td>
-            <td>
-              <input
-                type="number"
-                id="timeout"
-                min="60"
-                max="86400"
-                style="width: 97%"
-              />
-            </td>
-          </tr>
-        </table>
-        <input
-          type="button"
-          class="button"
-          id="set"
-          value="Update Ignition Settings"
-        />
-      </div>
-    </div>
-    <div class="box2" style="width: calc(25% - 20px)">
-      <a class="headline">Status</a>
+    <div class="box2" style="width: calc(50% - 20px)">
+      <a class="headline">Ignition Status</a>
       <div class="box_content">
         <table style="font-size: 80%; width: 100%">
           <tr class="table_row_head">
@@ -159,7 +88,7 @@
             <td id="ignitionStatus"></td>
           </tr>
         </table>
-        <input type="button" class="button" id="update" value="update" />
+        <input type="button" class="button" id="update" value="Update" />
       </div>
     </div>
   </body>

@@ -88,9 +88,32 @@
     </div>
 
     <div class="test-section">
+      <h3>Login Test</h3>
+      <button class="test-button" onclick="testLogin('admin', 'password')">
+        Login as Admin (Full Access)
+      </button>
+      <button class="test-button" onclick="testLogin('readonly', 'password')">
+        Login as ReadOnly User
+      </button>
+      <button class="test-button" onclick="testLogin('viewer', 'password')">
+        Login as Viewer User
+      </button>
+      <div id="login-result" class="result"></div>
+    </div>
+
+    <div class="test-section">
       <h3>User APIs</h3>
       <button class="test-button" onclick="testAPI('user', 'get', 'logout')">
         Logout
+      </button>
+      <button class="test-button" onclick="testAPI('user', 'get', 'get level')">
+        Get User Level
+      </button>
+      <button
+        class="test-button"
+        onclick="testAPI('user', 'get', 'get current user')"
+      >
+        Get Current User
       </button>
       <div id="user-result" class="result"></div>
     </div>
@@ -115,6 +138,23 @@
     </div>
 
     <div class="test-section">
+      <h3>Session Management Test</h3>
+      <button
+        class="test-button"
+        onclick="testAPI('system', 'get', 'get id', {}, false)"
+      >
+        Test with sessionKeepAlive: false
+      </button>
+      <button
+        class="test-button"
+        onclick="testAPI('system', 'get', 'get id', {}, true)"
+      >
+        Test with sessionKeepAlive: true
+      </button>
+      <div id="session-result" class="result"></div>
+    </div>
+
+    <div class="test-section">
       <h3>Custom Test</h3>
       <input
         type="text"
@@ -136,12 +176,19 @@
     </div>
 
     <script>
-      function testAPI(service, access, command, parameters = {}) {
+      function testAPI(
+        service,
+        access,
+        command,
+        parameters = {},
+        sessionKeepAlive = true
+      ) {
         const requestData = {
           service: service,
           access: access,
           command: command,
           parameters: parameters,
+          sessionKeepAlive: sessionKeepAlive,
         };
 
         console.log("Sending request:", requestData);
@@ -149,18 +196,57 @@
         $.post("/api", JSON.stringify(requestData))
           .done(function (data) {
             const resultDiv = document.getElementById(service + "-result");
+            if (service === "system" && sessionKeepAlive !== undefined) {
+              resultDiv = document.getElementById("session-result");
+            }
             resultDiv.className = "result success";
             resultDiv.textContent =
               "✅ Success:\n" + JSON.stringify(data, null, 2);
           })
           .fail(function (xhr, status, error) {
             const resultDiv = document.getElementById(service + "-result");
+            if (service === "system" && sessionKeepAlive !== undefined) {
+              resultDiv = document.getElementById("session-result");
+            }
             resultDiv.className = "result error";
             resultDiv.textContent =
               "❌ Error: " +
               error +
               "\nStatus: " +
-              status +
+              xhr.status +
+              "\nResponse: " +
+              xhr.responseText;
+          });
+      }
+
+      function testLogin(username, password) {
+        const requestData = {
+          service: "user",
+          access: "get",
+          command: "login",
+          parameters: {
+            user: username,
+            password: password,
+          },
+        };
+
+        console.log("Sending login request:", requestData);
+
+        $.post("/api", JSON.stringify(requestData))
+          .done(function (data) {
+            const resultDiv = document.getElementById("login-result");
+            resultDiv.className = "result success";
+            resultDiv.textContent =
+              "✅ Login Success:\n" + JSON.stringify(data, null, 2);
+          })
+          .fail(function (xhr, status, error) {
+            const resultDiv = document.getElementById("login-result");
+            resultDiv.className = "result error";
+            resultDiv.textContent =
+              "❌ Login Error: " +
+              error +
+              "\nStatus: " +
+              xhr.status +
               "\nResponse: " +
               xhr.responseText;
           });
