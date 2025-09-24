@@ -352,6 +352,9 @@
       $("#SetMembers").click(setVlanMembers);
       $("#but_set_tags_all").click(setVlanInterfaces);
       $("#ChangeGlobalSetting").click(ChangeGlobalSetting);
+
+      // Apply readonly restrictions for level 1 users
+      applyReadOnlyRestrictions();
     }
   </script>
   <body

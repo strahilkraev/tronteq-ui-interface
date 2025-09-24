@@ -68,7 +68,7 @@
       // Get files list
       $.post(
         "/api",
-        '{"service":"files","access":"get","command":"get files list"}',
+        '{"service":"system","access":"get","command":"files"}',
         function (data, status) {
           renderFilesList(data);
         }
@@ -79,9 +79,9 @@
       var tbody = document.getElementById("files_list_body");
       tbody.innerHTML = ""; // Clear existing content
 
-      if (data && data.length > 0) {
-        for (var i = 0; i < data.length; i++) {
-          var file = data[i];
+      if (data?.files && data.files.length > 0) {
+        for (var i = 0; i < data.files.length; i++) {
+          var file = data.files[i];
           var row = document.createElement("tr");
           row.className = "table_row_content";
           row.style.fontSize = "80%";
@@ -91,6 +91,7 @@
           nameCell.textContent = file.name;
 
           var sizeCell = document.createElement("td");
+          sizeCell.style.textAlign = "center";
           sizeCell.style.overflow = "hidden";
           sizeCell.style.textAlign = "right";
           var sizeStr = file.size + " B";
@@ -101,13 +102,14 @@
           }
           sizeCell.textContent = sizeStr;
 
-          var dateCell = document.createElement("td");
-          dateCell.style.overflow = "hidden";
-          dateCell.textContent = file.date;
+          var urlCell = document.createElement("td");
+          urlCell.style.textAlign = "center";
+          urlCell.style.overflow = "hidden";
+          urlCell.textContent = file.url ?? "N/A";
 
           row.appendChild(nameCell);
           row.appendChild(sizeCell);
-          row.appendChild(dateCell);
+          row.appendChild(urlCell);
           tbody.appendChild(row);
         }
       } else {

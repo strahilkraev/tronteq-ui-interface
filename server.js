@@ -387,10 +387,7 @@ async function handleUserAPI(access, command, parameters, req) {
       if (parameters && parameters.user && parameters.password) {
         // Simulate different user levels based on username
         let userLevel = 0; // Default to full access
-        if (
-          parameters.user.toLowerCase().includes("readonly") ||
-          parameters.user.toLowerCase().includes("viewer")
-        ) {
+        if (parameters.user.toLowerCase().includes("user")) {
           userLevel = 1; // Read only access
         }
 
@@ -419,12 +416,6 @@ async function handleUserAPI(access, command, parameters, req) {
       // Clear session
       req.session.destroy();
       return { success: true };
-    case "get current user":
-      // Return current user information
-      if (req.session && req.session.user) {
-        return { username: req.session.user };
-      }
-      return { error: "No user logged in" };
     case "get level":
       // Return user level (read only)
       if (req.session && req.session.user) {
@@ -1275,9 +1266,7 @@ app.use((req, res) => {
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
   console.log(`Device type: ${DEVICE_TYPE}`);
-  console.log(
-    `Access the interface at: http://localhost:${PORT}/common/main.html`
-  );
+  console.log(`Access the interface at: http://localhost:${PORT}/main.html`);
 });
 
 module.exports = app;

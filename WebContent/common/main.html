@@ -100,6 +100,15 @@
 
     $(document).ready(function () {
       setupPortInfo(setupDone);
+      // Apply readonly restrictions for level 1 users
+      applyReadOnlyRestrictions();
+
+      var cookies = document.cookie.split("; ");
+      for (var i in cookies) {
+        if (cookies[i].split("=")[0].match("user")) {
+          $("#username-display").text(cookies[i].split("=")[1]);
+        }
+      }
     });
 
     function setupDone() {
@@ -120,7 +129,6 @@
       getSupplyInfo();
       getCfgName();
       getIgnitionStatus();
-      getCurrentUser(); // Get current user information
       $.post(
         "/api",
         '{"service":"system","access":"get","command":"has unsaved changes"}',
@@ -134,7 +142,15 @@
       jj[0].className = "subpoint menu-content-item";
       event.className = "selsubpoint menu-content-item";
       var iframe = document.getElementById("content_iframe");
-      if (iframe) iframe.src = event.id + ".html";
+      if (iframe) {
+        iframe.src = event.id + ".html";
+        // Apply readonly restrictions to iframe content when it loads
+        iframe.onload = function () {
+          setTimeout(function () {
+            applyReadOnlyRestrictionsToIframe(iframe);
+          }, 500); // Small delay to ensure content is loaded
+        };
+      }
     }
 
     function getUptimeCallback(data) {
@@ -212,37 +228,39 @@
       );
     }
 
+    // Initialize menu arrows on page load
+    function initializeMenuArrows() {
+      var sections = ["status", "settings", "maintenance"];
+      sections.forEach(function (sectionName) {
+        var content = document.getElementById(sectionName + "-content");
+        var arrow = document.getElementById(sectionName + "-arrow");
+
+        if (content.style.display === "none" || content.style.display === "") {
+          arrow.className = "menu-arrow down-arrow";
+        } else {
+          arrow.className = "menu-arrow up-arrow";
+        }
+      });
+    }
+
     // Menu collapse/expand functionality
     function toggleMenuSection(sectionName) {
       var content = document.getElementById(sectionName + "-content");
       var arrow = document.getElementById(sectionName + "-arrow");
 
-      if (content.style.display === "none") {
+      if (content.style.display === "none" || content.style.display === "") {
         content.style.display = "block";
-        arrow.textContent = "▲";
+        arrow.className = "menu-arrow up-arrow";
       } else {
         content.style.display = "none";
-        arrow.textContent = "▼";
+        arrow.className = "menu-arrow down-arrow";
       }
     }
 
-    // Get current user information
-    function getCurrentUser() {
-      $.post(
-        "/api",
-        '{"service":"user","access":"get","command":"get current user"}',
-        function (data, status) {
-          if (status === "success" && data.username) {
-            document.getElementById("username-display").textContent =
-              data.username;
-          } else {
-            document.getElementById("username-display").textContent = "Unknown";
-          }
-        }
-      ).fail(function () {
-        document.getElementById("username-display").textContent = "Unknown";
-      });
-    }
+    // Initialize arrows when page loads
+    window.onload = function () {
+      initializeMenuArrows();
+    };
   </script>
 
   <body
@@ -340,7 +358,7 @@
           <div class="menu-section mt-5">
             <div class="menu-header" onclick="toggleMenuSection('status')">
               <span class="menu-title">Status</span>
-              <span class="menu-arrow" id="status-arrow">▼</span>
+              <span class="menu-arrow down-arrow" id="status-arrow"></span>
             </div>
             <div class="menu-content" id="status-content" style="display: none">
               <div class="menu-content-list">
@@ -412,7 +430,7 @@
           <div class="menu-section">
             <div class="menu-header" onclick="toggleMenuSection('settings')">
               <span class="menu-title">Settings</span>
-              <span class="menu-arrow" id="settings-arrow">▼</span>
+              <span class="menu-arrow down-arrow" id="settings-arrow"></span>
             </div>
             <div
               class="menu-content"
@@ -548,7 +566,7 @@
           <div class="menu-section">
             <div class="menu-header" onclick="toggleMenuSection('maintenance')">
               <span class="menu-title">Maintenance</span>
-              <span class="menu-arrow" id="maintenance-arrow">▼</span>
+              <span class="menu-arrow down-arrow" id="maintenance-arrow"></span>
             </div>
             <div
               class="menu-content"

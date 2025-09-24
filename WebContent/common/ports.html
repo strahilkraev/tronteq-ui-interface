@@ -217,6 +217,12 @@
         }
       );
     }
+
+    // Initialize page and apply readonly restrictions
+    $(document).ready(function () {
+      // Apply readonly restrictions for level 1 users
+      applyReadOnlyRestrictions();
+    });
   </script>
   <body
     style="

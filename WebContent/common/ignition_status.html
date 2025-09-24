@@ -15,7 +15,7 @@
 
     function setupDone() {
       getStatus();
-      $("#update").click(getStatus);
+      $("#reload").click(getStatus);
       autoRefreshFn({ fn: getStatus });
     }
 
@@ -88,7 +88,7 @@
             <td id="ignitionStatus"></td>
           </tr>
         </table>
-        <input type="button" class="button" id="update" value="Update" />
+        <input type="button" class="button" id="reload" value="Reload" />
       </div>
     </div>
   </body>

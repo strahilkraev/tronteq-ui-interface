@@ -92,11 +92,8 @@
       <button class="test-button" onclick="testLogin('admin', 'password')">
         Login as Admin (Full Access)
       </button>
-      <button class="test-button" onclick="testLogin('readonly', 'password')">
-        Login as ReadOnly User
-      </button>
-      <button class="test-button" onclick="testLogin('viewer', 'password')">
-        Login as Viewer User
+      <button class="test-button" onclick="testLogin('user', 'password')">
+        Login as User
       </button>
       <div id="login-result" class="result"></div>
     </div>
@@ -108,12 +105,6 @@
       </button>
       <button class="test-button" onclick="testAPI('user', 'get', 'get level')">
         Get User Level
-      </button>
-      <button
-        class="test-button"
-        onclick="testAPI('user', 'get', 'get current user')"
-      >
-        Get Current User
       </button>
       <div id="user-result" class="result"></div>
     </div>

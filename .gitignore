@@ -57,3 +57,6 @@ jspm_packages/
 Thumbs.db
 
 cookies.txt
+
+build/
+build.zip
