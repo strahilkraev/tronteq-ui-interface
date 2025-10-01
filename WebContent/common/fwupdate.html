@@ -110,22 +110,7 @@
         }
       );
 
-      //set username
-      var cookies = document.cookie.split("; ");
-      var found = false;
-      for (var i in cookies) {
-        if (cookies[i].split("=")[0].match("user")) {
-          $("#username").text(cookies[i].split("=")[1]);
-          found = true;
-        }
-      }
-
-      if (!found)
-        window.top.location.href =
-          window.top.location.protocol +
-          "//" +
-          window.top.location.host +
-          "/login.html";
+      requireLogin();
     });
   </script>
   <body

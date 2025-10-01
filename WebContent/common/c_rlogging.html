@@ -43,10 +43,11 @@
     }
 
     $(document).ready(function () {
-      getRemote();
-
-      $("#setremotebutton").click(function () {
-        setRemote();
+      applyAdminRestrictions(function () {
+        getRemote();
+        $("#setremotebutton").click(function () {
+          setRemote();
+        });
       });
     });
   </script>
@@ -81,22 +82,37 @@
             </tr>
             <tr class="table_row_content">
               <td>Enabled</td>
-              <td><input type="checkbox" id="inp_enabled" /></td>
+              <td>
+                <input
+                  type="checkbox"
+                  id="inp_enabled"
+                  disabled
+                  class="input-admin-only"
+                />
+              </td>
             </tr>
             <tr class="table_row_content">
               <td>Destination</td>
               <td>
                 <input
+                  type="text"
                   id="inp_destination"
                   title="hostname or IPv4 address"
                   style="width: 92%"
+                  disabled
+                  class="input-admin-only"
                 />
               </td>
             </tr>
             <tr class="table_row_content">
               <td>Protocol</td>
               <td>
-                <select id="inp_protocol" style="width: 97%">
+                <select
+                  id="inp_protocol"
+                  style="width: 97%"
+                  disabled
+                  class="input-admin-only"
+                >
                   <option value="udp">UDP</option>
                   <option value="tcp">TCP</option>
                 </select>
@@ -112,12 +128,21 @@
                   max="65535"
                   title="0..65535"
                   style="width: 92%"
+                  disabled
+                  class="input-admin-only"
                 />
               </td>
             </tr>
             <tr class="table_row_content">
               <td>Periodic heartbeat messages</td>
-              <td><input type="checkbox" id="inp_mark" /></td>
+              <td>
+                <input
+                  type="checkbox"
+                  id="inp_mark"
+                  disabled
+                  class="input-admin-only"
+                />
+              </td>
             </tr>
             <tr class="table_row_content">
               <td>Interval of heartbeat messages</td>
@@ -129,6 +154,8 @@
                   max="3600"
                   title="100..3600 seconds"
                   style="width: 75%"
+                  disabled
+                  class="input-admin-only"
                 />
                 seconds
               </td>
@@ -138,6 +165,8 @@
             type="button"
             value="Set Remote Logging"
             id="setremotebutton"
+            class="btn-admin-only"
+            style="display: none"
           />
         </div>
       </div>

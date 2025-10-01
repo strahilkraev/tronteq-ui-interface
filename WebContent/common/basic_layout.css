@@ -476,3 +476,7 @@ h3 {
   color: #74b130;
   font-weight: bold;
 }
+
+.only-admin {
+  display: none;
+}

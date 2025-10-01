@@ -16,29 +16,18 @@
         if (a1.responseJSON != undefined)
           $("#infoline").text(a1.responseJSON.msg);
       });
+      applyAdminRestrictions(function () {
+        reloadBridges();
+        $("#setInterfaces").click(setBridges);
+      });
 
-      reloadBridges();
-
-      $("#setInterfaces").click(setBridges);
-
-      var cookies = document.cookie.split("; ");
-      var found = false;
-      for (var i in cookies) {
-        if (cookies[i].split("=")[0].match("user")) {
-          $("#username").text(cookies[i].split("=")[1]);
-          found = true;
-        }
-      }
-
-      if (!found)
-        window.top.location.href =
-          window.top.location.protocol +
-          "//" +
-          window.top.location.host +
-          "/login.html";
+      requireLogin();
     });
 
     function ip_settings_input_state(id) {
+      if (window.userLevel === 1) {
+        return;
+      }
       if (!isGWSet || $('[id="txt_tab_intf_gw_' + id + '"]').val().length > 0)
         document.getElementById(
           "txt_tab_intf_gw_" + id.toString()
@@ -54,7 +43,7 @@
         "/api",
         '{"service":"vlan","access":"get","command":"get current bridge config"}',
         function (data, status) {
-          data.forEach(function (i) {
+          data?.forEach(function (i) {
             var vid = i.vlan_id;
 
             $("#running_ip_" + i.vlan_id).text(i.ip);
@@ -86,61 +75,50 @@
             }
 
             $("#table_ip_cfg  > tbody:last-child").append(
-              '<tr class="table_row_content">' +
-                "<td>" +
-                name +
-                "</td>" +
-                '<td><input type="text" id="txt_tab_intf_ip_' +
-                i.vlan_id +
-                '" value="' +
-                i.ip +
-                '" style="width: 92%;"></td>' +
-                '<td><input type="text" id="txt_tab_intf_cidr_' +
-                i.vlan_id +
-                '" value="' +
-                i.sm +
-                '" style="width: 92%;"></td>' +
-                '<td><input type="text" id="txt_tab_intf_gw_' +
-                i.vlan_id +
-                '" value="' +
-                i.gw +
-                '" style="width: 92%;" onchange="checkGateways();"></td>' +
-                '<td><input type="checkbox" id="check_forward_' +
-                i.vlan_id +
-                '" style="width: 92%;" ' +
-                (i.forward ? "checked" : "") +
-                "></td>" +
-                '<td><input type="checkbox" id="check_proxy_arp_' +
-                i.vlan_id +
-                '" style="width: 92%;" ' +
-                (i.proxy_arp ? "checked" : "") +
-                "></td>" +
-                '<td align="center"><input type="checkbox" id="check_dhcpclient_operation' +
-                i.vlan_id +
-                '" ' +
-                (i.dhcp_client ? "checked" : "") +
-                ' onclick="ip_settings_input_state(' +
-                i.vid +
-                ')"></td>' +
-                '<td align="center"><input type="checkbox" id="check_dhcpclient_provision' +
-                i.vlan_id +
-                '" ' +
-                (i.dhcp_provision ? "checked" : "") +
-                "></td>" +
-                '<td align="center"><input type="checkbox" id="check_dhcpclient_filter' +
-                i.vlan_id +
-                '" ' +
-                (i.dhcp_filter ? "checked" : "") +
-                "></td>" +
-                '<td id="running_ip_' +
-                i.vlan_id +
-                '"></td>' +
-                '<td id="running_sub_' +
-                i.vlan_id +
-                '"></td>' +
-                '<td id="running_gw_' +
-                i.vlan_id +
-                '"></td>' +
+              `<tr class="table_row_content"><td>${name}</td>` +
+                `<td><input ${
+                  window.userLevel === 1 ? "disabled" : ""
+                } type="text" id="txt_tab_intf_ip_${i.vlan_id}" value="${
+                  i.ip
+                }" style="width: 92%;"></td>` +
+                `<td><input ${
+                  window.userLevel === 1 ? "disabled" : ""
+                } type="text" id="txt_tab_intf_cidr_${i.vlan_id}" value="${
+                  i.sm
+                }" style="width: 92%;"></td>` +
+                `<td><input ${
+                  window.userLevel === 1 ? "disabled" : ""
+                } type="text" id="txt_tab_intf_gw_${i.vlan_id}" value="${
+                  i.gw
+                }" style="width: 92%;" onchange="checkGateways();"></td>` +
+                `<td><input ${
+                  window.userLevel === 1 ? "disabled" : ""
+                } type="checkbox" id="check_forward_${
+                  i.vlan_id
+                }" style="width: 92%;" ${i.forward ? "checked" : ""}></td>` +
+                `<td><input ${
+                  window.userLevel === 1 ? "disabled" : ""
+                } type="checkbox" id="check_proxy_arp_${
+                  i.vlan_id
+                }" style="width: 92%;" ${i.proxy_arp ? "checked" : ""}></td>` +
+                `<td align="center"><input ${
+                  window.userLevel === 1 ? "disabled" : ""
+                } type="checkbox" id="check_dhcpclient_operation${i.vlan_id}" ${
+                  i.dhcp_client ? "checked" : ""
+                } onclick="ip_settings_input_state(${i.vid});"></td>` +
+                `<td align="center"><input ${
+                  window.userLevel === 1 ? "disabled" : ""
+                } type="checkbox" id="check_dhcpclient_provision${i.vlan_id}" ${
+                  i.dhcp_provision ? "checked" : ""
+                }></td>` +
+                `<td align="center"><input ${
+                  window.userLevel === 1 ? "disabled" : ""
+                } type="checkbox" id="check_dhcpclient_filter${i.vlan_id}" ${
+                  i.dhcp_filter ? "checked" : ""
+                }></td>` +
+                `<td id="running_ip_${i.vlan_id}"></td>` +
+                `<td id="running_sub_${i.vlan_id}"></td>` +
+                `<td id="running_gw_${i.vlan_id}"></td>` +
                 "</tr>"
             );
           });
@@ -167,7 +145,7 @@
         var found = false;
         for (var i = 0; i < all.length; i++) {
           if (!found && all[i].value != 0) {
-            all[i].disabled = false;
+            all[i].disabled = window.userLevel === 1 ? true : false;
             found = true;
           } else {
             all[i].disabled = true;
@@ -176,7 +154,7 @@
         }
       } else {
         for (var i = 0; i < all.length; i++) {
-          all[i].disabled = false;
+          all[i].disabled = window.userLevel === 1 ? true : false;
           all[i].value = "";
 
           ip_settings_input_state(all[i].id.split("_")[4]);
@@ -268,7 +246,8 @@
           </table>
           <input
             type="button"
-            class="button"
+            class="button btn-admin-only"
+            style="display: none"
             value="Set Management Interfaces"
             id="setInterfaces"
           />

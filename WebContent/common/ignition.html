@@ -11,6 +11,7 @@
   <script type="text/javascript">
     $(document).ready(function () {
       setupPortInfo(setupDone);
+      applyAdminRestrictions();
     });
 
     function setupDone() {
@@ -111,7 +112,12 @@
           <tr class="table_row_content">
             <td>Ignition</td>
             <td>
-              <select id="active" style="width: 97%">
+              <select
+                id="active"
+                style="width: 97%"
+                disabled
+                class="input-admin-only"
+              >
                 <option value="true">enabled</option>
                 <option value="false">disabled</option>
               </select>
@@ -121,20 +127,23 @@
             <td>Timeout in seconds</td>
             <td>
               <input
+                disabled
                 type="number"
                 id="timeout"
                 min="60"
                 max="86400"
                 style="width: 97%"
+                class="input-admin-only"
               />
             </td>
           </tr>
         </table>
         <input
           type="button"
-          class="button"
+          class="button btn-admin-only"
           id="set"
           value="Update Ignition Settings"
+          style="display: none"
         />
       </div>
     </div>
@@ -159,7 +168,13 @@
             <td id="ignitionStatus"></td>
           </tr>
         </table>
-        <input type="button" class="button" id="update" value="update" />
+        <input
+          type="button"
+          class="button btn-admin-only"
+          id="update"
+          value="update"
+          style="display: none"
+        />
       </div>
     </div>
   </body>

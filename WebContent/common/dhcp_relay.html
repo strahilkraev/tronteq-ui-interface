@@ -50,9 +50,11 @@
     var openedVid = -1;
 
     $(document).ready(function () {
-      $("#update_vids")[0].onclick = setVids;
-      $("#update_system_settings")[0].onclick = updateGlobalSettings;
-      setupPortInfo(pre_setup);
+      applyAdminRestrictions(function () {
+        $("#update_vids")[0].onclick = setVids;
+        $("#update_system_settings")[0].onclick = updateGlobalSettings;
+        setupPortInfo(pre_setup);
+      });
     });
 
     function pre_setup() {
@@ -65,7 +67,7 @@
 
     function updateRIDType() {
       if ($("#remote_id_type")[0].value == "0") {
-        $("#remote_id")[0].disabled = false;
+        $("#remote_id")[0].disabled = window.userLevel === 1 ? true : false;
       } else {
         $("#remote_id")[0].disabled = true;
         $("#remote_id")[0].value = hostname;
@@ -119,6 +121,7 @@
             var sel = document.createElement("select");
             sel.id = "vid_sel_" + vid.vid;
             sel.style.width = "98%";
+            sel.disabled = window.userLevel === 1;
             var o1 = document.createElement("option");
             o1.value = "server";
             o1.text = "Server";
@@ -295,6 +298,7 @@
         addr_name.appendChild(document.createTextNode("Server IP Address"));
         addr_setting = document.createElement("td");
         addr_input = document.createElement("input");
+        addr_input.disabled = window.userLevel === 1;
         addr_input.value = data.subnets[i].servers[0].address;
         addr_input.id = "vid_" + data.subnets[i].vid + "_server_addr";
         addr_input.style.width = "98%";
@@ -311,6 +315,7 @@
         );
         port_setting = document.createElement("td");
         port_input = document.createElement("input");
+        port_input.disabled = window.userLevel === 1;
         port_input.value = data.subnets[i].servers[0].port;
         port_input.id = "vid_" + data.subnets[i].vid + "_server_port";
         port_input.style.width = "98%";
@@ -365,7 +370,9 @@
         button.innerText = "Set Subnet VLAN ID " + data.subnets[i].vid;
         button.id = "set_" + data.subnets[i].vid;
         button.onclick = updateRelay;
-        div.appendChild(button);
+        if (window.userLevel === 0) {
+          div.appendChild(button);
+        }
         div.appendChild(document.createElement("br"));
 
         $("#subnets")[0].appendChild(div);
@@ -436,7 +443,12 @@
             <tr class="table_row_content">
               <td>Remote ID Type<br />(shared with DHCP Inserter)</td>
               <td>
-                <select id="remote_id_type" style="width: 100%">
+                <select
+                  id="remote_id_type"
+                  style="width: 100%"
+                  disabled
+                  class="input-admin-only"
+                >
                   <option value="0">Manual</option>
                   <option value="1">Hostname</option>
                 </select>
@@ -445,13 +457,24 @@
             <tr class="table_row_content">
               <td>Remote ID<br />(shared with DHCP Inserter)</td>
               <td>
-                <input type="text" id="remote_id" style="width: 98%" />
+                <input
+                  type="text"
+                  id="remote_id"
+                  style="width: 98%"
+                  disabled
+                  class="input-admin-only"
+                />
               </td>
             </tr>
             <tr class="table_row_content">
               <td>Server ID Override</td>
               <td>
-                <select id="server_id_override" style="width: 100%">
+                <select
+                  id="server_id_override"
+                  style="width: 100%"
+                  disabled
+                  class="input-admin-only"
+                >
                   <option value="true">Enabled</option>
                   <option value="false">Disabled</option>
                 </select>
@@ -462,12 +485,19 @@
             id="update_system_settings"
             type="button"
             value="Set System Settings"
+            class="button btn-admin-only"
+            style="display: none"
           />
           <br />
           <br />
           <a class="headline">DHCP per Management Interfaces</a>
           <div class="box_content">
-            <table style="font-size: 80%; width: 100%" id="VlanSettings">
+            <table
+              style="font-size: 80%; width: 100%"
+              id="VlanSettings"
+              disabled
+              class="input-admin-only"
+            >
               <tr class="table_row_head">
                 <td>Interface</td>
                 <td>Status DHCP</td>
@@ -478,6 +508,8 @@
             id="update_vids"
             type="button"
             value="Set DHCP Interface Settings"
+            class="button btn-admin-only"
+            style="display: none"
           />
         </div>
         <div class="box2" style="width: calc(75% - 20px)" id="detail_view">

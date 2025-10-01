@@ -89,7 +89,9 @@
     }
 
     $(document).ready(function () {
-      setupPortInfo(setupDone);
+      applyAdminRestrictions(function () {
+        setupPortInfo(setupDone);
+      });
     });
 
     function setupDone() {
@@ -98,7 +100,6 @@
         '{"service":"stp","access":"get","command":"get stp version"}',
         getStpVersion
       );
-
       $("#set_stp_version_button").click(setSTPVersion);
     }
   </script>
@@ -124,7 +125,12 @@
           <tr class="table_row_content">
             <td>Spanning Tree Protocol</td>
             <td>
-              <select id="lan" style="width: 97%">
+              <select
+                id="lan"
+                style="width: 97%"
+                disabled
+                class="input-admin-only"
+              >
                 <option value="none">none</option>
                 <option value="rstp">RSTP</option>
               </select>
@@ -134,7 +140,12 @@
             <td>Bridge Priority</td>
             <td>
               <!-- <input id="lan_prio" type="number" min="0" max="15" style="width: 97%;"> -->
-              <select id="lan_prio" style="width: 97%">
+              <select
+                id="lan_prio"
+                style="width: 97%"
+                disabled
+                class="input-admin-only"
+              >
                 <option value="0">0</option>
                 <option value="1">4096</option>
                 <option value="2">8192</option>
@@ -157,9 +168,10 @@
         </table>
         <input
           type="button"
-          class="button"
+          class="button btn-admin-only"
           id="set_stp_version_button"
           value="Set Spanning Tree Configuration"
+          style="display: none"
         />
       </div>
     </div>

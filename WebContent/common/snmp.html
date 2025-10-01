@@ -47,7 +47,9 @@
           var params = e.target.id.substr(7);
           removeUser(params);
         };
-        t1.appendChild(bu);
+        if (window.userLevel === 0) {
+          t1.appendChild(bu);
+        }
       }
     }
 
@@ -62,148 +64,135 @@
         if (a1.responseJSON != undefined)
           $("#infoline").text(a1.responseJSON.msg);
       });
-      $("#setConfig").click(function () {
-        $.post(
-          "/api",
-          JSON.stringify({
-            service: "snmp",
-            access: "set",
-            command: "set config",
-            parameters: {
-              v1: $("#v1").prop("checked"),
-              v2c: $("#v2c").prop("checked"),
-              v3: $("#v3").prop("checked"),
-              read_community: $("#read").val(),
-              write_community: $("#write").val(),
-              engineID: $("#engineID").val(),
-            },
-          }),
-          function (data, status) {
-            createOK(data);
-          }
-        );
-      });
+      applyAdminRestrictions(function () {
+        $("#setConfig").click(function () {
+          $.post(
+            "/api",
+            JSON.stringify({
+              service: "snmp",
+              access: "set",
+              command: "set config",
+              parameters: {
+                v1: $("#v1").prop("checked"),
+                v2c: $("#v2c").prop("checked"),
+                v3: $("#v3").prop("checked"),
+                read_community: $("#read").val(),
+                write_community: $("#write").val(),
+                engineID: $("#engineID").val(),
+              },
+            }),
+            function (data, status) {
+              createOK(data);
+            }
+          );
+        });
 
-      $("#getConfig").click(function () {
-        $.post(
-          "/api",
-          '{"service":"snmp","access":"get","command":"get config"}',
-          readData
-        );
-      });
+        $("#getConfig").click(function () {
+          $.post(
+            "/api",
+            '{"service":"snmp","access":"get","command":"get config"}',
+            readData
+          );
+        });
 
-      $("#getUser").click(function () {
-        $.post(
-          "/api",
-          '{"service":"snmp","access":"get","command":"get user"}',
-          UserData
-        );
-      });
-
-      $("#getTrap").click(function () {
-        $.post(
-          "/api",
-          '{"service":"trap","access":"get","command":"get trap"}',
-          getTrapData
-        );
-      });
-
-      $("#setTrap").click(function () {
-        //if($("#trap")[0].checkValidity())
-        //{
-        $.post(
-          "/api",
-          JSON.stringify({
-            service: "trap",
-            access: "set",
-            command: "set trap",
-            parameters: {
-              version: "v1",
-              destination: $("#trapReceiver").val(),
-              enabled: $("#trapEnabled").is(":checked"),
-              community: $("#trapCommunity").val(),
-            },
-          }),
-          function (data, status) {
-            createOK(data);
-          }
-        );
-        return false;
-        //}
-        //return true;
-      });
-
-      $("#addUser").click(function () {
-        var obj = {
-          service: "snmp",
-          access: "set",
-          command: "add user",
-          parameters: [
-            {
-              name: $("#name").val(),
-              authpass: $("#authpass").val(),
-              privpass: $("#privpass").val(),
-            },
-          ],
-        };
-        //if($("#formUser")[0].checkValidity())
-        //{
-        $.post("/api", JSON.stringify(obj), function (data, status) {
-          createOK(data);
+        $("#getUser").click(function () {
           $.post(
             "/api",
             '{"service":"snmp","access":"get","command":"get user"}',
             UserData
           );
         });
-        return false;
-        //}
-        //return true;
-      });
 
-      $.post(
-        "/api",
-        '{"service":"snmp","access":"get","command":"get config"}',
-        readData
-      );
+        $("#getTrap").click(function () {
+          $.post(
+            "/api",
+            '{"service":"trap","access":"get","command":"get trap"}',
+            getTrapData
+          );
+        });
 
-      $.post(
-        "/api",
-        '{"service":"trap","access":"get","command":"get trap"}',
-        getTrapData
-      );
+        $("#setTrap").click(function () {
+          //if($("#trap")[0].checkValidity())
+          //{
+          $.post(
+            "/api",
+            JSON.stringify({
+              service: "trap",
+              access: "set",
+              command: "set trap",
+              parameters: {
+                version: "v1",
+                destination: $("#trapReceiver").val(),
+                enabled: $("#trapEnabled").is(":checked"),
+                community: $("#trapCommunity").val(),
+              },
+            }),
+            function (data, status) {
+              createOK(data);
+            }
+          );
+          return false;
+          //}
+          //return true;
+        });
 
-      $.post(
-        "/api",
-        '{"service":"snmp","access":"get","command":"get user"}',
-        UserData
-      );
+        $("#addUser").click(function () {
+          var obj = {
+            service: "snmp",
+            access: "set",
+            command: "add user",
+            parameters: [
+              {
+                name: $("#name").val(),
+                authpass: $("#authpass").val(),
+                privpass: $("#privpass").val(),
+              },
+            ],
+          };
+          //if($("#formUser")[0].checkValidity())
+          //{
+          $.post("/api", JSON.stringify(obj), function (data, status) {
+            createOK(data);
+            $.post(
+              "/api",
+              '{"service":"snmp","access":"get","command":"get user"}',
+              UserData
+            );
+          });
+          return false;
+          //}
+          //return true;
+        });
 
-      function readData(data, s) {
-        $("#v1").prop("checked", data.v1);
-        $("#v2c").prop("checked", data.v2c);
-        $("#v3").prop("checked", data.v3);
-        $("#read").val(data.read_community);
-        $("#write").val(data.write_community);
-        $("#engineID").val(data.engineID);
-      }
+        $.post(
+          "/api",
+          '{"service":"snmp","access":"get","command":"get config"}',
+          readData
+        );
 
-      //set username
-      var cookies = document.cookie.split("; ");
-      var found = false;
-      for (var i in cookies) {
-        if (cookies[i].split("=")[0].match("user")) {
-          $("#username").text(cookies[i].split("=")[1]);
-          found = true;
+        $.post(
+          "/api",
+          '{"service":"trap","access":"get","command":"get trap"}',
+          getTrapData
+        );
+
+        $.post(
+          "/api",
+          '{"service":"snmp","access":"get","command":"get user"}',
+          UserData
+        );
+
+        function readData(data, s) {
+          $("#v1").prop("checked", data.v1);
+          $("#v2c").prop("checked", data.v2c);
+          $("#v3").prop("checked", data.v3);
+          $("#read").val(data.read_community);
+          $("#write").val(data.write_community);
+          $("#engineID").val(data.engineID);
         }
-      }
 
-      if (!found)
-        window.top.location.href =
-          window.top.location.protocol +
-          "//" +
-          window.top.location.host +
-          "/login.html";
+        requireLogin();
+      });
     });
   </script>
   <body
@@ -230,15 +219,36 @@
               </tr>
               <tr class="table_row_content">
                 <td>Version 1:</td>
-                <td align="center"><input id="v1" type="checkbox" /></td>
+                <td align="center">
+                  <input
+                    id="v1"
+                    type="checkbox"
+                    disabled
+                    class="input-admin-only"
+                  />
+                </td>
               </tr>
               <tr class="table_row_content">
                 <td>Version 2c:</td>
-                <td align="center"><input id="v2c" type="checkbox" /></td>
+                <td align="center">
+                  <input
+                    id="v2c"
+                    type="checkbox"
+                    disabled
+                    class="input-admin-only"
+                  />
+                </td>
               </tr>
               <tr class="table_row_content">
                 <td>Version 3:</td>
-                <td align="center"><input id="v3" type="checkbox" /></td>
+                <td align="center">
+                  <input
+                    id="v3"
+                    type="checkbox"
+                    disabled
+                    class="input-admin-only"
+                  />
+                </td>
               </tr>
               <tr class="table_row_head">
                 <td colspan="2">Version 1 / 2c Settings</td>
@@ -251,6 +261,8 @@
                     class="textbox"
                     id="read"
                     style="width: 97%"
+                    disabled
+                    class="input-admin-only"
                   />
                 </td>
               </tr>
@@ -262,6 +274,8 @@
                     class="textbox"
                     id="write"
                     style="width: 97%"
+                    disabled
+                    class="input-admin-only"
                   />
                 </td>
               </tr>
@@ -274,11 +288,19 @@
                     id="engineID"
                     style="width: 97%"
                     readonly
+                    disabled
+                    class="input-admin-only"
                   />
                 </td>
               </tr>
             </table>
-            <input id="setConfig" type="button" value="Set Server Settings" />
+            <input
+              id="setConfig"
+              type="button"
+              value="Set Server Settings"
+              class="btn-admin-only"
+              style="display: none"
+            />
           </div>
         </div>
         <div class="box2" style="width: calc(25% - 20px)">
@@ -292,7 +314,15 @@
                 </tr>
                 <tr class="table_row_content">
                   <td><label for="name">Username:</label></td>
-                  <td><input id="name" type="text" style="width: 97%" /></td>
+                  <td>
+                    <input
+                      id="name"
+                      type="text"
+                      style="width: 97%"
+                      disabled
+                      class="input-admin-only"
+                    />
+                  </td>
                 </tr>
                 <tr class="table_row_content">
                   <td><label for="authpass">Authpass:</label></td>
@@ -304,6 +334,8 @@
                       title="minimum length 8"
                       type="text"
                       style="width: 97%"
+                      disabled
+                      class="input-admin-only"
                     />
                   </td>
                 </tr>
@@ -317,12 +349,20 @@
                       title="minimum length 8"
                       type="text"
                       style="width: 97%"
+                      disabled
+                      class="input-admin-only"
                     />
                   </td>
                 </tr>
               </tbody>
             </table>
-            <input id="addUser" type="button" value="Add User" />
+            <input
+              id="addUser"
+              type="button"
+              value="Add User"
+              class="btn-admin-only"
+              style="display: none"
+            />
             <br />
             <a class="headline">SNMP Version 3 Users</a>
             <table style="font-size: 80%; width: 100%" id="Users">
@@ -347,19 +387,37 @@
               <tr class="table_row_content">
                 <td>Enabled</td>
                 <td>
-                  <input type="checkbox" id="trapEnabled" style="width: 97%" />
+                  <input
+                    type="checkbox"
+                    id="trapEnabled"
+                    style="width: 97%"
+                    disabled
+                    class="input-admin-only"
+                  />
                 </td>
               </tr>
               <tr class="table_row_content">
                 <td>Receiver</td>
                 <td>
-                  <input type="text" id="trapReceiver" style="width: 97%" />
+                  <input
+                    type="text"
+                    id="trapReceiver"
+                    style="width: 97%"
+                    disabled
+                    class="input-admin-only"
+                  />
                 </td>
               </tr>
               <tr class="table_row_content">
                 <td>Trap Community</td>
                 <td>
-                  <input type="text" id="trapCommunity" style="width: 97%" />
+                  <input
+                    type="text"
+                    id="trapCommunity"
+                    style="width: 97%"
+                    disabled
+                    class="input-admin-only"
+                  />
                 </td>
               </tr>
             </table>
@@ -368,6 +426,8 @@
               class="button"
               id="setTrap"
               value="Set SNMP Trap Settings"
+              class="btn-admin-only"
+              style="display: none"
             />
           </div>
         </div>

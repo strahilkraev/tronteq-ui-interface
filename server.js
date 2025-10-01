@@ -4,6 +4,7 @@ const fs = require("fs");
 const cors = require("cors");
 const session = require("express-session");
 const MemoryStore = require("memorystore")(session);
+const cookieParser = require("cookie-parser");
 require("dotenv").config({ path: "./config.env" });
 
 const app = express();
@@ -13,6 +14,7 @@ const DEVICE_TYPE = process.env.DEVICE_TYPE || "2GE8FE";
 // Middleware
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+app.use(cookieParser());
 app.use(
   cors({
     origin: true,
@@ -209,13 +211,14 @@ app.get("*.html", (req, res) => {
 // Serve static files from WebContent (after HTML processing)
 app.use(express.static(path.join(__dirname, "WebContent")));
 
-// Debug endpoint to check session
+// Debug endpoint to check session and cookies
 app.get("/debug-session", (req, res) => {
   res.json({
     session: req.session,
     isLoggedIn: req.session?.isLoggedIn,
     user: req.session?.user,
-    cookies: req.headers.cookie,
+    cookies: req.cookies,
+    rawCookies: req.headers.cookie,
     sessionId: req.sessionID,
     sessionData: req.session,
   });
@@ -325,6 +328,33 @@ app.post("/api", async (req, res) => {
       case "lldp":
         response = handleLldpAPI(access, command, parameters, req);
         break;
+      case "mirroring":
+        response = handleMirroringAPI(access, command, parameters, req);
+        break;
+      case "staticmc":
+        response = handleStaticMcAPI(access, command, parameters, req);
+        break;
+      case "usbapi":
+        response = handleUsbApiAPI(access, command, parameters, req);
+        break;
+      case "qos":
+        response = handleQosAPI(access, command, parameters, req);
+        break;
+      case "ntp":
+        response = handleNtpAPI(access, command, parameters, req);
+        break;
+      case "snmp":
+        response = handleSnmpAPI(access, command, parameters, req);
+        break;
+      case "trap":
+        response = handleTrapAPI(access, command, parameters, req);
+        break;
+      case "nat":
+        response = handleNatAPI(access, command, parameters, req);
+        break;
+      case "mqtt":
+        response = handleMqttAPI(access, command, parameters, req);
+        break;
       default:
         response = { error: "invalid command" };
     }
@@ -409,12 +439,24 @@ async function handleUserAPI(access, command, parameters, req) {
             }
           });
         });
+
+        // Set cookies for client-side access
+        setCookie(req.res, "user", parameters.user, { httpOnly: false });
+        setCookie(req.res, "loginTime", new Date().toISOString(), {
+          httpOnly: false,
+        });
+
         return { success: true, msg: "Login successful" };
       }
       return { error: "Invalid credentials" };
     case "logout":
       // Clear session
       req.session.destroy();
+
+      // Clear cookies
+      clearCookie(req.res, "user");
+      clearCookie(req.res, "loginTime");
+
       return { success: true };
     case "get level":
       // Return user level (read only)
@@ -532,7 +574,12 @@ function handleDhcpAPI(access, command, parameters, req) {
     case "get active leases":
       return getActiveLeases();
     case "subnets":
-      return getSubnets();
+      if (access === "get") {
+        return getSubnets();
+      } else if (access === "set" && parameters) {
+        return setSubnets(parameters);
+      }
+      break;
     case "set vids":
       return { success: true, msg: "VLAN IDs updated" };
     case "add cfg leases":
@@ -676,6 +723,263 @@ function handleLldpAPI(access, command, parameters, req) {
   return { error: "Unknown command" };
 }
 
+// Mirroring API handler
+function handleMirroringAPI(access, command, parameters, req) {
+  switch (command) {
+    case "get mirroring":
+      if (access === "get") {
+        return getMirroringConfig();
+      }
+      break;
+    case "set mirroring":
+      if (access === "set" && parameters) {
+        return setMirroringConfig(parameters);
+      }
+      break;
+    default:
+      return { error: "Unknown command" };
+  }
+  return { error: "Unknown command" };
+}
+
+// Static Multicast API handler
+function handleStaticMcAPI(access, command, parameters, req) {
+  switch (command) {
+    case "get entries":
+      if (access === "get") {
+        return getStaticMcEntries();
+      }
+      break;
+    case "set entries":
+      if (access === "set" && parameters) {
+        return setStaticMcEntries(parameters);
+      }
+      break;
+    default:
+      return { error: "Unknown command" };
+  }
+  return { error: "Unknown command" };
+}
+
+// USB API handler
+function handleUsbApiAPI(access, command, parameters, req) {
+  switch (command) {
+    case "state":
+      if (access === "get") {
+        return getUsbState();
+      }
+      break;
+    case "devices":
+      if (access === "get") {
+        return getUsbDevices();
+      }
+      break;
+    case "mount":
+      if (access === "set" && parameters) {
+        return mountUsbDevice(parameters);
+      }
+      break;
+    case "unmount":
+      if (access === "set" && parameters) {
+        return unmountUsbDevice(parameters);
+      }
+      break;
+    default:
+      return { error: "Unknown command" };
+  }
+  return { error: "Unknown command" };
+}
+
+// QoS API handler
+function handleQosAPI(access, command, parameters, req) {
+  switch (command) {
+    case "get dscp->queue mapping":
+      if (access === "get") {
+        return getDscpQueueMapping();
+      }
+      break;
+    case "set dscp->queue mapping":
+      if (access === "set" && parameters) {
+        return setDscpQueueMapping(parameters);
+      }
+      break;
+    case "get queue settings":
+      if (access === "get") {
+        return getQueueSettings();
+      }
+      break;
+    case "set queue settings":
+      if (access === "set" && parameters) {
+        return setQueueSettings(parameters);
+      }
+      break;
+    case "get traffic classes":
+      if (access === "get") {
+        return getTrafficClasses();
+      }
+      break;
+    default:
+      return { error: "Unknown command" };
+  }
+  return { error: "Unknown command" };
+}
+
+// NTP API handler
+function handleNtpAPI(access, command, parameters, req) {
+  switch (command) {
+    case "get config":
+      if (access === "get") {
+        return getNtpConfig();
+      }
+      break;
+    case "set config":
+      if (access === "set" && parameters) {
+        return setNtpConfig(parameters);
+      }
+      break;
+    case "get status":
+      if (access === "get") {
+        return getNtpStatus();
+      }
+      break;
+    case "sync":
+      if (access === "set") {
+        return syncNtp();
+      }
+      break;
+    default:
+      return { error: "Unknown command" };
+  }
+  return { error: "Unknown command" };
+}
+
+// SNMP API handler
+function handleSnmpAPI(access, command, parameters, req) {
+  switch (command) {
+    case "get config":
+      if (access === "get") {
+        return getSnmpConfig();
+      }
+      break;
+    case "set config":
+      if (access === "set" && parameters) {
+        return setSnmpConfig(parameters);
+      }
+      break;
+    case "get user":
+      if (access === "get") {
+        return getSnmpUsers();
+      }
+      break;
+    case "add user":
+      if (access === "set" && parameters) {
+        return addSnmpUser(parameters);
+      }
+      break;
+    case "remove user":
+      if (access === "set" && parameters) {
+        return removeSnmpUser(parameters);
+      }
+      break;
+    default:
+      return { error: "Unknown command" };
+  }
+  return { error: "Unknown command" };
+}
+
+// TRAP API handler
+function handleTrapAPI(access, command, parameters, req) {
+  switch (command) {
+    case "get trap":
+      if (access === "get") {
+        return getTrapConfig();
+      }
+      break;
+    case "set trap":
+      if (access === "set" && parameters) {
+        return setTrapConfig(parameters);
+      }
+      break;
+    default:
+      return { error: "Unknown command" };
+  }
+  return { error: "Unknown command" };
+}
+
+// NAT API handler
+function handleNatAPI(access, command, parameters, req) {
+  switch (command) {
+    case "state":
+      if (access === "get") {
+        return getNatState();
+      } else if (access === "set" && parameters) {
+        return setNatState(parameters);
+      }
+      break;
+    case "rule":
+      if (access === "get") {
+        return getNatRules();
+      } else if (access === "add" && parameters) {
+        return addNatRule(parameters);
+      } else if (access === "remove" && parameters) {
+        return removeNatRule(parameters);
+      }
+      break;
+    default:
+      return { error: "Unknown command" };
+  }
+  return { error: "Unknown command" };
+}
+
+// MQTT API handler
+function handleMqttAPI(access, command, parameters, req) {
+  switch (command) {
+    case "get mqtt":
+      if (access === "get") {
+        return getMqttConfig();
+      }
+      break;
+    case "set mqtt":
+      if (access === "set" && parameters) {
+        return setMqttConfig(parameters);
+      }
+      break;
+    default:
+      return { error: "Unknown command" };
+  }
+  return { error: "Unknown command" };
+}
+
+// Cookie helper functions
+function setCookie(res, name, value, options = {}) {
+  const defaultOptions = {
+    httpOnly: true,
+    secure: false, // Set to true in production with HTTPS
+    sameSite: "lax",
+    maxAge: 24 * 60 * 60 * 1000, // 24 hours
+    path: "/",
+  };
+
+  const cookieOptions = { ...defaultOptions, ...options };
+  res.cookie(name, value, cookieOptions);
+}
+
+function getCookie(req, name) {
+  return req.cookies[name];
+}
+
+function clearCookie(res, name, options = {}) {
+  const defaultOptions = {
+    httpOnly: true,
+    secure: false,
+    sameSite: "lax",
+    path: "/",
+  };
+
+  const cookieOptions = { ...defaultOptions, ...options };
+  res.clearCookie(name, cookieOptions);
+}
+
 // Helper functions
 function getPartNumber() {
   switch (DEVICE_TYPE) {
@@ -786,7 +1090,11 @@ function getInterfacesState() {
     });
   }
 
-  return interfaces;
+  return {
+    interfaces: interfaces,
+    total: interfaces.length,
+    status: "success",
+  };
 }
 
 function getInterfaces() {
@@ -1227,28 +1535,919 @@ function setLldpInterfaces(parameters) {
 function getSubnets() {
   return [
     {
-      ip: "192.168.1.0",
-      mask: "255.255.255.0",
-      leasetime: 3600,
-      pool_start: "192.168.1.100",
-      pool_end: "192.168.1.200",
-      options: [
-        { code: 3, value: "192.168.1.1" }, // Gateway
-        { code: 6, value: "8.8.8.8,8.8.4.4" }, // DNS
-      ],
+      id: 1,
+      name: "Local Network",
+      network: "192.168.1.0",
+      netmask: "255.255.255.0",
+      role: "server",
+      oif: ["eth0", "192.168.1.1"],
+      type: "local",
+      operation: true,
+      description: "Main local network",
+      params: {
+        id: 1,
+        name: "Local Network Parameters",
+        netmask: "255.255.255.0",
+        gateway: "192.168.1.1",
+        dns0: "8.8.8.8",
+        dns1: "8.8.4.4",
+        domain: "local",
+        leasetime: 3600,
+        pool_start: "192.168.1.100",
+        pool_end: "192.168.1.200",
+      },
+      server0: "127.0.0.1",
+      leasesO82: {
+        active: [
+          {
+            id: 1,
+            port: 1,
+            name: "P1",
+            remoteid: "Port P1",
+            ip: "192.168.1.101",
+            cfgname: "Port1-Config",
+            state: "active",
+            expiry: "2024-01-01 12:00:00",
+          },
+          {
+            id: 2,
+            port: 2,
+            name: "P2",
+            remoteid: "Port P2",
+            ip: "192.168.1.102",
+            cfgname: "Port2-Config",
+            state: "active",
+            expiry: "2024-01-01 12:00:00",
+          },
+        ],
+        idle: [
+          {
+            id: 3,
+            port: 3,
+            name: "P3",
+            remoteid: "Port P3",
+            ip: "0.0.0.0",
+            cfgname: "",
+            state: "idle",
+            expiry: "N/A",
+          },
+        ],
+      },
+      leasesMAC: {
+        active: [
+          {
+            id: 1,
+            remoteid: "00:11:22:33:44:55",
+            ip: "192.168.1.150",
+            cfgname: "Server-Config",
+            state: "active",
+            expiry: "2024-01-01 12:00:00",
+          },
+        ],
+        idle: [],
+      },
+      leasesDYN: {
+        active: [
+          {
+            id: 1,
+            remoteid: "00:aa:bb:cc:dd:ee",
+            ip: "192.168.1.151",
+            state: "active",
+            expiry: "2024-01-01 11:30:00",
+          },
+          {
+            id: 2,
+            remoteid: "00:ff:ee:dd:cc:bb",
+            ip: "192.168.1.152",
+            state: "active",
+            expiry: "2024-01-01 11:45:00",
+          },
+        ],
+        idle: [],
+      },
     },
     {
-      ip: "192.168.10.0",
-      mask: "255.255.255.0",
-      leasetime: 7200,
-      pool_start: "192.168.10.100",
-      pool_end: "192.168.10.200",
-      options: [
-        { code: 3, value: "192.168.10.1" },
-        { code: 6, value: "8.8.8.8,8.8.4.4" },
-      ],
+      id: 2,
+      name: "Remote Network",
+      network: "192.168.10.0",
+      netmask: "255.255.255.0",
+      role: "relay",
+      oif: ["eth1", "192.168.10.1"],
+      type: "remote",
+      operation: true,
+      description: "Remote network relay",
+      params: {
+        id: 2,
+        name: "Remote Network Parameters",
+        netmask: "255.255.255.0",
+        gateway: "192.168.10.1",
+        dns0: "8.8.8.8",
+        dns1: "8.8.4.4",
+        domain: "remote.local",
+        leasetime: 7200,
+        pool_start: "192.168.10.100",
+        pool_end: "192.168.10.200",
+      },
+      server0: "192.168.10.10",
+      leasesO82: {
+        active: [
+          {
+            id: 1,
+            port: 1,
+            name: "P1",
+            remoteid: "Remote-Port-1",
+            ip: "192.168.10.101",
+            cfgname: "Remote-Port1-Config",
+            state: "active",
+            expiry: "2024-01-01 12:00:00",
+          },
+        ],
+        idle: [],
+      },
+      leasesMAC: {
+        active: [],
+        idle: [],
+      },
+      leasesDYN: {
+        active: [],
+        idle: [],
+      },
     },
   ];
+}
+
+function setSubnets(parameters) {
+  // Validate parameters
+  if (!parameters) {
+    return { error: "Invalid parameters" };
+  }
+
+  // In a real implementation, this would save to device configuration
+  // For now, just return success with processed data
+  const result = {
+    success: true,
+    msg: "DHCP subnets configuration updated successfully",
+    processed: {
+      updated: parameters.upd ? parameters.upd.length : 0,
+      added: parameters.add ? parameters.add.length : 0,
+      deleted: parameters.del ? parameters.del.length : 0,
+    },
+  };
+
+  return result;
+}
+
+// Mirroring helper functions
+function getMirroringConfig() {
+  const portConfig = getPortConfiguration();
+  const src = [];
+
+  // Generate source interfaces with default states
+  for (let i = 1; i <= portConfig.count; i++) {
+    src.push({
+      interface: i,
+      state: "normal", // Default state: normal, source_ingress, source_egress, source_both
+    });
+  }
+
+  return {
+    src: src,
+    dest: -1, // No destination port selected by default
+  };
+}
+
+function setMirroringConfig(parameters) {
+  // Validate parameters
+  if (!parameters || !parameters.src || !Array.isArray(parameters.src)) {
+    return { error: "Invalid parameters" };
+  }
+
+  // In a real implementation, this would save to device configuration
+  // For now, just return success
+  return {
+    success: true,
+    msg: "Mirroring configuration updated successfully",
+  };
+}
+
+// Static Multicast helper functions
+function getStaticMcEntries() {
+  // Return sample static multicast entries
+  return {
+    entries: [
+      {
+        id: 1,
+        group: "224.1.1.1",
+        source: "192.168.1.10",
+        vlan: 1,
+        ports: [1, 2, 3],
+        status: "active",
+      },
+      {
+        id: 2,
+        group: "224.2.2.2",
+        source: "192.168.1.20",
+        vlan: 1,
+        ports: [4, 5, 6],
+        status: "active",
+      },
+    ],
+  };
+}
+
+function setStaticMcEntries(parameters) {
+  // Validate parameters
+  if (
+    !parameters ||
+    !parameters.entries ||
+    !Array.isArray(parameters.entries)
+  ) {
+    return { error: "Invalid parameters" };
+  }
+
+  // In a real implementation, this would save to device configuration
+  // For now, just return success
+  return {
+    success: true,
+    msg: "Static multicast entries updated successfully",
+  };
+}
+
+// USB API helper functions
+function getUsbState() {
+  return {
+    enabled: true,
+    status: "ready",
+    devices_connected: 2,
+    last_update: new Date().toISOString(),
+    usb_version: "2.0",
+    power_management: "enabled",
+  };
+}
+
+function getUsbDevices() {
+  return {
+    devices: [
+      {
+        id: "usb1",
+        name: "USB Storage Device",
+        type: "storage",
+        size: "32GB",
+        status: "mounted",
+        mount_point: "/mnt/usb1",
+        filesystem: "FAT32",
+        vendor: "SanDisk",
+        product: "Cruzer Blade",
+      },
+      {
+        id: "usb2",
+        name: "USB Network Adapter",
+        type: "network",
+        status: "connected",
+        vendor: "Realtek",
+        product: "RTL8153",
+        driver: "r8152",
+      },
+    ],
+  };
+}
+
+function mountUsbDevice(parameters) {
+  if (!parameters || !parameters.device_id) {
+    return { error: "Device ID required" };
+  }
+
+  return {
+    success: true,
+    msg: `USB device ${parameters.device_id} mounted successfully`,
+    mount_point: `/mnt/${parameters.device_id}`,
+  };
+}
+
+function unmountUsbDevice(parameters) {
+  if (!parameters || !parameters.device_id) {
+    return { error: "Device ID required" };
+  }
+
+  return {
+    success: true,
+    msg: `USB device ${parameters.device_id} unmounted successfully`,
+  };
+}
+
+// QoS helper functions
+function getDscpQueueMapping() {
+  return {
+    mappings: [
+      { dscp: 0, queue: 0, description: "Best Effort" },
+      { dscp: 1, queue: 0, description: "Best Effort" },
+      { dscp: 2, queue: 0, description: "Best Effort" },
+      { dscp: 3, queue: 0, description: "Best Effort" },
+      { dscp: 4, queue: 0, description: "Best Effort" },
+      { dscp: 5, queue: 0, description: "Best Effort" },
+      { dscp: 6, queue: 0, description: "Best Effort" },
+      { dscp: 7, queue: 0, description: "Best Effort" },
+      { dscp: 8, queue: 1, description: "Low Priority" },
+      { dscp: 9, queue: 1, description: "Low Priority" },
+      { dscp: 10, queue: 1, description: "Low Priority" },
+      { dscp: 11, queue: 1, description: "Low Priority" },
+      { dscp: 12, queue: 1, description: "Low Priority" },
+      { dscp: 13, queue: 1, description: "Low Priority" },
+      { dscp: 14, queue: 1, description: "Low Priority" },
+      { dscp: 15, queue: 1, description: "Low Priority" },
+      { dscp: 16, queue: 2, description: "Medium Priority" },
+      { dscp: 17, queue: 2, description: "Medium Priority" },
+      { dscp: 18, queue: 2, description: "Medium Priority" },
+      { dscp: 19, queue: 2, description: "Medium Priority" },
+      { dscp: 20, queue: 2, description: "Medium Priority" },
+      { dscp: 21, queue: 2, description: "Medium Priority" },
+      { dscp: 22, queue: 2, description: "Medium Priority" },
+      { dscp: 23, queue: 2, description: "Medium Priority" },
+      { dscp: 24, queue: 3, description: "High Priority" },
+      { dscp: 25, queue: 3, description: "High Priority" },
+      { dscp: 26, queue: 3, description: "High Priority" },
+      { dscp: 27, queue: 3, description: "High Priority" },
+      { dscp: 28, queue: 3, description: "High Priority" },
+      { dscp: 29, queue: 3, description: "High Priority" },
+      { dscp: 30, queue: 3, description: "High Priority" },
+      { dscp: 31, queue: 3, description: "High Priority" },
+      { dscp: 32, queue: 4, description: "Critical" },
+      { dscp: 33, queue: 4, description: "Critical" },
+      { dscp: 34, queue: 4, description: "Critical" },
+      { dscp: 35, queue: 4, description: "Critical" },
+      { dscp: 36, queue: 4, description: "Critical" },
+      { dscp: 37, queue: 4, description: "Critical" },
+      { dscp: 38, queue: 4, description: "Critical" },
+      { dscp: 39, queue: 4, description: "Critical" },
+      { dscp: 40, queue: 5, description: "Voice" },
+      { dscp: 41, queue: 5, description: "Voice" },
+      { dscp: 42, queue: 5, description: "Voice" },
+      { dscp: 43, queue: 5, description: "Voice" },
+      { dscp: 44, queue: 5, description: "Voice" },
+      { dscp: 45, queue: 5, description: "Voice" },
+      { dscp: 46, queue: 5, description: "Voice" },
+      { dscp: 47, queue: 5, description: "Voice" },
+      { dscp: 48, queue: 6, description: "Video" },
+      { dscp: 49, queue: 6, description: "Video" },
+      { dscp: 50, queue: 6, description: "Video" },
+      { dscp: 51, queue: 6, description: "Video" },
+      { dscp: 52, queue: 6, description: "Video" },
+      { dscp: 53, queue: 6, description: "Video" },
+      { dscp: 54, queue: 6, description: "Video" },
+      { dscp: 55, queue: 6, description: "Video" },
+      { dscp: 56, queue: 7, description: "Network Control" },
+      { dscp: 57, queue: 7, description: "Network Control" },
+      { dscp: 58, queue: 7, description: "Network Control" },
+      { dscp: 59, queue: 7, description: "Network Control" },
+      { dscp: 60, queue: 7, description: "Network Control" },
+      { dscp: 61, queue: 7, description: "Network Control" },
+      { dscp: 62, queue: 7, description: "Network Control" },
+      { dscp: 63, queue: 7, description: "Network Control" },
+    ],
+    total_queues: 8,
+    default_queue: 0,
+  };
+}
+
+function setDscpQueueMapping(parameters) {
+  if (
+    !parameters ||
+    !parameters.mappings ||
+    !Array.isArray(parameters.mappings)
+  ) {
+    return { error: "Invalid parameters" };
+  }
+
+  return {
+    success: true,
+    msg: "DSCP to queue mapping updated successfully",
+  };
+}
+
+function getQueueSettings() {
+  return {
+    queues: [
+      {
+        id: 0,
+        name: "Best Effort",
+        weight: 1,
+        priority: 0,
+        min_rate: 0,
+        max_rate: 100,
+      },
+      {
+        id: 1,
+        name: "Low Priority",
+        weight: 2,
+        priority: 1,
+        min_rate: 5,
+        max_rate: 50,
+      },
+      {
+        id: 2,
+        name: "Medium Priority",
+        weight: 4,
+        priority: 2,
+        min_rate: 10,
+        max_rate: 75,
+      },
+      {
+        id: 3,
+        name: "High Priority",
+        weight: 8,
+        priority: 3,
+        min_rate: 20,
+        max_rate: 90,
+      },
+      {
+        id: 4,
+        name: "Critical",
+        weight: 16,
+        priority: 4,
+        min_rate: 30,
+        max_rate: 95,
+      },
+      {
+        id: 5,
+        name: "Voice",
+        weight: 32,
+        priority: 5,
+        min_rate: 40,
+        max_rate: 100,
+      },
+      {
+        id: 6,
+        name: "Video",
+        weight: 16,
+        priority: 4,
+        min_rate: 25,
+        max_rate: 90,
+      },
+      {
+        id: 7,
+        name: "Network Control",
+        weight: 64,
+        priority: 6,
+        min_rate: 50,
+        max_rate: 100,
+      },
+    ],
+  };
+}
+
+function setQueueSettings(parameters) {
+  if (!parameters || !parameters.queues || !Array.isArray(parameters.queues)) {
+    return { error: "Invalid parameters" };
+  }
+
+  return {
+    success: true,
+    msg: "Queue settings updated successfully",
+  };
+}
+
+function getTrafficClasses() {
+  return {
+    classes: [
+      {
+        id: 0,
+        name: "Best Effort",
+        dscp_range: "0-7",
+        queue: 0,
+        color: "green",
+      },
+      {
+        id: 1,
+        name: "Low Priority",
+        dscp_range: "8-15",
+        queue: 1,
+        color: "yellow",
+      },
+      {
+        id: 2,
+        name: "Medium Priority",
+        dscp_range: "16-23",
+        queue: 2,
+        color: "orange",
+      },
+      {
+        id: 3,
+        name: "High Priority",
+        dscp_range: "24-31",
+        queue: 3,
+        color: "red",
+      },
+      {
+        id: 4,
+        name: "Critical",
+        dscp_range: "32-39",
+        queue: 4,
+        color: "purple",
+      },
+      { id: 5, name: "Voice", dscp_range: "40-47", queue: 5, color: "blue" },
+      { id: 6, name: "Video", dscp_range: "48-55", queue: 6, color: "cyan" },
+      {
+        id: 7,
+        name: "Network Control",
+        dscp_range: "56-63",
+        queue: 7,
+        color: "magenta",
+      },
+    ],
+  };
+}
+
+// NTP helper functions
+function getNtpConfig() {
+  return {
+    enabled: true,
+    servers: [
+      {
+        id: 1,
+        address: "pool.ntp.org",
+        port: 123,
+        priority: 1,
+        status: "active",
+      },
+      {
+        id: 2,
+        address: "time.google.com",
+        port: 123,
+        priority: 2,
+        status: "active",
+      },
+      {
+        id: 3,
+        address: "time.cloudflare.com",
+        port: 123,
+        priority: 3,
+        status: "active",
+      },
+    ],
+    timezone: "UTC+7",
+    sync_interval: 3600, // seconds
+    drift_compensation: true,
+    authentication: false,
+    log_level: "info",
+    last_sync: new Date().toISOString(),
+    next_sync: new Date(Date.now() + 3600000).toISOString(),
+  };
+}
+
+function setNtpConfig(parameters) {
+  if (!parameters) {
+    return { error: "Invalid parameters" };
+  }
+
+  return {
+    success: true,
+    msg: "NTP configuration updated successfully",
+    config: {
+      enabled: parameters.enabled !== undefined ? parameters.enabled : true,
+      servers: parameters.servers || [],
+      timezone: parameters.timezone || "UTC+7",
+      sync_interval: parameters.sync_interval || 3600,
+    },
+  };
+}
+
+function getNtpStatus() {
+  return {
+    status: "synchronized",
+    stratum: 3,
+    offset: 0.001, // milliseconds
+    jitter: 0.002, // milliseconds
+    delay: 0.015, // milliseconds
+    dispersion: 0.001, // milliseconds
+    reference_time: "2024-01-01T00:00:00Z",
+    last_sync: new Date().toISOString(),
+    uptime: 86400, // seconds
+    packets_sent: 1440,
+    packets_received: 1440,
+    packets_dropped: 0,
+    current_server: "pool.ntp.org",
+  };
+}
+
+function syncNtp() {
+  return {
+    success: true,
+    msg: "NTP synchronization initiated",
+    sync_time: new Date().toISOString(),
+    estimated_completion: new Date(Date.now() + 30000).toISOString(), // 30 seconds
+  };
+}
+
+// SNMP helper functions
+function getSnmpConfig() {
+  return {
+    v1: true,
+    v2c: true,
+    v3: true,
+    read_community: "public",
+    write_community: "private",
+    engineID: "8000000001020304",
+  };
+}
+
+function setSnmpConfig(parameters) {
+  if (!parameters) {
+    return { error: "Invalid parameters" };
+  }
+
+  return {
+    success: true,
+    msg: "SNMP configuration updated successfully",
+    config: {
+      v1: parameters.v1 !== undefined ? parameters.v1 : true,
+      v2c: parameters.v2c !== undefined ? parameters.v2c : true,
+      v3: parameters.v3 !== undefined ? parameters.v3 : true,
+      read_community: parameters.read_community || "public",
+      write_community: parameters.write_community || "private",
+      engineID: parameters.engineID || "8000000001020304",
+    },
+  };
+}
+
+function getSnmpUsers() {
+  return [
+    {
+      name: "admin",
+      authpass: "********",
+      privpass: "********",
+      created: "2024-01-01T00:00:00Z",
+      last_used: "2024-01-15T10:30:00Z",
+    },
+    {
+      name: "monitor",
+      authpass: "********",
+      privpass: "********",
+      created: "2024-01-02T00:00:00Z",
+      last_used: "2024-01-14T15:45:00Z",
+    },
+    {
+      name: "guest",
+      authpass: "********",
+      privpass: "********",
+      created: "2024-01-03T00:00:00Z",
+      last_used: "2024-01-13T09:20:00Z",
+    },
+  ];
+}
+
+function addSnmpUser(parameters) {
+  if (!parameters || !Array.isArray(parameters) || parameters.length === 0) {
+    return { error: "Invalid parameters" };
+  }
+
+  const user = parameters[0];
+  if (!user.name || !user.authpass || !user.privpass) {
+    return { error: "Missing required user fields" };
+  }
+
+  if (user.authpass.length < 8 || user.privpass.length < 8) {
+    return { error: "Password must be at least 8 characters long" };
+  }
+
+  return {
+    success: true,
+    msg: `SNMP user '${user.name}' added successfully`,
+    user: {
+      name: user.name,
+      authpass: "********",
+      privpass: "********",
+      created: new Date().toISOString(),
+    },
+  };
+}
+
+function removeSnmpUser(parameters) {
+  if (!parameters || !Array.isArray(parameters) || parameters.length === 0) {
+    return { error: "Invalid parameters" };
+  }
+
+  const username = parameters[0];
+  if (!username) {
+    return { error: "Username is required" };
+  }
+
+  return {
+    success: true,
+    msg: `SNMP user '${username}' removed successfully`,
+  };
+}
+
+// TRAP helper functions
+function getTrapConfig() {
+  return {
+    enabled: true,
+    destination: "192.168.1.100",
+    community: "public",
+    version: "v1",
+    port: 162,
+    retries: 3,
+    timeout: 1000,
+    last_sent: "2024-01-15T10:30:00Z",
+    total_sent: 1250,
+    failed_sends: 5,
+  };
+}
+
+function setTrapConfig(parameters) {
+  if (!parameters) {
+    return { error: "Invalid parameters" };
+  }
+
+  return {
+    success: true,
+    msg: "SNMP Trap configuration updated successfully",
+    config: {
+      enabled: parameters.enabled !== undefined ? parameters.enabled : true,
+      destination: parameters.destination || "192.168.1.100",
+      community: parameters.community || "public",
+      version: parameters.version || "v1",
+      port: parameters.port || 162,
+    },
+  };
+}
+
+// NAT helper functions
+function getNatState() {
+  return {
+    enabled: true,
+    status: "active",
+    total_rules: 3,
+    active_connections: 15,
+    last_updated: new Date().toISOString(),
+  };
+}
+
+function setNatState(parameters) {
+  if (!parameters) {
+    return { error: "Invalid parameters" };
+  }
+
+  return {
+    success: true,
+    msg: `NAT ${parameters.enabled ? "enabled" : "disabled"} successfully`,
+    enabled: parameters.enabled,
+    status: parameters.enabled ? "active" : "inactive",
+    updated: new Date().toISOString(),
+  };
+}
+
+function getNatRules() {
+  return [
+    {
+      name: "1:1 NAT 203.0.113.1 to 192.168.1.100",
+      type: "1:1_NAT",
+      internal_ip: "192.168.1.100",
+      external_ip: "203.0.113.1",
+      masquerade: false,
+      status: "active",
+      created: "2024-01-10T08:30:00Z",
+      last_used: "2024-01-15T14:22:00Z",
+    },
+    {
+      name: "PAT TCP 203.0.113.1:80 to 192.168.1.50:8080",
+      type: "PAT",
+      protocol: "tcp",
+      incoming_ip: "203.0.113.1",
+      incoming_port: 80,
+      destination_ip: "192.168.1.50",
+      destination_port: 8080,
+      masquerade: true,
+      status: "active",
+      created: "2024-01-12T10:15:00Z",
+      last_used: "2024-01-15T16:45:00Z",
+    },
+    {
+      name: "PAT UDP 203.0.113.1:53 to 192.168.1.10:53",
+      type: "PAT",
+      protocol: "udp",
+      incoming_ip: "203.0.113.1",
+      incoming_port: 53,
+      destination_ip: "192.168.1.10",
+      destination_port: 53,
+      masquerade: false,
+      status: "active",
+      created: "2024-01-14T09:20:00Z",
+      last_used: "2024-01-15T12:30:00Z",
+    },
+  ];
+}
+
+function addNatRule(parameters) {
+  if (!parameters) {
+    return { error: "Invalid parameters" };
+  }
+
+  if (!parameters.name) {
+    return { error: "Rule name is required" };
+  }
+
+  // Simulate adding the rule
+  const newRule = {
+    name: parameters.name,
+    type: parameters.FORWARD ? "1:1_NAT" : "PAT",
+    status: "active",
+    created: new Date().toISOString(),
+    last_used: new Date().toISOString(),
+    ...parameters,
+  };
+
+  return {
+    success: true,
+    msg: `NAT rule '${parameters.name}' added successfully`,
+    rule: newRule,
+    total_rules: 4,
+  };
+}
+
+function removeNatRule(parameters) {
+  if (!parameters) {
+    return { error: "Invalid parameters" };
+  }
+
+  if (parameters.index === undefined) {
+    return { error: "Rule index is required" };
+  }
+
+  return {
+    success: true,
+    msg: `NAT rule at index ${parameters.index} removed successfully`,
+    removed_index: parameters.index,
+    total_rules: 2,
+  };
+}
+
+// MQTT helper functions
+function getMqttConfig() {
+  return {
+    enabled: true,
+    server: "mqtt.example.com",
+    port: 1883,
+    name: "roqstar-client-001",
+    username: "mqtt_user",
+    password: "mqtt_password",
+    tls: false,
+    ca_cert: "",
+    verify: false,
+    qos: 1,
+    pingreq_interval: 120,
+    update_enabled: true,
+    update_topic: "roqstar/update",
+    s: "connected",
+    last_connected: new Date().toISOString(),
+    messages_sent: 1250,
+    messages_received: 890,
+    connection_uptime: 86400,
+    last_error: null,
+  };
+}
+
+function setMqttConfig(parameters) {
+  if (!parameters) {
+    return { error: "Invalid parameters" };
+  }
+
+  // Validate required fields
+  if (parameters.enabled && !parameters.server) {
+    return { error: "Server hostname is required when MQTT is enabled" };
+  }
+
+  if (parameters.tls && !parameters.ca_cert) {
+    return { error: "CA certificate is required when TLS is enabled" };
+  }
+
+  if (parameters.qos < 0 || parameters.qos > 2) {
+    return { error: "QoS must be between 0 and 2" };
+  }
+
+  if (parameters.pingreq_interval < 1 || parameters.pingreq_interval > 3600) {
+    return { error: "Keep alive interval must be between 1 and 3600 seconds" };
+  }
+
+  return {
+    success: true,
+    msg: "MQTT configuration updated successfully",
+    config: {
+      enabled: parameters.enabled || false,
+      server: parameters.server || "mqtt.example.com",
+      port: parameters.port || 1883,
+      name: parameters.name || "roqstar-client-001",
+      username: parameters.username || "",
+      password: parameters.password || "",
+      tls: parameters.tls || false,
+      ca_cert: parameters.ca_cert || "",
+      verify: parameters.verify || false,
+      qos: parameters.qos || 1,
+      pingreq_interval: parameters.pingreq_interval || 120,
+      update_enabled: parameters.update_enabled || false,
+      update_topic: parameters.update_topic || "roqstar/update",
+    },
+    updated: new Date().toISOString(),
+  };
 }
 
 // Error handling middleware

@@ -100,8 +100,6 @@
 
     $(document).ready(function () {
       setupPortInfo(setupDone);
-      // Apply readonly restrictions for level 1 users
-      applyReadOnlyRestrictions();
 
       var cookies = document.cookie.split("; ");
       for (var i in cookies) {
@@ -109,6 +107,7 @@
           $("#username-display").text(cookies[i].split("=")[1]);
         }
       }
+      applyAdminRestrictions();
     });
 
     function setupDone() {
@@ -146,9 +145,7 @@
         iframe.src = event.id + ".html";
         // Apply readonly restrictions to iframe content when it loads
         iframe.onload = function () {
-          setTimeout(function () {
-            applyReadOnlyRestrictionsToIframe(iframe);
-          }, 500); // Small delay to ensure content is loaded
+          //
         };
       }
     }
@@ -563,7 +560,11 @@
           </div>
 
           <!-- Maintenance Section -->
-          <div class="menu-section">
+          <div
+            class="menu-section"
+            id="maintenance-section"
+            style="display: none"
+          >
             <div class="menu-header" onclick="toggleMenuSection('maintenance')">
               <span class="menu-title">Maintenance</span>
               <span class="menu-arrow down-arrow" id="maintenance-arrow"></span>

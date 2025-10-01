@@ -153,18 +153,20 @@
         input_port_name.id = "name_" + i;
         input_port_name.type = "text";
         input_port_name.style.width = "97%";
+        input_port_name.disabled = window.userLevel === 1;
         t1.appendChild(input_port_name);
 
         cb_enabled = document.createElement("input");
         cb_enabled.type = "checkbox";
         cb_enabled.id = "enabled_" + i;
+        cb_enabled.disabled = window.userLevel === 1;
         t2.appendChild(cb_enabled);
         t2.style["text-align"] = "center";
 
         sel_class = document.createElement("select");
         sel_class.id = "limit_" + i;
         sel_class.style.width = "100%";
-
+        sel_class.disabled = window.userLevel === 1;
         for (var j = 0; j < PoEClassW.length; j++) {
           opt_c = document.createElement("option");
           opt_c.value = "" + j;
@@ -176,6 +178,7 @@
         sel_pwr_limit = document.createElement("select");
         sel_pwr_limit.id = "limit_pwr_" + i;
         sel_pwr_limit.style.width = "100%";
+        sel_pwr_limit.disabled = window.userLevel === 1;
 
         opt_l = document.createElement("option");
         opt_l.value = "0";
@@ -197,7 +200,7 @@
         sel_prio = document.createElement("select");
         sel_prio.id = "prio_" + i;
         sel_prio.style.width = "100%";
-
+        sel_prio.disabled = window.userLevel === 1;
         opt_pri_low = document.createElement("option");
         opt_pri_low.value = "3";
         opt_pri_low.text = "low";
@@ -218,13 +221,16 @@
         cb_fc.type = "checkbox";
         cb_fc.id = "fc_" + i;
         t6.appendChild(cb_fc);
+        cb_fc.disabled = window.userLevel === 1;
         t6.style["text-align"] = "center";
       }
     }
 
     $(document).ready(function () {
-      addPort();
-      setupPortInfo(setupDone);
+      applyAdminRestrictions(function () {
+        addPort();
+        setupPortInfo(setupDone);
+      });
     });
 
     function setupDone() {
@@ -282,7 +288,8 @@
           </table>
           <input
             type="button"
-            class="button"
+            class="button btn-admin-only"
+            style="display: none"
             id="set_port_settings"
             value="Set Port Settings"
             onclick="set_poe_ports();"

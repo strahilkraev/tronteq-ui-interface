@@ -12,7 +12,9 @@
     var vlanCfg = null;
 
     $(document).ready(function () {
-      setupPortInfo(setupDone);
+      applyAdminRestrictions(function () {
+        setupPortInfo(setupDone);
+      });
     });
 
     function setupDone() {
@@ -169,7 +171,7 @@
         mgmtPort_input.onclick = checked_exist;
         if (data[n].mgmtPort) {
           mgmtPort_input.checked = true;
-          update_disable = false;
+          update_disable = window.userLevel === 0 ? false : true;
         } else mgmtPort_input.checked = false;
         cell3.appendChild(mgmtPort_input);
 
@@ -183,7 +185,7 @@
             data[n].ports.find((element) => element == device_ports[k]) ==
             device_ports[k]
           ) {
-            update_disable = false;
+            update_disable = window.userLevel === 0 ? false : true;
             inp.checked = true;
           } else inp.checked = false;
 
@@ -192,7 +194,7 @@
               Object.keys(vlanCfg[ports[k]].vlan_map).includes("" + data[n].vid)
             ) {
               c.className = "";
-              inp.disabled = false;
+              inp.disabled = window.userLevel === 0 ? false : true;
             } else {
               inp.disabled = true;
               inp.checked = false;
@@ -265,17 +267,20 @@
 
       if (vid == 0) {
         for (k = 0; k < ports.length; k++) {
-          $("#entry_port_" + ports[k])[0].disabled = false;
+          $("#entry_port_" + ports[k])[0].disabled =
+            window.userLevel === 0 ? false : true;
           $("#port_cell_" + ports[k])[0].className = "";
         }
       } else {
         for (k = 0; k < ports.length; k++) {
           if (Object.keys(vlanCfg[ports[k]].vlan_map).includes("" + vid)) {
             $("#port_cell_" + ports[k])[0].className = "";
-            $("#entry_port_" + ports[k])[0].disabled = false;
+            $("#entry_port_" + ports[k])[0].disabled =
+              window.userLevel === 0 ? false : true;
           } else {
             $("#entry_port_" + ports[k])[0].disabled = true;
-            $("#entry_port_" + ports[k])[0].checked = false;
+            $("#entry_port_" + ports[k])[0].checked =
+              window.userLevel === 0 ? false : true;
             $("#port_cell_" + ports[k])[0].className = "port_down";
           }
         }
@@ -291,11 +296,13 @@
             vlan_status != null &&
             (vlan_status.egress == "tagged" || vlan_status.egress == "untagged")
           ) {
-            $("#entry_port_" + k)[0].disabled = false;
+            $("#entry_port_" + k)[0].disabled =
+              window.userLevel === 0 ? false : true;
             $("#port_cell_" + k)[0].className = "";
           } else {
             $("#entry_port_" + k)[0].disabled = true;
-            $("#entry_port_" + k)[0].checked = false;
+            $("#entry_port_" + k)[0].checked =
+              window.userLevel === 0 ? false : true;
             $("#port_cell_" + k)[0].className = "port_down";
           }
         }
@@ -342,6 +349,7 @@
       mac_input.type = "text";
       mac_input.style.width = "98%";
       mac_input.id = "entry_mac";
+      mac_input.disabled = window.userLevel === 1;
       c1.appendChild(mac_input);
 
       var c2 = row2.insertCell(i++);
@@ -349,6 +357,7 @@
       fid_input.id = "entry_fid";
       fid_input.style.width = "98%";
       fid_input.onchange = updateVlan;
+      fid_input.disabled = window.userLevel === 1;
       if (data.length == 0) {
         var option = document.createElement("option");
         option.value = 0;
@@ -370,6 +379,7 @@
       mgmtPort_input.type = "checkbox";
       mgmtPort_input.id = "entry_mgmtPort";
       mgmtPort_input.onchange = checked_new;
+      mgmtPort_input.disabled = window.userLevel === 1;
       c3.appendChild(mgmtPort_input);
 
       for (k = 0; k < ports.length; k++) {
@@ -379,6 +389,7 @@
         inp.type = "checkbox";
         inp.id = "entry_port_" + ports[k];
         inp.onchange = checked_new;
+        inp.disabled = window.userLevel === 1;
         c.appendChild(inp);
       }
       var c4 = row2.insertCell(i++);
@@ -386,6 +397,7 @@
       description_input.type = "text";
       description_input.style.width = "98%";
       description_input.id = "entry_desc";
+      description_input.disabled = window.userLevel === 1;
       c4.appendChild(description_input);
 
       var c5 = row2.insertCell(i++);
@@ -395,6 +407,7 @@
       add_input.id = "add_button";
       add_input.disabled = true;
       add_input.onclick = addEntry;
+      add_input.disabled = window.userLevel === 1;
       c5.appendChild(add_input);
 
       updateVlan();

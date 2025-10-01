@@ -10,6 +10,8 @@
   <script type="text/javascript" src="js/utils.js"></script>
   <script type="text/javascript">
     $(document).ready(function () {
+      applyAdminRestrictions();
+
       reloadInfo();
       reloadDnsClient();
       reloadFiles();
@@ -117,22 +119,7 @@
         );
       });
 
-      //set username
-      var cookies = document.cookie.split("; ");
-      var found = false;
-      for (var i in cookies) {
-        if (cookies[i].split("=")[0].match("user")) {
-          $("#username").text(cookies[i].split("=")[1]);
-          found = true;
-        }
-      }
-
-      if (!found)
-        window.top.location.href =
-          window.top.location.protocol +
-          "//" +
-          window.top.location.host +
-          "/login.html";
+      requireLogin();
     });
 
     function reloadInfo() {
@@ -220,11 +207,15 @@
         browse_cell.style.textAlign = "center";
         upload_cell.style.width = "35%";
         upload_cell.style.textAlign = "center";
-
-        browse_cell.innerHTML =
-          '<input type="file" id="files_to_upload" style="width: 100%;" multiple>';
-        upload_cell.innerHTML =
-          '<input type="button" class="button" value="Upload File" onClick="uploadFile()">';
+        if (window.userLevel === 0) {
+          browse_cell.innerHTML = `<input type="file" id="files_to_upload" style="width: 100%;" multiple>`;
+          upload_cell.innerHTML =
+            '<input type="button" class="button" value="Upload File" onClick="uploadFile()">';
+        } else {
+          browse_cell.innerHTML = `<input type="file" id="files_to_upload" style="width: 100%;" multiple disabled>`;
+          upload_cell.innerHTML =
+            '<input type="button" class="button" value="Upload File" onClick="uploadFile()" disabled>';
+        }
 
         row.appendChild(browse_cell);
         row.appendChild(upload_cell);
@@ -276,6 +267,11 @@
         btn.className = "button";
         btn.id = "btn_files_clear_all";
         btn.onclick = clearAllFiles;
+        if (window.userLevel === 0) {
+          btn.disabled = false;
+        } else {
+          btn.disabled = true;
+        }
         document.getElementById("files_box").append(btn);
       }
 
@@ -339,30 +335,22 @@
             url_cell.innerHTML = "N/A";
           }
 
-          if (file.name == "files.tar") {
+          if (file.name == "files.tar" || window.userLevel != 0) {
             operation_cell.innerHTML =
-              "" +
-              '<input type="button" class="button" value="Apply" disabled>' +
+              `<input type="button" class="button" value="Apply" disabled>` +
               "&nbsp;&nbsp;" +
-              '<input type="button" class="button" value="Download" onClick="downloadFile(\'' +
-              file.name +
-              "')\">" +
+              `<input type="button" class="button" value="Download" ${
+                window.userLevel == 0 ? `` : "disabled"
+              } onClick="downloadFile(\'${file.name}')\">` +
               "&nbsp;&nbsp;" +
-              '<input type="button" class="button" value="Delete" disabled>';
+              `<input type="button" class="button" value="Delete" disabled>`;
           } else {
             operation_cell.innerHTML =
-              "" +
-              '<input type="button" class="button" value="Apply" onClick="applyFile(\'' +
-              file.name +
-              "')\">" +
+              `<input type="button" class="button" value="Apply" onClick="applyFile(\'${file.name}')\">` +
               "&nbsp;&nbsp;" +
-              '<input type="button" class="button" value="Download" onClick="downloadFile(\'' +
-              file.name +
-              "')\">" +
+              `<input type="button" class="button" value="Download" onClick="downloadFile(\'${file.name}')\">` +
               "&nbsp;&nbsp;" +
-              '<input type="button" class="button" value="Delete" onClick="deleteFile(\'' +
-              file.name +
-              "')\">";
+              `<input type="button" class="button" value="Delete" onClick="deleteFile(\'${file.name}')\">`;
           }
 
           row.appendChild(name_cell);
@@ -527,12 +515,6 @@
         }
       );
     }
-
-    // Initialize page and apply readonly restrictions
-    $(document).ready(function () {
-      // Apply readonly restrictions for level 1 users
-      applyReadOnlyRestrictions();
-    });
   </script>
   <body
     style="
@@ -576,8 +558,9 @@
               <td>Description</td>
               <td>
                 <input
+                  disabled
                   type="text"
-                  class="textbox"
+                  class="textbox input-admin-only"
                   id="Description"
                   style="width: 96%"
                 />
@@ -587,8 +570,9 @@
               <td>Contact</td>
               <td>
                 <input
+                  disabled
                   type="text"
-                  class="textbox"
+                  class="textbox input-admin-only"
                   id="Contact"
                   style="width: 96%"
                 />
@@ -598,8 +582,9 @@
               <td>Location</td>
               <td>
                 <input
+                  disabled
                   type="text"
-                  class="textbox"
+                  class="textbox input-admin-only"
                   id="Location"
                   style="width: 96%"
                 />
@@ -609,7 +594,8 @@
 
           <input
             type="button"
-            class="button"
+            class="button btn-admin-only"
+            style="display: none"
             value="Set System Info"
             id="setInfo"
           />
@@ -626,14 +612,22 @@
             </tr>
             <tr class="table_row_content">
               <td>Enabled</td>
-              <td><input type="checkbox" id="ckb_dnsclient_enabled" /></td>
+              <td>
+                <input
+                  disabled
+                  type="checkbox"
+                  id="ckb_dnsclient_enabled"
+                  class="input-admin-only"
+                />
+              </td>
             </tr>
             <tr class="table_row_content">
               <td>DNS Server Primary</td>
               <td>
                 <input
+                  disabled
                   type="text"
-                  class="textbox"
+                  class="textbox input-admin-only"
                   id="txt_dnsclient_server_primary"
                   style="width: 94%"
                 />
@@ -643,8 +637,9 @@
               <td>DNS Server Secondary</td>
               <td>
                 <input
+                  disabled
                   type="text"
-                  class="textbox"
+                  class="textbox input-admin-only"
                   id="txt_dnsclient_server_secondary"
                   style="width: 94%"
                 />
@@ -654,8 +649,9 @@
               <td>Domain Search Name</td>
               <td>
                 <input
+                  disabled
                   type="text"
-                  class="textbox"
+                  class="textbox input-admin-only"
                   id="txt_dnsclient_domain_name"
                   style="width: 94%"
                 />
@@ -664,7 +660,12 @@
             <tr class="table_row_content">
               <td>Timeout</td>
               <td>
-                <select id="sel_dnsclient_query_timeout" style="width: 15%">
+                <select
+                  id="sel_dnsclient_query_timeout"
+                  class="input-admin-only"
+                  style="width: 15%"
+                  disabled
+                >
                   <option value="1">1</option>
                   <option value="2">2</option>
                   <option value="3">3</option>
@@ -702,7 +703,12 @@
             <tr class="table_row_content">
               <td>Retries</td>
               <td>
-                <select id="sel_dnsclient_query_retries" style="width: 15%">
+                <select
+                  id="sel_dnsclient_query_retries"
+                  class="input-admin-only"
+                  style="width: 15%"
+                  disabled
+                >
                   <option value="1">1</option>
                   <option value="2">2</option>
                   <option value="3">3</option>
@@ -713,14 +719,22 @@
             </tr>
             <tr class="table_row_content">
               <td>DNS over TCP</td>
-              <td><input type="checkbox" id="ckb_dnsclient_dns_over_tcp" /></td>
+              <td>
+                <input
+                  class="input-admin-only"
+                  type="checkbox"
+                  id="ckb_dnsclient_dns_over_tcp"
+                  disabled
+                />
+              </td>
             </tr>
           </table>
           <input
             type="button"
-            class="button"
+            class="button btn-admin-only"
             value="Set DNS Client"
             id="setDnsClient"
+            style="display: none"
           />
         </div>
       </div>
@@ -735,14 +749,22 @@
             </tr>
             <tr class="table_row_content">
               <td>USB API access</td>
-              <td><input type="checkbox" id="ckb_usb_api" /></td>
+              <td>
+                <input
+                  type="checkbox"
+                  id="ckb_usb_api"
+                  disabled
+                  class="input-admin-only"
+                />
+              </td>
             </tr>
           </table>
           <input
             type="button"
-            class="button"
+            class="button btn-admin-only"
             value="Set System Settings"
             id="setSystemSettings"
+            style="display: none"
           />
         </div>
       </div>
@@ -761,14 +783,22 @@
             </tr>
             <tr class="table_row_content">
               <td>Access files via URL</td>
-              <td><input type="checkbox" id="ckb_files_web_export" /></td>
+              <td>
+                <input
+                  disabled
+                  type="checkbox"
+                  id="ckb_files_web_export"
+                  class="input-admin-only"
+                />
+              </td>
             </tr>
           </table>
           <input
             type="button"
-            class="button"
+            class="button btn-admin-only"
             value="Set Files"
             id="setFilesSettings"
+            style="display: none"
           />
           <div>&nbsp;</div>
           <a class="headline">Files Upload</a>

@@ -2,7 +2,6 @@ function autoRefreshFn({ time = 10000, fn = () => {} }) {
   setInterval(function () {
     // Mark that we're in auto refresh mode
     window.isAutoRefresh = true;
-    console.log("autoRefreshFn", fn);
     fn();
     // Reset the flag after a short delay
     setTimeout(function () {
@@ -58,90 +57,40 @@ function getUserLevel(callback) {
 }
 
 // Function to check if user is readonly (level 1)
-function isReadOnlyUser(callback) {
+function isAdminUser(callback) {
   getUserLevel(function (level) {
-    callback(level === 1);
+    window.userLevel = level;
+    callback(level === 0);
   });
 }
 
 // Function to disable/hide editable elements for readonly users
-function applyReadOnlyRestrictions() {
-  isReadOnlyUser(function (isReadOnly) {
-    if (isReadOnly) {
-      // Hide all buttons with edit/set/add/delete/update/change/apply actions
-      var editButtons = document.querySelectorAll(
-        'input[type="button"][value*="Set"], input[type="button"][value*="Add"], input[type="button"][value*="Delete"], input[type="button"][value*="Remove"], input[type="button"][value*="Update"], input[type="button"][value*="Change"], input[type="button"][value*="Apply"], input[type="button"][value*="Save"]'
-      );
+function applyAdminRestrictions(callback) {
+  isAdminUser(function (isAdmin) {
+    if (isAdmin) {
+      // show all buttons with edit/set/add/delete/update/change/apply actions
+      var editButtons = document.querySelectorAll(".btn-admin-only");
       editButtons.forEach(function (button) {
-        button.style.display = "none";
+        button.style.display = "block";
       });
 
-      // Disable all text inputs, selects, and textareas
-      var editableElements = document.querySelectorAll(
-        'input[type="text"], input[type="password"], input[type="number"], select, textarea'
-      );
+      // Enable all text inputs, selects, and textareas
+      var editableElements = document.querySelectorAll(".input-admin-only");
       editableElements.forEach(function (element) {
-        element.disabled = true;
-        element.style.backgroundColor = "#f5f5f5";
-        element.style.cursor = "not-allowed";
+        element.disabled = false;
       });
 
-      // Disable checkboxes and radio buttons
-      var checkboxes = document.querySelectorAll(
-        'input[type="checkbox"], input[type="radio"]'
-      );
-      checkboxes.forEach(function (checkbox) {
-        checkbox.disabled = true;
-        checkbox.style.cursor = "not-allowed";
+      // Enable menu sections
+      var menuSections = document.querySelectorAll(".menu-section");
+      menuSections.forEach(function (section) {
+        section.style.display = "block";
       });
-
-      // Add readonly indicator if not already present
-      if (!document.getElementById("readonly-indicator")) {
-        var readonlyIndicator = document.createElement("div");
-        readonlyIndicator.id = "readonly-indicator";
-        readonlyIndicator.style.cssText =
-          "position: fixed; top: 10px; right: 10px; background: #ff6b6b; color: white; padding: 8px 12px; border-radius: 4px; font-size: 12px; font-weight: bold; z-index: 9999;";
-        readonlyIndicator.textContent = "READ ONLY MODE";
-        document.body.appendChild(readonlyIndicator);
-      }
     }
-  });
-}
 
-// Function to apply restrictions to dynamically loaded content (for iframes)
-function applyReadOnlyRestrictionsToIframe(iframe) {
-  if (!iframe || !iframe.contentDocument) return;
-
-  isReadOnlyUser(function (isReadOnly) {
-    if (isReadOnly) {
-      var doc = iframe.contentDocument;
-
-      // Hide all buttons with edit/set/add/delete/update/change/apply actions
-      var editButtons = doc.querySelectorAll(
-        'input[type="button"][value*="Set"], input[type="button"][value*="Add"], input[type="button"][value*="Delete"], input[type="button"][value*="Remove"], input[type="button"][value*="Update"], input[type="button"][value*="Change"], input[type="button"][value*="Apply"], input[type="button"][value*="Save"]'
-      );
-      editButtons.forEach(function (button) {
-        button.style.display = "none";
-      });
-
-      // Disable all text inputs, selects, and textareas
-      var editableElements = doc.querySelectorAll(
-        'input[type="text"], input[type="password"], input[type="number"], select, textarea'
-      );
-      editableElements.forEach(function (element) {
-        element.disabled = true;
-        element.style.backgroundColor = "#f5f5f5";
-        element.style.cursor = "not-allowed";
-      });
-
-      // Disable checkboxes and radio buttons
-      var checkboxes = doc.querySelectorAll(
-        'input[type="checkbox"], input[type="radio"]'
-      );
-      checkboxes.forEach(function (checkbox) {
-        checkbox.disabled = true;
-        checkbox.style.cursor = "not-allowed";
-      });
+    // Call the callback function if provided
+    // Pass isAdmin and userLevel to callback for convenience
+    if (callback && typeof callback === "function") {
+      callback(isAdmin, window.userLevel);
     }
   });
 }
@@ -168,3 +117,24 @@ $(document).ajaxError(function (event, request, settings) {
   // Handle other errors
   if (obj.msg) ffunc(obj.msg);
 });
+
+// Require login
+function requireLogin() {
+  //set username
+  var cookies = document.cookie.split("; ");
+  var found = false;
+  for (var i in cookies) {
+    if (cookies[i].split("=")[0].match("user")) {
+      $("#username").text(cookies[i].split("=")[1]);
+      found = true;
+    }
+  }
+  console.log("===== ~ utils.js:181 ~ requireLogin ~ found:", found);
+
+  if (!found)
+    window.top.location.href =
+      window.top.location.protocol +
+      "//" +
+      window.top.location.host +
+      "/login.html";
+}

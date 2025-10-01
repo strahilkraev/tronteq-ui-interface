@@ -15,6 +15,9 @@
     var gVids = [];
 
     function updateVisibity() {
+      if (window.userLevel === 1) {
+        return;
+      }
       if ($("#global_setting")[0].checked) {
         $("[id^=txt_dvid_]").prop("disabled", false);
         $("[id^=discardTagged_]").prop("disabled", false);
@@ -85,21 +88,19 @@
 
     function addInterfaceOpts(i) {
       $("#vlan_table > tbody:last-child").append(
-        '<tr class="table_row_content"><td>' +
-          SwitchPortNames[i - 1] +
-          "</td>" +
-          '<td><input id="txt_dvid_' +
-          i +
-          '" type="number" min="0" max=4094" title=" 1-4094" style="width: 60px;"></td>' +
-          '<td><input id="discardTagged_' +
-          i +
-          '"  type="checkbox"></td>' +
-          '<td><input id="discardUntagged_' +
-          i +
-          '"  type="checkbox"></td>' +
-          '<td><input id="forceDefaultVID_' +
-          i +
-          '"  type="checkbox"></td>' +
+        `<tr class="table_row_content"><td>${SwitchPortNames[i - 1]}</td>` +
+          `<td><input ${
+            window.userLevel === 1 ? "disabled" : ""
+          } id="txt_dvid_${i}" type="number" min="0" max=4094" title=" 1-4094" style="width: 60px;"></td>` +
+          `<td><input ${
+            window.userLevel === 1 ? "disabled" : ""
+          } id="discardTagged_${i}"  type="checkbox"></td>` +
+          `<td><input ${
+            window.userLevel === 1 ? "disabled" : ""
+          } id="discardUntagged_${i}"  type="checkbox"></td>` +
+          `<td><input ${
+            window.userLevel === 1 ? "disabled" : ""
+          } id="forceDefaultVID_${i}"  type="checkbox"></td>` +
           "</tr>"
       );
     }
@@ -195,6 +196,7 @@
             bu.type = "button";
             bu.id = "remove_vid_" + i["vid"];
             bu.value = "remove";
+            bu.style.display = window.userLevel === 1 ? "none" : "block";
             bu.onclick = function (e) {
               var params = parseInt(e.target.id.substr(11));
               removeVid(params);
@@ -338,7 +340,9 @@
     }
 
     $(document).ready(function () {
-      setupPortInfo(setupDone);
+      applyAdminRestrictions(function () {
+        setupPortInfo(setupDone);
+      });
     });
 
     function setupDone() {
@@ -352,9 +356,6 @@
       $("#SetMembers").click(setVlanMembers);
       $("#but_set_tags_all").click(setVlanInterfaces);
       $("#ChangeGlobalSetting").click(ChangeGlobalSetting);
-
-      // Apply readonly restrictions for level 1 users
-      applyReadOnlyRestrictions();
     }
   </script>
   <body
@@ -384,11 +385,22 @@
           <tr class="table_row_content">
             <td>VLANs enabled</td>
             <td>
-              <input id="global_setting" type="checkbox" />
+              <input
+                id="global_setting"
+                type="checkbox"
+                class="input-admin-only"
+                disabled
+              />
             </td>
           </tr>
         </table>
-        <input type="button" id="ChangeGlobalSetting" value="Set VLAN Status" />
+        <input
+          type="button"
+          id="ChangeGlobalSetting"
+          value="Set VLAN Status"
+          class="btn btn-admin-only"
+          style="display: none"
+        />
 
         <div id="v1" style="margin-top: 20px">
           <a class="headline">Port VLAN Settings</a>
@@ -409,6 +421,8 @@
             type="button"
             id="but_set_tags_all"
             value="Set Port VLAN Settings"
+            class="btn btn-admin-only"
+            style="display: none"
           /><br />
         </div>
       </div>
@@ -433,6 +447,8 @@
             type="button"
             id="SetMembers"
             value="Set Port VLAN Membership"
+            class="btn btn-admin-only"
+            style="display: none"
           />
         </div>
 
@@ -468,14 +484,27 @@
                     type="number"
                     title=" 1-4094"
                     style="width: 98%"
+                    class="input-admin-only"
+                    disabled
                   />
                 </td>
                 <td>
-                  <input id="txt_name_creation" />
+                  <input
+                    type="text"
+                    id="txt_name_creation"
+                    class="input-admin-only"
+                    disabled
+                  />
                 </td>
               </tr>
             </table>
-            <input type="button" id="AddVid" value="Add VLAN ID" />
+            <input
+              type="button"
+              id="AddVid"
+              value="Add VLAN ID"
+              class="btn btn-admin-only"
+              style="display: none"
+            />
           </div>
         </div>
       </div>

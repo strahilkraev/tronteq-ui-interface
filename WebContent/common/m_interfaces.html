@@ -10,8 +10,10 @@
   <script type="text/javascript" src="js/utils.js"></script>
   <script type="text/javascript">
     $(document).ready(function () {
-      setupPortInfo(setupDone);
-      autoRefreshFn({ fn: setupDone });
+      applyAdminRestrictions(function () {
+        setupPortInfo(setupDone);
+        autoRefreshFn({ fn: setupDone });
+      });
     });
 
     function setupDone() {
@@ -117,16 +119,21 @@
             }
           });
           getInterfacesStateFn();
-
-          setInterval(function () {
-            getInterfacesStateFn();
-          }, 1000);
         }
       );
     }
   </script>
   <body
-    style="height:100%;width:100%;float:left;margin: 0px; font-family: Verdana;height 100%; overflow: hidden; position: absolute;"
+    style="
+      height: 100%;
+      width: 100%;
+      float: left;
+      margin: 0px;
+      font-family: Verdana;
+      height: 100%;
+      overflow: hidden;
+      position: absolute;
+    "
   >
     <div id="content" style="height: 100%; overflow: auto; width: 100%">
       <div style="width: 100%; float: left">

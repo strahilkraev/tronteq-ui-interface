@@ -48,13 +48,15 @@
     }
 
     window.onload = function () {
-      loadSettings();
-      getTime();
-      $("#setNtp").click(function () {
-        setNTP();
-      });
-      $("#getTime").click(function () {
+      applyAdminRestrictions(function () {
+        loadSettings();
         getTime();
+        $("#setNtp").click(function () {
+          setNTP();
+        });
+        $("#getTime").click(function () {
+          getTime();
+        });
       });
     };
   </script>
@@ -83,19 +85,35 @@
           <tr class="table_row_content">
             <td>Enable NTP Client</td>
             <td>
-              <input type="checkbox" id="enabled" />
+              <input
+                type="checkbox"
+                id="enabled"
+                disabled
+                class="input-admin-only"
+              />
             </td>
           </tr>
           <tr class="table_row_content">
             <td>NTP Server</td>
             <td>
-              <input id="server" style="width: 97%" />
+              <input
+                type="text"
+                id="server"
+                style="width: 97%"
+                disabled
+                class="input-admin-only"
+              />
             </td>
           </tr>
           <tr class="table_row_content">
             <td>Query Interval</td>
             <td>
-              <select id="interval" style="width: 97%">
+              <select
+                id="interval"
+                style="width: 97%"
+                disabled
+                class="input-admin-only"
+              >
                 <option value="3">8 seconds</option>
                 <option value="4">16 seconds</option>
                 <option value="5">32 seconds</option>
@@ -114,7 +132,13 @@
             </td>
           </tr>
         </table>
-        <input id="setNtp" value="Set" type="button" />
+        <input
+          id="setNtp"
+          value="Set"
+          type="button"
+          class="btn-admin-only"
+          style="display: none"
+        />
       </div>
 
       <div class="box2" style="width: calc(25% - 20px)">
@@ -131,7 +155,13 @@
             <td id="time"></td>
           </tr>
         </table>
-        <input id="getTime" value="Query Time" type="button" />
+        <input
+          id="getTime"
+          value="Query Time"
+          type="button"
+          class="btn-admin-only"
+          style="display: none"
+        />
       </div>
     </div>
   </body>

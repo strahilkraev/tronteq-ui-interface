@@ -125,375 +125,379 @@
           var params = e.target.id.substr(7);
           removeRule(parseInt(params));
         };
-        t1.appendChild(bu);
+        if (window.userLevel === 0) {
+          t1.appendChild(bu);
+        }
       }
     }
 
     $(document).ready(function () {
-      getNATState();
-      $("#ChangeGlobalSetting").click(setNatState);
-      $("#create_1_1_NAT").click(function () {
-        if (
-          !isValidIPAddress($("#1_1_NAT_internal_ip").val()) ||
-          $("#1_1_NAT_internal_ip").val() == "0.0.0.0"
-        ) {
-          alert(
-            "error: Device IP Address '" +
-              $("#1_1_NAT_internal_ip").val() +
-              "' is not a vaild IP Address"
-          );
-          return;
-        }
+      applyAdminRestrictions(function () {
+        getNATState();
+        $("#ChangeGlobalSetting").click(setNatState);
+        $("#create_1_1_NAT").click(function () {
+          if (
+            !isValidIPAddress($("#1_1_NAT_internal_ip").val()) ||
+            $("#1_1_NAT_internal_ip").val() == "0.0.0.0"
+          ) {
+            alert(
+              "error: Device IP Address '" +
+                $("#1_1_NAT_internal_ip").val() +
+                "' is not a vaild IP Address"
+            );
+            return;
+          }
 
-        if (
-          !isValidIPAddress($("#1_1_NAT_external_ip").val()) ||
-          $("#1_1_NAT_external_ip").val() == "0.0.0.0"
-        ) {
-          alert(
-            "error: External IP Address '" +
-              $("#1_1_NAT_external_ip").val() +
-              "' is not a vaild IP Address"
-          );
-          return;
-        }
+          if (
+            !isValidIPAddress($("#1_1_NAT_external_ip").val()) ||
+            $("#1_1_NAT_external_ip").val() == "0.0.0.0"
+          ) {
+            alert(
+              "error: External IP Address '" +
+                $("#1_1_NAT_external_ip").val() +
+                "' is not a vaild IP Address"
+            );
+            return;
+          }
 
-        var ruleName = "1:1 NAT ";
+          var ruleName = "1:1 NAT ";
 
-        if ($("#1_1_NAT_masq").is(":checked")) ruleName += "(Masquerade) ";
-        ruleName +=
-          $("#1_1_NAT_external_ip").val() +
-          " to " +
-          $("#1_1_NAT_internal_ip").val();
+          if ($("#1_1_NAT_masq").is(":checked")) ruleName += "(Masquerade) ";
+          ruleName +=
+            $("#1_1_NAT_external_ip").val() +
+            " to " +
+            $("#1_1_NAT_internal_ip").val();
 
-        //1_1_NAT_masq
+          //1_1_NAT_masq
 
-        obj = {
-          service: "nat",
-          access: "add",
-          command: "rule",
-          parameters: {
-            name: ruleName,
-            FORWARD: [
-              {
-                expr: [
-                  {
-                    match: {
-                      op: "==",
-                      left: {
-                        payload: {
-                          protocol: "ip",
-                          field: "daddr",
+          obj = {
+            service: "nat",
+            access: "add",
+            command: "rule",
+            parameters: {
+              name: ruleName,
+              FORWARD: [
+                {
+                  expr: [
+                    {
+                      match: {
+                        op: "==",
+                        left: {
+                          payload: {
+                            protocol: "ip",
+                            field: "daddr",
+                          },
                         },
+                        right: $("#1_1_NAT_internal_ip").val(),
                       },
-                      right: $("#1_1_NAT_internal_ip").val(),
                     },
-                  },
-                  {
-                    accept: null,
-                  },
-                ],
-              },
-              {
-                expr: [
-                  {
-                    match: {
-                      op: "==",
-                      left: {
-                        payload: {
-                          protocol: "ip",
-                          field: "saddr",
-                        },
-                      },
-                      right: $("#1_1_NAT_internal_ip").val(),
+                    {
+                      accept: null,
                     },
-                  },
-                  {
-                    accept: null,
-                  },
-                ],
-              },
-            ],
-            PREROUTING: [
-              {
-                expr: [
-                  {
-                    match: {
-                      op: "==",
-                      left: {
-                        payload: {
-                          protocol: "ip",
-                          field: "daddr",
-                        },
-                      },
-                      right: $("#1_1_NAT_external_ip").val(),
-                    },
-                  },
-                  {
-                    dnat: {
-                      addr: $("#1_1_NAT_internal_ip").val(),
-                    },
-                  },
-                ],
-              },
-            ],
-            POSTROUTING: [
-              {
-                expr: [
-                  {
-                    match: {
-                      op: "==",
-                      left: {
-                        payload: {
-                          protocol: "ip",
-                          field: "saddr",
-                        },
-                      },
-                      right: $("#1_1_NAT_internal_ip").val(),
-                    },
-                  },
-                  {
-                    snat: {
-                      addr: $("#1_1_NAT_external_ip").val(),
-                    },
-                  },
-                ],
-              },
-            ],
-            ips: [$("#1_1_NAT_external_ip").val()],
-          },
-        };
-
-        if ($("#1_1_NAT_masq").is(":checked")) {
-          obj.parameters.POSTROUTING.push({
-            expr: [
-              {
-                match: {
-                  op: "==",
-                  left: {
-                    payload: {
-                      protocol: "ip",
-                      field: "daddr",
-                    },
-                  },
-                  right: $("#1_1_NAT_internal_ip").val(),
+                  ],
                 },
-              },
-              {
-                masquerade: null,
-              },
-            ],
-          });
-        }
+                {
+                  expr: [
+                    {
+                      match: {
+                        op: "==",
+                        left: {
+                          payload: {
+                            protocol: "ip",
+                            field: "saddr",
+                          },
+                        },
+                        right: $("#1_1_NAT_internal_ip").val(),
+                      },
+                    },
+                    {
+                      accept: null,
+                    },
+                  ],
+                },
+              ],
+              PREROUTING: [
+                {
+                  expr: [
+                    {
+                      match: {
+                        op: "==",
+                        left: {
+                          payload: {
+                            protocol: "ip",
+                            field: "daddr",
+                          },
+                        },
+                        right: $("#1_1_NAT_external_ip").val(),
+                      },
+                    },
+                    {
+                      dnat: {
+                        addr: $("#1_1_NAT_internal_ip").val(),
+                      },
+                    },
+                  ],
+                },
+              ],
+              POSTROUTING: [
+                {
+                  expr: [
+                    {
+                      match: {
+                        op: "==",
+                        left: {
+                          payload: {
+                            protocol: "ip",
+                            field: "saddr",
+                          },
+                        },
+                        right: $("#1_1_NAT_internal_ip").val(),
+                      },
+                    },
+                    {
+                      snat: {
+                        addr: $("#1_1_NAT_external_ip").val(),
+                      },
+                    },
+                  ],
+                },
+              ],
+              ips: [$("#1_1_NAT_external_ip").val()],
+            },
+          };
 
-        $.post("/api", JSON.stringify(obj), function (data, status) {
-          createOK(data);
-          update_rules_callback(data);
+          if ($("#1_1_NAT_masq").is(":checked")) {
+            obj.parameters.POSTROUTING.push({
+              expr: [
+                {
+                  match: {
+                    op: "==",
+                    left: {
+                      payload: {
+                        protocol: "ip",
+                        field: "daddr",
+                      },
+                    },
+                    right: $("#1_1_NAT_internal_ip").val(),
+                  },
+                },
+                {
+                  masquerade: null,
+                },
+              ],
+            });
+          }
+
+          $.post("/api", JSON.stringify(obj), function (data, status) {
+            createOK(data);
+            update_rules_callback(data);
+          });
         });
-      });
 
-      $("#create_PAT").click(function () {
-        if (
-          !isValidIPAddress($("#pat_in_ip").val()) ||
-          $("#pat_in_ip").val() == "0.0.0.0"
-        ) {
-          alert(
-            "error: Incoming IP Address '" +
-              $("#pat_in_ip").val() +
-              "' is not a vaild IP Address"
-          );
-          return;
-        }
+        $("#create_PAT").click(function () {
+          if (
+            !isValidIPAddress($("#pat_in_ip").val()) ||
+            $("#pat_in_ip").val() == "0.0.0.0"
+          ) {
+            alert(
+              "error: Incoming IP Address '" +
+                $("#pat_in_ip").val() +
+                "' is not a vaild IP Address"
+            );
+            return;
+          }
 
-        if (!isValidPort($("#pat_in_port").val())) {
-          alert(
-            "error: Incoming Port '" +
-              $("#pat_in_port").val() +
-              "' is not vaild"
-          );
-          return;
-        }
+          if (!isValidPort($("#pat_in_port").val())) {
+            alert(
+              "error: Incoming Port '" +
+                $("#pat_in_port").val() +
+                "' is not vaild"
+            );
+            return;
+          }
 
-        if (
-          !isValidIPAddress($("#pat_dest_ip").val()) ||
-          $("#pat_dest_ip").val() == "0.0.0.0"
-        ) {
-          alert(
-            "error: Destination IP Address '" +
-              $("#pat_dest_ip").val() +
-              "' is not a vaild IP Address"
-          );
-          return;
-        }
+          if (
+            !isValidIPAddress($("#pat_dest_ip").val()) ||
+            $("#pat_dest_ip").val() == "0.0.0.0"
+          ) {
+            alert(
+              "error: Destination IP Address '" +
+                $("#pat_dest_ip").val() +
+                "' is not a vaild IP Address"
+            );
+            return;
+          }
 
-        if (!isValidPort($("#pat_dest_port").val())) {
-          alert(
-            "error: Destination Port '" +
-              $("#pat_dest_port").val() +
-              "' is not vaild"
-          );
-          return;
-        }
+          if (!isValidPort($("#pat_dest_port").val())) {
+            alert(
+              "error: Destination Port '" +
+                $("#pat_dest_port").val() +
+                "' is not vaild"
+            );
+            return;
+          }
 
-        var ruleName = "PAT ";
+          var ruleName = "PAT ";
 
-        if ($("#pat_masq").is(":checked")) ruleName += "(Masquerade) ";
-        ruleName += $("#pat_proto").val().toUpperCase() + " ";
-        ruleName +=
-          $("#pat_in_ip").val() +
-          ":" +
-          $("#pat_in_port").val() +
-          " to " +
-          $("#pat_dest_ip").val() +
-          ":" +
-          $("#pat_dest_port").val();
+          if ($("#pat_masq").is(":checked")) ruleName += "(Masquerade) ";
+          ruleName += $("#pat_proto").val().toUpperCase() + " ";
+          ruleName +=
+            $("#pat_in_ip").val() +
+            ":" +
+            $("#pat_in_port").val() +
+            " to " +
+            $("#pat_dest_ip").val() +
+            ":" +
+            $("#pat_dest_port").val();
 
-        var obj = {
-          service: "nat",
-          access: "add",
-          command: "rule",
-          parameters: {
-            name: ruleName,
-            FORWARD: [
-              {
-                expr: [
-                  {
-                    match: {
-                      op: "==",
-                      left: {
-                        payload: {
-                          protocol: "ip",
-                          field: "daddr",
+          var obj = {
+            service: "nat",
+            access: "add",
+            command: "rule",
+            parameters: {
+              name: ruleName,
+              FORWARD: [
+                {
+                  expr: [
+                    {
+                      match: {
+                        op: "==",
+                        left: {
+                          payload: {
+                            protocol: "ip",
+                            field: "daddr",
+                          },
                         },
+                        right: $("#pat_dest_ip").val(),
                       },
-                      right: $("#pat_dest_ip").val(),
                     },
-                  },
-                  {
-                    match: {
-                      op: "==",
-                      left: {
-                        payload: {
-                          protocol: $("#pat_proto").val(),
-                          field: "dport",
+                    {
+                      match: {
+                        op: "==",
+                        left: {
+                          payload: {
+                            protocol: $("#pat_proto").val(),
+                            field: "dport",
+                          },
                         },
+                        right: parseInt($("#pat_dest_port").val()),
                       },
-                      right: parseInt($("#pat_dest_port").val()),
                     },
-                  },
-                  {
-                    accept: null,
-                  },
-                ],
-              },
-              {
-                expr: [
-                  {
-                    match: {
-                      op: "==",
-                      left: {
-                        payload: {
-                          protocol: "ip",
-                          field: "saddr",
-                        },
-                      },
-                      right: $("#pat_dest_ip").val(),
+                    {
+                      accept: null,
                     },
-                  },
-                  {
-                    match: {
-                      op: "==",
-                      left: {
-                        payload: {
-                          protocol: $("#pat_proto").val(),
-                          field: "sport",
-                        },
-                      },
-                      right: parseInt($("#pat_dest_port").val()),
-                    },
-                  },
-                  {
-                    accept: null,
-                  },
-                ],
-              },
-            ],
-            PREROUTING: [
-              {
-                expr: [
-                  {
-                    match: {
-                      op: "==",
-                      left: {
-                        payload: {
-                          protocol: "ip",
-                          field: "daddr",
-                        },
-                      },
-                      right: $("#pat_in_ip").val(),
-                    },
-                  },
-                  {
-                    match: {
-                      op: "==",
-                      left: {
-                        payload: {
-                          protocol: $("#pat_proto").val(),
-                          field: "dport",
-                        },
-                      },
-                      right: parseInt($("#pat_in_port").val()),
-                    },
-                  },
-                  {
-                    dnat: {
-                      addr: $("#pat_dest_ip").val(),
-                      port: parseInt($("#pat_dest_port").val()),
-                    },
-                  },
-                ],
-              },
-            ],
-            POSTROUTING: [],
-            ips: [],
-          },
-        };
-        if ($("#pat_masq").is(":checked")) {
-          obj.parameters.POSTROUTING.push({
-            expr: [
-              {
-                match: {
-                  op: "==",
-                  left: {
-                    payload: {
-                      protocol: "ip",
-                      field: "daddr",
-                    },
-                  },
-                  right: $("#pat_dest_ip").val(),
+                  ],
                 },
-              },
-              {
-                match: {
-                  op: "==",
-                  left: {
-                    payload: {
-                      protocol: $("#pat_proto").val(),
-                      field: "dport",
+                {
+                  expr: [
+                    {
+                      match: {
+                        op: "==",
+                        left: {
+                          payload: {
+                            protocol: "ip",
+                            field: "saddr",
+                          },
+                        },
+                        right: $("#pat_dest_ip").val(),
+                      },
                     },
-                  },
-                  right: parseInt($("#pat_dest_port").val()),
+                    {
+                      match: {
+                        op: "==",
+                        left: {
+                          payload: {
+                            protocol: $("#pat_proto").val(),
+                            field: "sport",
+                          },
+                        },
+                        right: parseInt($("#pat_dest_port").val()),
+                      },
+                    },
+                    {
+                      accept: null,
+                    },
+                  ],
                 },
-              },
-              {
-                masquerade: null,
-              },
-            ],
+              ],
+              PREROUTING: [
+                {
+                  expr: [
+                    {
+                      match: {
+                        op: "==",
+                        left: {
+                          payload: {
+                            protocol: "ip",
+                            field: "daddr",
+                          },
+                        },
+                        right: $("#pat_in_ip").val(),
+                      },
+                    },
+                    {
+                      match: {
+                        op: "==",
+                        left: {
+                          payload: {
+                            protocol: $("#pat_proto").val(),
+                            field: "dport",
+                          },
+                        },
+                        right: parseInt($("#pat_in_port").val()),
+                      },
+                    },
+                    {
+                      dnat: {
+                        addr: $("#pat_dest_ip").val(),
+                        port: parseInt($("#pat_dest_port").val()),
+                      },
+                    },
+                  ],
+                },
+              ],
+              POSTROUTING: [],
+              ips: [],
+            },
+          };
+          if ($("#pat_masq").is(":checked")) {
+            obj.parameters.POSTROUTING.push({
+              expr: [
+                {
+                  match: {
+                    op: "==",
+                    left: {
+                      payload: {
+                        protocol: "ip",
+                        field: "daddr",
+                      },
+                    },
+                    right: $("#pat_dest_ip").val(),
+                  },
+                },
+                {
+                  match: {
+                    op: "==",
+                    left: {
+                      payload: {
+                        protocol: $("#pat_proto").val(),
+                        field: "dport",
+                      },
+                    },
+                    right: parseInt($("#pat_dest_port").val()),
+                  },
+                },
+                {
+                  masquerade: null,
+                },
+              ],
+            });
+          }
+
+          $.post("/api", JSON.stringify(obj), function (data, status) {
+            createOK(data);
+            update_rules_callback(data);
           });
-        }
-
-        $.post("/api", JSON.stringify(obj), function (data, status) {
-          createOK(data);
-          update_rules_callback(data);
         });
       });
     });
@@ -524,11 +528,22 @@
           <tr class="table_row_content">
             <td>NAT enabled</td>
             <td>
-              <input id="global_setting" type="checkbox" />
+              <input
+                id="global_setting"
+                type="checkbox"
+                disabled
+                class="input-admin-only"
+              />
             </td>
           </tr>
         </table>
-        <input type="button" id="ChangeGlobalSetting" value="Set NAT Status" />
+        <input
+          type="button"
+          id="ChangeGlobalSetting"
+          value="Set NAT Status"
+          class="btn-admin-only"
+          style="display: none"
+        />
         <br /><br /><br />
 
         <a class="headline">Create 1:1 NAT</a>
@@ -543,23 +558,46 @@
           <tr class="table_row_content">
             <td class="table_cell">Device IP Address</td>
             <td class="table_cell">
-              <input id="1_1_NAT_internal_ip" type="text" style="width: 90%" />
+              <input
+                id="1_1_NAT_internal_ip"
+                type="text"
+                style="width: 90%"
+                disabled
+                class="input-admin-only"
+              />
             </td>
           </tr>
           <tr class="table_row_content">
             <td class="table_cell">External IP Address</td>
             <td class="table_cell">
-              <input id="1_1_NAT_external_ip" type="text" style="width: 90%" />
+              <input
+                id="1_1_NAT_external_ip"
+                type="text"
+                style="width: 90%"
+                disabled
+                class="input-admin-only"
+              />
             </td>
           </tr>
           <tr class="table_row_content">
             <td class="table_cell">Masquerade</td>
             <td class="table_cell">
-              <input id="1_1_NAT_masq" type="checkbox" />
+              <input
+                id="1_1_NAT_masq"
+                type="checkbox"
+                disabled
+                class="input-admin-only"
+              />
             </td>
           </tr>
         </table>
-        <input id="create_1_1_NAT" type="button" value="Create 1:1 NAT Rule" />
+        <input
+          id="create_1_1_NAT"
+          type="button"
+          value="Create 1:1 NAT Rule"
+          class="btn-admin-only"
+          style="display: none"
+        />
       </div>
       <div class="box2" style="width: calc(25% - 20px)">
         <a class="headline">Create Port Forwarding</a>
@@ -574,7 +612,13 @@
           <tr class="table_row_content">
             <td class="table_cell">Incoming IP Address</td>
             <td class="table_cell">
-              <input id="pat_in_ip" type="text" style="width: 90%" />
+              <input
+                id="pat_in_ip"
+                type="text"
+                style="width: 90%"
+                disabled
+                class="input-admin-only"
+              />
             </td>
           </tr>
           <tr class="table_row_content">
@@ -586,13 +630,20 @@
                 min="1"
                 max="65535"
                 style="width: 90%"
+                disabled
+                class="input-admin-only"
               />
             </td>
           </tr>
           <tr class="table_row_content">
             <td class="table_cell">Protocol</td>
             <td class="table_cell">
-              <select id="pat_proto" style="width: 98%">
+              <select
+                id="pat_proto"
+                style="width: 98%"
+                disabled
+                class="input-admin-only"
+              >
                 <option value="tcp">TCP</option>
                 <option value="udp">UDP</option>
               </select>
@@ -601,7 +652,13 @@
           <tr class="table_row_content">
             <td class="table_cell">Destination IP Address</td>
             <td class="table_cell">
-              <input id="pat_dest_ip" type="text" style="width: 90%" />
+              <input
+                id="pat_dest_ip"
+                type="text"
+                style="width: 90%"
+                disabled
+                class="input-admin-only"
+              />
             </td>
           </tr>
           <tr class="table_row_content">
@@ -613,17 +670,30 @@
                 min="1"
                 max="65535"
                 style="width: 90%"
+                disabled
+                class="input-admin-only"
               />
             </td>
           </tr>
           <tr class="table_row_content">
             <td class="table_cell">Masquerade</td>
             <td class="table_cell">
-              <input id="pat_masq" type="checkbox" />
+              <input
+                id="pat_masq"
+                type="checkbox"
+                disabled
+                class="input-admin-only"
+              />
             </td>
           </tr>
         </table>
-        <input id="create_PAT" type="button" value="Create Port Forwarding" />
+        <input
+          id="create_PAT"
+          type="button"
+          value="Create Port Forwarding"
+          class="btn-admin-only"
+          style="display: none"
+        />
       </div>
       <div class="box2" style="width: calc(40% - 20px)">
         <a class="headline">NAT List</a>

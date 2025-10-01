@@ -10,7 +10,9 @@
   <script type="text/javascript" src="js/utils.js"></script>
   <script type="text/javascript">
     $(document).ready(function () {
-      setupPortInfo(setupDone);
+      applyAdminRestrictions(function () {
+        setupPortInfo(setupDone);
+      });
     });
 
     function setupDone() {
@@ -83,23 +85,6 @@
       setInterval(function () {
         getInterfacesStateFn();
       }, 1000);
-
-      //set username
-      var cookies = document.cookie.split("; ");
-      var found = false;
-      for (var i in cookies) {
-        if (cookies[i].split("=")[0].match("user")) {
-          $("#username").text(cookies[i].split("=")[1]);
-          found = true;
-        }
-      }
-
-      if (!found)
-        window.top.location.href =
-          window.top.location.protocol +
-          "//" +
-          window.top.location.host +
-          "/login.html";
     }
 
     function addInterfaceState(i) {
@@ -146,6 +131,9 @@
     }
 
     function chnageAutoNeg(i) {
+      if (window.userLevel === 1) {
+        return;
+      }
       if ($("#autoneg" + i).val() == "true") {
         $("#duplex" + i).attr("disabled", true);
         $("#speed" + i).attr("disabled", true);
@@ -162,33 +150,28 @@
 
     function addInterfaceOpts(i) {
       $("#interface_setting_table > tbody:last-child").append(
-        '<tr class="table_row_content"><td>' +
-          SwitchPortNames[i - 1] +
-          "</td>" +
-          '<td><input id="ifname' +
-          i +
-          '" type="text" style="width: 98%"></td>' +
-          '<td><select id="up' +
-          i +
-          '" style="width: 98%"><option value=true>enabled</option><option value=false>disabled</option></select></td>' +
-          '<td><select id="autoneg' +
-          i +
-          '" style="width: 98%" onchange="chnageAutoNeg(' +
-          i +
-          ');" ><option value=true>enabled</option><option value=false>disabled</option></select></td>' +
-          '<td><select id="speed' +
-          i +
-          '" style="width: 98%"><option value=10>10</option><option value=100>100</option></select></td>' +
-          '<td><select id="duplex' +
-          i +
-          '" style="width: 98%"><option value=true>full</option><option value=false>half</option></select></td>' +
-          '<td><select id="mdi' +
-          i +
-          '" style="width: 98%"><option value="auto">auto</option><option value="mdi">MDI</option><option value="mdix">MDI-X</option></select></td>' +
-          '<td><input type="checkbox" id="diga' +
-          i +
-          '"></td>' +
-          "</tr>"
+        `<tr class="table_row_content"><td>${SwitchPortNames[i - 1]}</td>` +
+          `<td><input id="ifname${i}" type="text" style="width: 98%" ${
+            window.userLevel === 1 ? "disabled" : ""
+          }></td>` +
+          `<td><select id="up${i}" style="width: 98%" ${
+            window.userLevel === 1 ? "disabled" : ""
+          }><option value=true>enabled</option><option value=false>disabled</option></select></td>` +
+          `<td><select id="autoneg${i}" style="width: 98%" onchange="chnageAutoNeg(${i});" ${
+            window.userLevel === 1 ? "disabled" : ""
+          }><option value=true>enabled</option><option value=false>disabled</option></select></td>` +
+          `<td><select id="speed${i}" style="width: 98%" ${
+            window.userLevel === 1 ? "disabled" : ""
+          }><option value=10>10</option><option value=100>100</option></select></td>` +
+          `<td><select id="duplex${i}" style="width: 98%" ${
+            window.userLevel === 1 ? "disabled" : ""
+          }><option value=true>full</option><option value=false>half</option></select></td>` +
+          `<td><select id="mdi${i}" style="width: 98%" ${
+            window.userLevel === 1 ? "disabled" : ""
+          }><option value="auto">auto</option><option value="mdi">MDI</option><option value="mdix">MDI-X</option></select></td>` +
+          `<td><input type="checkbox" id="diga${i}" ${
+            window.userLevel === 1 ? "disabled" : ""
+          }></td></tr>`
       );
     }
 
@@ -217,12 +200,6 @@
         }
       );
     }
-
-    // Initialize page and apply readonly restrictions
-    $(document).ready(function () {
-      // Apply readonly restrictions for level 1 users
-      applyReadOnlyRestrictions();
-    });
   </script>
   <body
     style="
@@ -276,11 +253,24 @@
               </tr>
               <tr class="table_row_content">
                 <td><label for="bsp">Broadcast Storm Protection</label></td>
-                <td align="center"><input id="bsp" type="checkbox" /></td>
+                <td align="center">
+                  <input
+                    id="bsp"
+                    type="checkbox"
+                    class="input-admin-only"
+                    disabled
+                  />
+                </td>
               </tr>
             </table>
           </div>
-          <input type="button" id="SetBsp" value="Set General Configuration" />
+          <input
+            type="button"
+            id="SetBsp"
+            value="Set General Configuration"
+            class="btn-admin-only"
+            style="display: none"
+          />
         </div>
 
         <div class="box2" style="width: calc(100% - 20px); height: 45%">
@@ -310,7 +300,8 @@
               type="button"
               id="set_trigger"
               value="Set Port Configuration"
-              class="btn"
+              class="btn btn-admin-only"
+              style="display: none"
             />
           </div>
         </div>

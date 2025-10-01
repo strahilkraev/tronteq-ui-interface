@@ -91,22 +91,33 @@
     function createLLDInterfacePara() {
       for (var j = 0; j < NumberSwitchPorts; j++) {
         var i = Order[j] + 1;
+        // $("#table_config > tbody:last-child").append(
+        //   '<tr class="table_row_content"><td>' +
+        //     SwitchPortNames[i - 1] +
+        //     "</td>" +
+        //     '<td><select id="lldpState' +
+        //     i +
+        //     '" style="width: 100%;">' +
+        //     '<option value="false">receive only</option>' +
+        //     '<option value="true">receive & transmit</option>' +
+        //     "</select></td></tr>"
+        // );
         $("#table_config > tbody:last-child").append(
-          '<tr class="table_row_content"><td>' +
-            SwitchPortNames[i - 1] +
-            "</td>" +
-            '<td><select id="lldpState' +
-            i +
-            '" style="width: 100%;">' +
-            '<option value="false">receive only</option>' +
-            '<option value="true">receive & transmit</option>' +
-            "</select></td></tr>"
+          `<tr class="table_row_content"><td>${SwitchPortNames[i - 1]}</td>` +
+            `<td><select id="lldpState${i}" style="width: 100%;" ${
+              window.userLevel === 1 ? "disabled" : ""
+            }>` +
+            `<option value="false">receive only</option>` +
+            `<option value="true">receive & transmit</option>` +
+            `</select></td></tr>`
         );
       }
     }
 
     $(document).ready(function () {
-      setupPortInfo(setupDone);
+      applyAdminRestrictions(function () {
+        setupPortInfo(setupDone);
+      });
     });
 
     function setupDone() {
@@ -161,22 +172,7 @@
         GetNeighborsData
       );
 
-      // //set username
-      // var cookies = document.cookie.split("; ");
-      // var found = false;
-      // for (var i in cookies) {
-      //   if (cookies[i].split("=")[0].match("user")) {
-      //     $("#username").text(cookies[i].split("=")[1]);
-      //     found = true;
-      //   }
-      // }
-
-      // if (!found)
-      //   window.top.location.href =
-      //     window.top.location.protocol +
-      //     "//" +
-      //     window.top.location.host +
-      //     "/login.html";
+      requireLogin();
     }
   </script>
   <body
@@ -201,7 +197,13 @@
               <td>Setting</td>
             </tr>
           </table>
-          <input type="button" value="Set" id="set_trigger" />
+          <input
+            type="button"
+            value="Set"
+            id="set_trigger"
+            class="btn-admin-only"
+            style="display: none"
+          />
         </div>
       </div>
 
@@ -221,7 +223,13 @@
               <td>Age</td>
             </tr>
           </table>
-          <input type="button" value="Refresh" id="GetNeighbors" />
+          <input
+            type="button"
+            value="Refresh"
+            id="GetNeighbors"
+            class="btn-admin-only"
+            style="display: none"
+          />
         </div>
       </div>
     </div>

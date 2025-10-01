@@ -32,12 +32,12 @@
           );
           $("#ch_" + SwitchPortNames[Order[j]] + "_" + num).prop(
             "disabled",
-            false
+            window.userLevel === 0 ? false : true
           );
         } else {
           var dis = $("[id^=ch_" + SwitchPortNames[Order[j]] + "_]").prop(
             "disabled",
-            false
+            window.userLevel === 0 ? false : true
           );
         }
       }
@@ -52,7 +52,7 @@
         if (cnt_active >= 8) {
           for (i = 0; i < sels.length; i++) {
             if (sels[i].checked) {
-              sels[i].disabled = false;
+              sels[i].disabled = window.userLevel === 0 ? false : true;
             } else {
               sels[i].disabled = true;
             }
@@ -96,6 +96,7 @@
           ch_i.type = "checkbox";
           ch_i.id = "ch_" + SwitchPortNames[Order[i]] + "_" + bond;
           ch_i.checked = false;
+          ch_i.disabled = window.userLevel === 1;
 
           for (var k of data[bond].lower_interfaces) {
             if (k == SwitchPortNames[Order[i]]) {
@@ -141,7 +142,9 @@
     }
 
     $(document).ready(function () {
-      setupPortInfo(setupDone);
+      applyAdminRestrictions(function () {
+        setupPortInfo(setupDone);
+      });
     });
 
     function setupDone() {
@@ -178,7 +181,13 @@
         <div class="box_content">
           <table style="font-size: 80%; width: 100%" id="bonds_table"></table>
         </div>
-        <input type="button" value="Set" id="setBonds" />
+        <input
+          type="button"
+          value="Set"
+          id="setBonds"
+          class="btn btn-admin-only"
+          style="display: none"
+        />
       </div>
     </div>
   </body>

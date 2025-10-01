@@ -10,7 +10,7 @@
   <script type="text/javascript">
     function updateDisable() {
       var dis = $("[id^=ch_d_]");
-      var disable = false;
+      var disable = window.userLevel === 1 ? true : false;
       var num = "-1";
       for (var i = 0; i < dis.length; i++) {
         if (dis[i].checked) {
@@ -53,14 +53,17 @@
         var ch_i = document.createElement("input");
         ch_i.type = "checkbox";
         ch_i.id = "ch_i_" + (Order[i] + 1);
+        ch_i.disabled = window.userLevel === 1;
 
         var ch_o = document.createElement("input");
         ch_o.type = "checkbox";
         ch_o.id = "ch_o_" + (Order[i] + 1);
+        ch_o.disabled = window.userLevel === 1;
 
         var ch_d = document.createElement("input");
         ch_d.type = "checkbox";
         ch_d.id = "ch_d_" + (Order[i] + 1);
+        ch_d.disabled = window.userLevel === 1;
 
         t1.appendChild(ch_i);
         t2.appendChild(ch_o);
@@ -84,13 +87,25 @@
       }
 
       if (data.dest >= 0) {
-        $("[id^=ch_d_]").prop("disabled", true);
+        $("[id^=ch_d_]").prop(
+          "disabled",
+          window.userLevel === 1 ? true : false
+        );
         $("#ch_i_" + data.dest).prop("checked", false);
-        $("#ch_i_" + data.dest).prop("disabled", true);
+        $("#ch_i_" + data.dest).prop(
+          "disabled",
+          window.userLevel === 1 ? true : false
+        );
         $("#ch_o_" + data.dest).prop("checked", false);
-        $("#ch_o_" + data.dest).prop("disabled", true);
+        $("#ch_o_" + data.dest).prop(
+          "disabled",
+          window.userLevel === 1 ? true : false
+        );
         $("#ch_d_" + data.dest).prop("checked", true);
-        $("#ch_d_" + data.dest).prop("disabled", false);
+        $("#ch_d_" + data.dest).prop(
+          "disabled",
+          window.userLevel === 1 ? true : false
+        );
       }
 
       $("[id^=ch_d_]").on("change", updateDisable);
@@ -150,7 +165,9 @@
     }
 
     $(document).ready(function () {
-      setupPortInfo(setupDone);
+      applyAdminRestrictions(function () {
+        setupPortInfo(setupDone);
+      });
     });
 
     function setupDone() {
@@ -197,7 +214,13 @@
             </tr>
           </table>
         </div>
-        <input type="button" value="Set" id="setMirroring" />
+        <input
+          type="button"
+          class="button btn-admin-only"
+          style="display: none"
+          id="setMirroring"
+          value="Set"
+        />
       </div>
     </div>
   </body>

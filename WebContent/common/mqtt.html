@@ -10,58 +10,36 @@
   <script type="text/javascript" src="js/utils.js"></script>
   <script type="text/javascript">
     $(document).ready(function () {
-      $("#tls_enabled").change(function () {
-        let v = !$(this).is(":checked");
-        $("#ca_cert").prop("disabled", v);
-        $("#verify").prop("disabled", v);
-      });
-      $("#update_enabled").change(function () {
-        let v = !$(this).is(":checked");
-        $("#update_topic").prop("disabled", v);
-      });
-      $("#enable").change(function () {
-        let v = !$(this).is(":checked");
-        $("#host").prop("disabled", v);
-        $("#port").prop("disabled", v);
-        $("#username").prop("disabled", v);
-        $("#password").prop("disabled", v);
-        $("#pingreq_interval").prop("disabled", v);
-        $("#tls_enabled").prop("disabled", v);
-        $("#qos").prop("disabled", v);
-        $("#update_enabled").prop("disabled", v);
-      });
-      $.post(
-        "/api",
-        JSON.stringify({ access: "get", command: "get mqtt", service: "mqtt" })
-      ).done(function (json_obj) {
-        $("#enable").prop("checked", json_obj["enabled"]);
-        $("#tls_enabled").prop("checked", json_obj["tls"]);
-        $("#qos").val(json_obj["qos"]);
-        $("#port").val(json_obj["port"]);
-        $("#host").val(json_obj["server"]);
-        $("#client_id").val(json_obj["name"]);
-        $("#update_enabled").prop("checked", json_obj["update_enabled"]);
-        $("#update_topic").val(json_obj["update_topic"]);
-        $("#status").html(json_obj["s"]);
-        $("#status").css(
-          "color",
-          json_obj["s"] == "connected" ||
-            json_obj["s"] == "disabled" ||
-            json_obj["s"] == "updating"
-            ? "green"
-            : "red"
-        );
-        $("#username").val(json_obj["username"]);
-        $("#password").val(json_obj["password"]);
-        $("#ca_cert").val(json_obj["ca_cert"]);
-        $("#pingreq_interval").val(json_obj["pingreq_interval"]);
-        $("#verify").prop("checked", json_obj["verify"]);
-        $("#enable").trigger("change");
-        $("#tls_enabled").trigger("change");
-        $("#update_enabled").trigger("change");
-      });
-
-      $("#set_values").click(function () {
+      applyAdminRestrictions(function () {
+        $("#tls_enabled").change(function () {
+          let v = !$(this).is(":checked");
+          $("#ca_cert").prop("disabled", window.userLevel === 0 ? v : true);
+          $("#verify").prop("disabled", window.userLevel === 0 ? v : true);
+        });
+        $("#update_enabled").change(function () {
+          let v = !$(this).is(":checked");
+          $("#update_topic").prop(
+            "disabled",
+            window.userLevel === 0 ? v : true
+          );
+        });
+        $("#enable").change(function () {
+          let v = !$(this).is(":checked");
+          $("#host").prop("disabled", window.userLevel === 0 ? v : true);
+          $("#port").prop("disabled", window.userLevel === 0 ? v : true);
+          $("#username").prop("disabled", window.userLevel === 0 ? v : true);
+          $("#password").prop("disabled", window.userLevel === 0 ? v : true);
+          $("#pingreq_interval").prop(
+            "disabled",
+            window.userLevel === 0 ? v : true
+          );
+          $("#tls_enabled").prop("disabled", window.userLevel === 0 ? v : true);
+          $("#qos").prop("disabled", window.userLevel === 0 ? v : true);
+          $("#update_enabled").prop(
+            "disabled",
+            window.userLevel === 0 ? v : true
+          );
+        });
         $.post(
           "/api",
           JSON.stringify({
@@ -70,55 +48,92 @@
             service: "mqtt",
           })
         ).done(function (json_obj) {
-          json_obj["enabled"] = $("#enable").prop("checked");
-          json_obj["tls"] = $("#tls_enabled").prop("checked");
-          json_obj["qos"] = Number($("#qos").val());
-          json_obj["port"] = Number($("#port").val());
-          json_obj["server"] = $("#host").val();
-          json_obj["update_enabled"] = $("#update_enabled").prop("checked");
-          json_obj["update_topic"] = $("#update_topic").val();
-          json_obj["username"] = $("#username").val();
-          json_obj["password"] = $("#password").val();
-          json_obj["pingreq_interval"] = Number($("#pingreq_interval").val());
-          json_obj["verify"] = $("#verify").prop("checked");
-          if (document.getElementById("ca_cert").files.length == 0) {
-            json_obj["ca_cert"] = "";
-          } else if (document.getElementById("ca_cert").files.length > 1) {
-            alert("Please select only one CA certificate file.");
-            return;
-          } else {
-            var file = document.getElementById("ca_cert").files[0];
-            if (file) {
-              var reader = new FileReader();
-              reader.onload = function (e) {
-                json_obj["ca_cert"] = e.target.result;
-                $.post(
-                  "/api",
-                  JSON.stringify({
-                    parameters: json_obj,
-                    service: "mqtt",
-                    access: "set",
-                    command: "set mqtt",
-                  })
-                );
-              };
-              reader.readAsText(file);
-              return;
-            } else if (json_obj["tls"]) {
-              alert("Please select a CA certificate file.");
-              return;
-            }
-            json_obj["ca_cert"] = reader.result;
-          }
+          $("#enable").prop("checked", json_obj["enabled"]);
+          $("#tls_enabled").prop("checked", json_obj["tls"]);
+          $("#qos").val(json_obj["qos"]);
+          $("#port").val(json_obj["port"]);
+          $("#host").val(json_obj["server"]);
+          $("#client_id").val(json_obj["name"]);
+          $("#update_enabled").prop("checked", json_obj["update_enabled"]);
+          $("#update_topic").val(json_obj["update_topic"]);
+          $("#status").html(json_obj["s"]);
+          $("#status").css(
+            "color",
+            json_obj["s"] == "connected" ||
+              json_obj["s"] == "disabled" ||
+              json_obj["s"] == "updating"
+              ? "green"
+              : "red"
+          );
+          $("#username").val(json_obj["username"]);
+          $("#password").val(json_obj["password"]);
+          $("#ca_cert").val(json_obj["ca_cert"]);
+          $("#pingreq_interval").val(json_obj["pingreq_interval"]);
+          $("#verify").prop("checked", json_obj["verify"]);
+          $("#enable").trigger("change");
+          $("#tls_enabled").trigger("change");
+          $("#update_enabled").trigger("change");
+        });
+
+        $("#set_values").click(function () {
           $.post(
             "/api",
             JSON.stringify({
-              parameters: json_obj,
+              access: "get",
+              command: "get mqtt",
               service: "mqtt",
-              access: "set",
-              command: "set mqtt",
             })
-          );
+          ).done(function (json_obj) {
+            json_obj["enabled"] = $("#enable").prop("checked");
+            json_obj["tls"] = $("#tls_enabled").prop("checked");
+            json_obj["qos"] = Number($("#qos").val());
+            json_obj["port"] = Number($("#port").val());
+            json_obj["server"] = $("#host").val();
+            json_obj["update_enabled"] = $("#update_enabled").prop("checked");
+            json_obj["update_topic"] = $("#update_topic").val();
+            json_obj["username"] = $("#username").val();
+            json_obj["password"] = $("#password").val();
+            json_obj["pingreq_interval"] = Number($("#pingreq_interval").val());
+            json_obj["verify"] = $("#verify").prop("checked");
+            if (document.getElementById("ca_cert").files.length == 0) {
+              json_obj["ca_cert"] = "";
+            } else if (document.getElementById("ca_cert").files.length > 1) {
+              alert("Please select only one CA certificate file.");
+              return;
+            } else {
+              var file = document.getElementById("ca_cert").files[0];
+              if (file) {
+                var reader = new FileReader();
+                reader.onload = function (e) {
+                  json_obj["ca_cert"] = e.target.result;
+                  $.post(
+                    "/api",
+                    JSON.stringify({
+                      parameters: json_obj,
+                      service: "mqtt",
+                      access: "set",
+                      command: "set mqtt",
+                    })
+                  );
+                };
+                reader.readAsText(file);
+                return;
+              } else if (json_obj["tls"]) {
+                alert("Please select a CA certificate file.");
+                return;
+              }
+              json_obj["ca_cert"] = reader.result;
+            }
+            $.post(
+              "/api",
+              JSON.stringify({
+                parameters: json_obj,
+                service: "mqtt",
+                access: "set",
+                command: "set mqtt",
+              })
+            );
+          });
         });
       });
     });
@@ -155,7 +170,14 @@
                   >Enable MQTT client, must set at least hostname</span
                 >
               </td>
-              <td><input type="checkbox" id="enable" /></td>
+              <td>
+                <input
+                  type="checkbox"
+                  id="enable"
+                  disabled
+                  class="input-admin-only"
+                />
+              </td>
             </tr>
             <tr class="table_row_content tooltip">
               <td>
@@ -165,7 +187,13 @@
                 >
               </td>
               <td>
-                <input type="text" id="host" placeholder="server.local" />
+                <input
+                  type="text"
+                  id="host"
+                  placeholder="server.local"
+                  disabled
+                  class="input-admin-only"
+                />
               </td>
             </tr>
             <tr class="table_row_content tooltip">
@@ -173,7 +201,15 @@
                 <label for="port">Broker port</label>
                 <span class="tooltiptext">Port of the broker</span>
               </td>
-              <td><input type="number" id="port" placeholder="1883" /></td>
+              <td>
+                <input
+                  type="number"
+                  id="port"
+                  placeholder="1883"
+                  disabled
+                  class="input-admin-only"
+                />
+              </td>
             </tr>
             <tr class="table_row_content tooltip">
               <td>
@@ -185,7 +221,8 @@
                   type="text"
                   id="client_id"
                   placeholder="roqstar"
-                  disabled="true"
+                  disabled
+                  class="input-admin-only"
                 />
               </td>
             </tr>
@@ -196,7 +233,14 @@
                   >Username for broker authentication</span
                 >
               </td>
-              <td><input type="text" id="username" /></td>
+              <td>
+                <input
+                  type="text"
+                  id="username"
+                  disabled
+                  class="input-admin-only"
+                />
+              </td>
             </tr>
             <tr class="table_row_content tooltip">
               <td>
@@ -205,7 +249,14 @@
                   >Password for broker authentication</span
                 >
               </td>
-              <td><input type="password" id="password" /></td>
+              <td>
+                <input
+                  type="password"
+                  id="password"
+                  disabled
+                  class="input-admin-only"
+                />
+              </td>
             </tr>
             <tr class="table_row_content tooltip">
               <td>
@@ -215,7 +266,14 @@
                   is enabled, authentication</span
                 >
               </td>
-              <td><input type="checkbox" id="tls_enabled" /></td>
+              <td>
+                <input
+                  type="checkbox"
+                  id="tls_enabled"
+                  disabled
+                  class="input-admin-only"
+                />
+              </td>
             </tr>
             <tr class="table_row_content tooltip">
               <td>
@@ -225,7 +283,13 @@
                 >
               </td>
               <td>
-                <input type="file" id="ca_cert" accept=".pem, .crt, .cer" />
+                <input
+                  type="file"
+                  id="ca_cert"
+                  accept=".pem, .crt, .cer"
+                  disabled
+                  class="input-admin-only"
+                />
               </td>
             </tr>
             <tr class="table_row_content tooltip">
@@ -235,7 +299,14 @@
                   >Verify hostname with ip addresses given by SAN/CN</span
                 >
               </td>
-              <td><input type="checkbox" id="verify" /></td>
+              <td>
+                <input
+                  type="checkbox"
+                  id="verify"
+                  disabled
+                  class="input-admin-only"
+                />
+              </td>
             </tr>
             <tr class="table_row_content tooltip">
               <td>
@@ -247,7 +318,15 @@
                 >
               </td>
               <td>
-                <input type="number" id="qos" value="1" min="0" max="2" />
+                <input
+                  type="number"
+                  id="qos"
+                  value="1"
+                  min="0"
+                  max="2"
+                  disabled
+                  class="input-admin-only"
+                />
               </td>
             </tr>
             <tr class="table_row_content tooltip">
@@ -267,6 +346,8 @@
                   value="120"
                   min="1"
                   max="3600"
+                  disabled
+                  class="input-admin-only"
                 />
               </td>
             </tr>
@@ -276,7 +357,8 @@
           type="button"
           id="set_values"
           value="Set Mqtt Configuration"
-          class="btn"
+          class="btn-admin-only"
+          style="display: none"
         />
       </div>
       <div class="box2" style="width: calc(30% - 20px)">
@@ -297,7 +379,14 @@
                   >Enable update topic subscription</span
                 >
               </td>
-              <td><input type="checkbox" id="update_enabled" /></td>
+              <td>
+                <input
+                  type="checkbox"
+                  id="update_enabled"
+                  disabled
+                  class="input-admin-only"
+                />
+              </td>
             </tr>
             <tr class="table_row_content tooltip">
               <td>
@@ -309,6 +398,8 @@
                   type="text"
                   id="update_topic"
                   placeholder="roqstar/update"
+                  disabled
+                  class="input-admin-only"
                 />
               </td>
             </tr>

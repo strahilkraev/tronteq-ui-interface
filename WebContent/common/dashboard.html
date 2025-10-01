@@ -11,8 +11,10 @@
     var poecfg;
 
     $(document).ready(function () {
-      genPoERows();
-      setupPortInfo(setupDone);
+      applyAdminRestrictions(function () {
+        genPoERows();
+        setupPortInfo(setupDone);
+      });
     });
 
     function setupDone() {

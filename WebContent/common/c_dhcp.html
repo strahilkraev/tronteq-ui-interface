@@ -59,24 +59,10 @@
           $("#infoline").text(a1.responseJSON.msg);
       });
 
-      reloadDhcp();
-
-      //set username
-      var cookies = document.cookie.split("; ");
-      var found = false;
-      for (var i in cookies) {
-        if (cookies[i].split("=")[0].match("user")) {
-          $("#username").text(cookies[i].split("=")[1]);
-          found = true;
-        }
-      }
-
-      if (!found)
-        window.top.location.href =
-          window.top.location.protocol +
-          "//" +
-          window.top.location.host +
-          "/login.html";
+      applyAdminRestrictions(function () {
+        reloadDhcp();
+      });
+      requireLogin();
     });
 
     function escapeHtml(unsafe) {
@@ -371,12 +357,12 @@
         $.post("/api", JSON.stringify(subnetsCmd), jsonProcessSubnets);
       }
       /* else if (sid in window.dhcpSubnets.add)
-				{
-					delete window.dhcpSubnets.add[sid];
+    {
+    	delete window.dhcpSubnets.add[sid];
 
-					// redraw the subnets table
-					renderDhcpSubnetTable();
-				} */
+    	// redraw the subnets table
+    	renderDhcpSubnetTable();
+    } */
     }
 
     /**
@@ -504,7 +490,9 @@
 
       innerHTML += '<table style="table-layout: fixed; width:285px;">';
       innerHTML +=
-        '<tr><td style="width:35%;font-weight:bold;">DHCP Active:</td><td align="center" style="width:65%;"><input type="checkbox" id="ckb_subnet_' +
+        `<tr><td style="width:35%;font-weight:bold;">DHCP Active:</td><td align="center" style="width:65%;"><input type="checkbox" ${
+          window.userLevel === 1 ? "disabled" : ""
+        } id="ckb_subnet_` +
         subnet.id +
         '_operation" onclick="subnetOperationChanged(' +
         subnet.id +
@@ -531,21 +519,27 @@
         // network and netmask fields are editable during a subnet add operation
         innerHTML +=
           "" +
-          '<tr><td style="width:35%;">Name:</td><td style="width:65%;"><input type="text" id="txt_subnet_' +
+          `<tr><td style="width:35%;">Name:</td><td style="width:65%;"><input type="text" ${
+            window.userLevel === 1 ? "disabled" : ""
+          } id="txt_subnet_` +
           subnet.id +
           '_name" value="' +
           escapeHtml(subnet.name) +
           '" minlength="3" maxlength="63" size="15" onchange="subnetNameChanged(' +
           subnet.id +
           ')"></td></tr>' +
-          '<tr><td style="width:35%;">Network:</td><td style="width:65%;"><input type="text" id="txt_subnet_' +
+          `<tr><td style="width:35%;">Network:</td><td style="width:65%;"><input type="text" ${
+            window.userLevel === 1 ? "disabled" : ""
+          } id="txt_subnet_` +
           subnet.id +
           '_network" value="' +
           subnet.network +
           '" minlength="7" maxlength="15" size="15" onchange="subnetNetworkChanged(' +
           subnet.id +
           ')"></td></tr>' +
-          '<tr><td style="width:35%;">Netmask:</td><td style="width:65%;"><input type="text" id="txt_subnet_' +
+          `<tr><td style="width:35%;">Netmask:</td><td style="width:65%;"><input type="text" ${
+            window.userLevel === 1 ? "disabled" : ""
+          } id="txt_subnet_` +
           subnet.id +
           '_netmask" value="' +
           subnet.netmask +
@@ -561,7 +555,9 @@
         subnet.role +
         "</td></tr>";
       innerHTML +=
-        '<tr><td style="width:35%;">Description:</td><td style="width:65%;"><input type="text" id="txt_subnet_' +
+        `<tr><td style="width:35%;">Description:</td><td style="width:65%;"><input type="text" ${
+          window.userLevel === 1 ? "disabled" : ""
+        } id="txt_subnet_` +
         subnet.id +
         '_description" value="' +
         escapeHtml(subnet.description) +
@@ -856,7 +852,9 @@
       cell_name.style.width = "93px";
       cell_name.innerHTML = "Netmask";
       cell_value.innerHTML =
-        '<input type="text" id="txt_subnet_' +
+        `<input type="text" ${
+          window.userLevel === 1 ? "disabled" : ""
+        } id="txt_subnet_` +
         subnet.id +
         '_params_netmask" value="' +
         params.netmask +
@@ -938,7 +936,9 @@
       cell_name.style.width = "93px";
       cell_name.innerHTML = "Gateway";
       cell_value.innerHTML =
-        '<input type="text" id="txt_subnet_' +
+        `<input type="text" ${
+          window.userLevel === 1 ? "disabled" : ""
+        } id="txt_subnet_` +
         subnet.id +
         '_params_gateway" value="' +
         params.gateway +
@@ -1021,7 +1021,9 @@
       cell_name.style.width = "93px";
       cell_name.innerHTML = "Primary DNS";
       cell_value.innerHTML =
-        '<input type="text" id="txt_subnet_' +
+        `<input type="text" ${
+          window.userLevel === 1 ? "disabled" : ""
+        } id="txt_subnet_` +
         subnet.id +
         '_params_dns0" value="' +
         params.dns0 +
@@ -1055,7 +1057,9 @@
       cell_name.style.width = "93px";
       cell_name.innerHTML = "Secondary DNS";
       cell_value.innerHTML =
-        '<input type="text" id="txt_subnet_' +
+        `<input type="text" ${
+          window.userLevel === 1 ? "disabled" : ""
+        } id="txt_subnet_` +
         subnet.id +
         '_params_dns1" value="' +
         params.dns1 +
@@ -1125,7 +1129,9 @@
       cell_name.style.width = "93px";
       cell_name.innerHTML = "Domain";
       cell_value.innerHTML =
-        '<input type="text" id="txt_subnet_' +
+        `<input type="text" ${
+          window.userLevel === 1 ? "disabled" : ""
+        } id="txt_subnet_` +
         subnet.id +
         '_params_domain" value="' +
         escapeHtml(params.domain) +
@@ -1204,7 +1210,9 @@
       cell_name.style.width = "93px";
       cell_name.innerHTML = "Lease Time";
       cell_value.innerHTML =
-        '<input type="number" id="txt_subnet_' +
+        `<input type="number" ${
+          window.userLevel === 1 ? "disabled" : ""
+        } id="txt_subnet_` +
         subnet.id +
         '_params_leasetime" value="' +
         params.leasetime +
@@ -1323,7 +1331,9 @@
       cell_value.innerHTML =
         "" +
         "<div>" +
-        '<input type="text" id="txt_subnet_' +
+        `<input type="text" ${
+          window.userLevel === 1 ? "disabled" : ""
+        } id="txt_subnet_` +
         subnet.id +
         '_params_pool_start" value="' +
         params.pool_start +
@@ -1332,7 +1342,9 @@
         ')">' +
         "</div>" +
         "<div>" +
-        '<input type="text" id="txt_subnet_' +
+        `<input type="text" ${
+          window.userLevel === 1 ? "disabled" : ""
+        } id="txt_subnet_` +
         subnet.id +
         '_params_pool_end" value="' +
         params.pool_end +
@@ -1433,6 +1445,7 @@
         var select = document.createElement("select");
         select.id = "dpd_subnet_" + subnet.id + "_params";
         select.style.width = "270px";
+        select.disabled = window.userLevel === 1;
         select.setAttribute(
           "onchange",
           "subnetParamsSelectChanged(" + subnet.id + ")"
@@ -1478,7 +1491,6 @@
           var opt = document.createElement("option");
           opt.text = "Primary DNS IP Address";
           opt.value = "3";
-
           select.appendChild(opt);
         }
 
@@ -1507,7 +1519,9 @@
       } else {
         var row = document.createElement("tr");
         var cell = document.createElement("td");
-        cell.innerHTML = '<input type="text" size="10" value="<Auto>">';
+        cell.innerHTML = `<input type="text" size="10" ${
+          window.userLevel === 1 ? "disabled" : ""
+        } value="<Auto>">`;
         row.appendChild(cell);
         tblBody.appendChild(row);
       }
@@ -1537,7 +1551,9 @@
         "" +
         '<table style="table-layout:fixed; width: 390px;">' +
         "<tr>" +
-        '<td style="width: 25px;"><input type="checkbox" id="ckb_subnet_' +
+        `<td style="width: 25px;"><input type="checkbox" ${
+          window.userLevel === 1 ? "disabled" : ""
+        } id="ckb_subnet_` +
         subnet.id +
         '_server_remote" onclick="serverRemoteChanged(' +
         subnet.id +
@@ -1550,7 +1566,9 @@
         '_server">' +
         '<td style="width: 25px;"></td>' +
         '<td align="right" style="width: 85px;">&nbsp;&nbsp;IP Address:</td>' +
-        '<td><input type="text" id="txt_subnet_' +
+        `<td><input type="text" ${
+          window.userLevel === 1 ? "disabled" : ""
+        } id="txt_subnet_` +
         subnet.id +
         '_server0" value="' +
         subnet.server0 +
@@ -1559,7 +1577,9 @@
         ')"></td>' +
         "</tr>" +
         "<tr>" +
-        '<td style="width: 25px;"><input type="checkbox" id="ckb_subnet_' +
+        `<td style="width: 25px;"><input type="checkbox" ${
+          window.userLevel === 1 ? "disabled" : ""
+        } id="ckb_subnet_` +
         subnet.id +
         '_server_local" onclick="serverLocalChanged(' +
         subnet.id +
@@ -1615,9 +1635,8 @@
         cell.querySelector(
           "#ckb_subnet_" + subnet.id + "_server_remote"
         ).checked = true;
-        cell.querySelector(
-          "#txt_subnet_" + subnet.id + "_server0"
-        ).disabled = false;
+        cell.querySelector("#txt_subnet_" + subnet.id + "_server0").disabled =
+          window.userLevel === 1 ? true : false;
 
         // local section is inactive
         cell.querySelector(
@@ -1819,7 +1838,9 @@
           '" disabled>';
       } else {
         identifier_cell.innerHTML =
-          '<input type="text" id="txt_subnet_' +
+          `<input type="text" ${
+            window.userLevel === 1 ? "disabled" : ""
+          } id="txt_subnet_` +
           subnet.id +
           "_lO82_" +
           lease.id +
@@ -1832,7 +1853,9 @@
           ')">';
       }
       ipaddr_cell.innerHTML =
-        '<input type="text" id="txt_subnet_' +
+        `<input type="text" ${
+          window.userLevel === 1 ? "disabled" : ""
+        } id="txt_subnet_` +
         subnet.id +
         "_lO82_" +
         lease.id +
@@ -1844,7 +1867,9 @@
         lease.id +
         ')">';
       cfgname_cell.innerHTML =
-        '<input type="text" id="txt_subnet_' +
+        `<input type="text" ${
+          window.userLevel === 1 ? "disabled" : ""
+        } id="txt_subnet_` +
         subnet.id +
         "_lO82_" +
         lease.id +
@@ -1857,12 +1882,12 @@
         ')">';
       state_cell.innerHTML = lease.state;
       expiry_cell.innerHTML = lease.expiry;
-      operation_cell.innerHTML =
-        '<input type="button" class="button" value="X" onClick="deleteLeaseO82(' +
+      operation_cell.innerHTML = `<input type="button" class="button" value="X" onClick="deleteLeaseO82(' +
         subnet.id +
         ", " +
         lease.id +
-        ')">';
+        ')" ${window.userLevel === 1 ? "disabled" : ""}>`;
+      (')">');
 
       row.appendChild(type_cell);
       row.appendChild(identifier_cell);
@@ -2041,7 +2066,9 @@
 
       type_cell.innerHTML = "MAC";
       identifier_cell.innerHTML =
-        '<input type="text" id="txt_subnet_' +
+        `<input type="text" ${
+          window.userLevel === 1 ? "disabled" : ""
+        } id="txt_subnet_` +
         subnet.id +
         "_lMAC_" +
         lease.id +
@@ -2053,7 +2080,9 @@
         lease.id +
         ')">';
       ipaddr_cell.innerHTML =
-        '<input type="text" id="txt_subnet_' +
+        `<input type="text" ${
+          window.userLevel === 1 ? "disabled" : ""
+        } id="txt_subnet_` +
         subnet.id +
         "_lMAC_" +
         lease.id +
@@ -2065,7 +2094,9 @@
         lease.id +
         ')">';
       cfgname_cell.innerHTML =
-        '<input type="text" id="txt_subnet_' +
+        `<input type="text" ${
+          window.userLevel === 1 ? "disabled" : ""
+        } id="txt_subnet_` +
         subnet.id +
         "_lMAC_" +
         lease.id +
@@ -2078,12 +2109,14 @@
         ')">';
       state_cell.innerHTML = lease.state;
       expiry_cell.innerHTML = lease.expiry;
-      operation_cell.innerHTML =
-        '<input type="button" class="button" value="X" onClick="deleteLeaseMAC(' +
-        subnet.id +
-        ", " +
-        lease.id +
-        ')">';
+      if (window.userLevel === 0) {
+        operation_cell.innerHTML =
+          `<input type="button" class="button" value="X" onClick="deleteLeaseMAC(` +
+          subnet.id +
+          ", " +
+          lease.id +
+          ')">';
+      }
 
       row.appendChild(type_cell);
       row.appendChild(identifier_cell);
@@ -2113,7 +2146,9 @@
 
       type_cell.innerHTML = "Dynamic";
       identifier_cell.innerHTML =
-        '<input type="text" id="txt_subnet_' +
+        `<input type="text" ${
+          window.userLevel === 1 ? "disabled" : ""
+        } id="txt_subnet_` +
         subnet.id +
         "_lDYN_" +
         lease.id +
@@ -2121,7 +2156,9 @@
         lease.remoteid +
         '" disabled>';
       ipaddr_cell.innerHTML =
-        '<input type="text" id="txt_subnet_' +
+        `<input type="text" ${
+          window.userLevel === 1 ? "disabled" : ""
+        } id="txt_subnet_` +
         subnet.id +
         "_lDYN_" +
         lease.id +
@@ -2237,11 +2274,15 @@
 
       type_cell.innerHTML = "Option 82";
       port_cell.innerHTML =
-        '<input type="text" style="width: 205px;" value="Port ' +
+        `<input type="text" ${
+          window.userLevel === 1 ? "disabled" : ""
+        } style="width: 205px;" value="Port ` +
         window.portMap[subnet.id][lease.port] +
         '" disabled>';
       identifier_cell.innerHTML =
-        '<input type="text" id="txt_subnet_' +
+        `<input type="text" ${
+          window.userLevel === 1 ? "disabled" : ""
+        } id="txt_subnet_` +
         subnet.id +
         "_lO82_" +
         lease.id +
@@ -2254,12 +2295,14 @@
         ')">';
       state_cell.innerHTML = "N/A";
       expiry_cell.innerHTML = "N/A";
-      operation_cell.innerHTML =
-        '<input type="button" class="button" value="X" onClick="deleteLeaseO82(' +
-        subnet.id +
-        ", " +
-        lease.id +
-        ')">';
+      if (window.userLevel === 0) {
+        operation_cell.innerHTML =
+          '<input type="button" class="button" value="X" onClick="deleteLeaseO82(' +
+          subnet.id +
+          ", " +
+          lease.id +
+          ')">';
+      }
 
       row.appendChild(type_cell);
       row.appendChild(port_cell);
@@ -2344,6 +2387,7 @@
         select = document.createElement("select");
         select.id = "dpd_subnet_" + subnet.id + "_lease_add";
         select.style.width = "325px";
+        select.disabled = window.userLevel === 1;
         select.setAttribute("onchange", "addLease(" + subnet.id + ")");
       } else {
         $("#dpd_subnet_" + subnet.id + "_lease_add").empty();
@@ -2856,9 +2900,10 @@
           <input
             type="button"
             id="btn_subnet_set"
-            class="button"
+            class="button btn-admin-only"
             value="Set DHCP Subnet Configuration"
             onClick="setSubnets()"
+            style="display: none"
           />
         </div>
       </div>

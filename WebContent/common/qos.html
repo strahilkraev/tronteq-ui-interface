@@ -70,6 +70,7 @@
         var t1 = tr.insertCell(1);
         var t1s = document.createElement("select");
         t1s.id = "queue_pcp_" + i;
+        t1s.disabled = window.userLevel === 1;
         addQueues(t1s);
         t1.appendChild(t1s);
       }
@@ -85,6 +86,7 @@
         var t1 = tr.insertCell(1);
         var t1s = document.createElement("select");
         t1s.id = "queue_dscp_" + i;
+        t1s.disabled = window.userLevel === 1;
         addQueues(t1s);
         t1.appendChild(t1s);
 
@@ -95,6 +97,7 @@
         var t4 = tr.insertCell(4);
         var t4s = document.createElement("select");
         t4s.id = "queue_dscp_" + (i + 16);
+        t4s.disabled = window.userLevel === 1;
         addQueues(t4s);
         t4.appendChild(t4s);
         var t5 = tr.insertCell(5);
@@ -104,6 +107,7 @@
         var t7 = tr.insertCell(7);
         var t7s = document.createElement("select");
         t7s.id = "queue_dscp_" + (i + 32);
+        t7s.disabled = window.userLevel === 1;
         addQueues(t7s);
         t7.appendChild(t7s);
 
@@ -114,6 +118,7 @@
         var t10 = tr.insertCell(10);
         var t10s = document.createElement("select");
         t10s.id = "queue_dscp_" + (i + 48);
+        t10s.disabled = window.userLevel === 1;
         addQueues(t10s);
         t10.appendChild(t10s);
       }
@@ -129,6 +134,7 @@
         var t1 = tr.insertCell(1);
         var t1s = document.createElement("select");
         t1s.id = "pcp_dscp_" + i;
+        t1s.disabled = window.userLevel === 1;
         add_options(t1s, 8);
         t1.appendChild(t1s);
 
@@ -139,6 +145,7 @@
         var t4 = tr.insertCell(4);
         var t4s = document.createElement("select");
         t4s.id = "pcp_dscp_" + (i + 16);
+        t4s.disabled = window.userLevel === 1;
         add_options(t4s, 8);
         t4.appendChild(t4s);
 
@@ -149,6 +156,7 @@
         var t7 = tr.insertCell(7);
         var t7s = document.createElement("select");
         t7s.id = "pcp_dscp_" + (i + 32);
+        t7s.disabled = window.userLevel === 1;
         add_options(t7s, 8);
         t7.appendChild(t7s);
 
@@ -159,6 +167,7 @@
         var t10 = tr.insertCell(10);
         var t10s = document.createElement("select");
         t10s.id = "pcp_dscp_" + (i + 48);
+        t10s.disabled = window.userLevel === 1;
         add_options(t10s, 8);
         t10.appendChild(t10s);
       }
@@ -178,6 +187,7 @@
 
         //t1
         var prio_c = document.createElement("select");
+        prio_c.disabled = window.userLevel === 1;
         prio_c.id = "choice_" + i;
         prio_c.style.width = "100%";
         {
@@ -207,6 +217,7 @@
         var def_q = document.createElement("select");
         def_q.id = "def_queue_" + i;
         def_q.style.width = "100%";
+        def_q.disabled = window.userLevel === 1;
         addQueues(def_q);
         t2.appendChild(def_q);
 
@@ -214,6 +225,7 @@
         var def_pcp = document.createElement("select");
         def_pcp.id = "def_pcp_" + i;
         def_pcp.style.width = "100%";
+        def_pcp.disabled = window.userLevel === 1;
         add_options(def_pcp, 8);
         t3.appendChild(def_pcp);
       }
@@ -343,7 +355,9 @@
     }
 
     $(document).ready(function () {
-      setupPortInfo(setupDone);
+      applyAdminRestrictions(function () {
+        setupPortInfo(setupDone);
+      });
     });
 
     function setupDone() {
@@ -405,6 +419,8 @@
           id="interfaces_set"
           value="Set QoS Port Settings"
           type="button"
+          class="button btn-admin-only"
+          style="display: none"
         />
       </div>
       <br />
@@ -420,7 +436,8 @@
         </div>
         <input
           type="button"
-          class="button"
+          class="button btn-admin-only"
+          style="display: none"
           id="queue_pcp_set"
           value="Set PCP -> Queue Mapping"
         />
@@ -447,7 +464,8 @@
         </div>
         <input
           type="button"
-          class="button"
+          class="button btn-admin-only"
+          style="display: none"
           id="queue_dscp_set"
           value="Set DSCP Mapping"
         />
@@ -474,7 +492,8 @@
         </div>
         <input
           type="button"
-          class="button"
+          class="button btn-admin-only"
+          style="display: none"
           id="pcp_dscp_set"
           value="Set DSCP -> PCP Mapping"
         />
