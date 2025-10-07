@@ -108,15 +108,14 @@ $(document).ajaxError(function (event, request, settings) {
     ffunc('"You do not have permission to access this page"');
     return;
   }
-  // Handle 400 - Invalid command/Command failed
-  if (request.status === 400) {
-    if (obj.error) {
-      ffunc(obj.error);
-    }
+
+  // Handle other errors
+  if (obj.msg) {
+    ffunc(obj.msg);
     return;
   }
-  // Handle other errors
-  if (obj.msg) ffunc(obj.msg);
+  ffunc(obj);
+  return;
 });
 
 // Require login

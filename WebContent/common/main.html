@@ -53,21 +53,27 @@
     }
 
     function unsavedChanges(data, status) {
-      if (data.changes) {
-        var st =
-          '<input type="button" value="Save Changes" onclick="saveChanges()" style="background-color: #ff0000; color: white; font-weight: bold; border: 2px solid #cc0000; padding: 5px 10px; border-radius: 3px;">';
-        $("#unsaved_changes")[0].innerHTML = st;
-      } else {
-        $("#unsaved_changes")[0].innerHTML = "no changes";
+      if (window.userLevel === 0) {
+        $("#unsaved_changes_label")[0].style.display = "table-cell";
+        $("#unsaved_changes")[0].style.display = "table-cell";
+        if (data.changes) {
+          var st =
+            '<input type="button" value="Save Changes" onclick="saveChanges()" style="background-color: #ff0000; color: white; font-weight: bold; border: 2px solid #cc0000; padding: 5px 5px; border-radius: 3px;">';
+          $("#unsaved_changes")[0].innerHTML = st;
+        } else {
+          $("#unsaved_changes")[0].innerHTML = "no changes";
+        }
       }
     }
 
     function checkedChanges() {
-      $.post(
-        "/api",
-        '{"service":"system","access":"get","command":"has unsaved changes","sessionKeepAlive":false}',
-        unsavedChanges
-      );
+      if (window.userLevel === 0) {
+        $.post(
+          "/api",
+          '{"service":"system","access":"get","command":"has unsaved changes","sessionKeepAlive":false}',
+          unsavedChanges
+        );
+      }
       getCfgName();
       getUptime();
       getSysInfo();
@@ -99,15 +105,15 @@
     }
 
     $(document).ready(function () {
-      setupPortInfo(setupDone);
-
-      var cookies = document.cookie.split("; ");
-      for (var i in cookies) {
-        if (cookies[i].split("=")[0].match("user")) {
-          $("#username-display").text(cookies[i].split("=")[1]);
+      applyAdminRestrictions(function () {
+        setupPortInfo(setupDone);
+        var cookies = document.cookie.split("; ");
+        for (var i in cookies) {
+          if (cookies[i].split("=")[0].match("user")) {
+            $("#username-display").text(cookies[i].split("=")[1]);
+          }
         }
-      }
-      applyAdminRestrictions();
+      });
     });
 
     function setupDone() {
@@ -320,10 +326,10 @@
                     <b>Location:</b>
                   </td>
                   <td id="system_staus_bar_location"></td>
-                  <td>
+                  <td id="unsaved_changes_label" style="display: none">
                     <b>Config changed:</b>
                   </td>
-                  <td id="unsaved_changes"></td>
+                  <td id="unsaved_changes" style="display: none"></td>
                 </tr>
                 <tr>
                   <td>
