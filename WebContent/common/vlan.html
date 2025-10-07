@@ -315,7 +315,9 @@
               var params = parseInt(e.target.id.substr(11));
               removeVid(params);
             };
-            ac.appendChild(inp);
+            if (window.userLevel === 0) {
+              ac.appendChild(inp);
+            }
             $("#c_vlan")[0].appendChild(vlan_id_row);
           }
         }

@@ -105,13 +105,13 @@ $(document).ajaxError(function (event, request, settings) {
   }
   // Handle 403 - invalid rights
   if (request.status === 403 || obj.msg === "invalid rights") {
-    ffunc(obj.msg);
+    ffunc('"You do not have permission to access this page"');
     return;
   }
   // Handle 400 - Invalid command/Command failed
   if (request.status === 400) {
     if (obj.error) {
-      ffunc("You do not have permission to access this page");
+      ffunc(obj.error);
     }
     return;
   }
