@@ -8,37 +8,14 @@
   <script type="text/javascript" src="basic_jscript.js"></script>
   <script type="text/javascript" src="js/jquery-3.7.1.min.js"></script>
   <script type="text/javascript" src="js/utils.js"></script>
+
   <script type="text/javascript">
     var iff = [];
     var iffVlan = [];
 
     var gVids = [];
 
-    function updateVisibity() {
-      if (window.userLevel === 1) {
-        return;
-      }
-      if ($("#global_setting")[0].checked) {
-        $("[id^=txt_dvid_]").prop("disabled", false);
-        $("[id^=discardTagged_]").prop("disabled", false);
-        $("[id^=discardUntagged_]").prop("disabled", false);
-        $("[id^=forceDefaultVID_]").prop("disabled", false);
-        $("#but_set_tags_all").prop("disabled", false);
-        $("#v2").css("visibility", "visible");
-      } else {
-        $("[id^=txt_dvid_]").val(0);
-        $("[id^=txt_dvid_]").prop("disabled", true);
-        $("[id^=discardTagged_]").prop("disabled", true);
-        $("[id^=discardUntagged_]").prop("disabled", true);
-        $("[id^=forceDefaultVID_]").prop("disabled", true);
-
-        $("[id^=discardTagged_]").prop("checked", false);
-        $("[id^=discardUntagged_]").prop("checked", false);
-        $("[id^=forceDefaultVID_]").prop("checked", false);
-        $("#but_set_tags_all").prop("disabled", true);
-        $("#v2").css("visibility", "collapse");
-      }
-    }
+    var gBridges = [];
 
     function ChangeGlobalSetting() {
       obj = {
@@ -62,17 +39,18 @@
         function (data, status) {
           if (data.enabled !== undefined && data.enabled == true) {
             $("#global_setting")[0].checked = true;
+            $("#vlan_div")[0].style.visibility = "";
             reloadVLANSettings();
           } else {
             $("#global_setting")[0].checked = false;
+            $("#vlan_div")[0].style.visibility = "hidden";
           }
-          updateVisibity();
         }
       );
     }
 
     function reloadVLANSettings() {
-      reloadVlanInterfaces();
+      reloadBridges();
     }
 
     function update(sel) {
@@ -82,170 +60,322 @@
         $("#txt_dvid_" + inter).prop("disabled", true);
         $("#txt_dvid_" + inter).val("0");
       } else {
-        $("#txt_dvid_" + inter).prop("disabled", false);
+        $("#txt_dvid_" + inter).prop(
+          "disabled",
+          window.userLevel === 0 ? false : true
+        );
       }
     }
 
-    function addInterfaceOpts(i) {
-      $("#vlan_table > tbody:last-child").append(
-        `<tr class="table_row_content"><td>${SwitchPortNames[i - 1]}</td>` +
-          `<td><input ${
-            window.userLevel === 1 ? "disabled" : ""
-          } id="txt_dvid_${i}" type="number" min="0" max=4094" title=" 1-4094" style="width: 60px;"></td>` +
-          `<td><input ${
-            window.userLevel === 1 ? "disabled" : ""
-          } id="discardTagged_${i}"  type="checkbox"></td>` +
-          `<td><input ${
-            window.userLevel === 1 ? "disabled" : ""
-          } id="discardUntagged_${i}"  type="checkbox"></td>` +
-          `<td><input ${
-            window.userLevel === 1 ? "disabled" : ""
-          } id="forceDefaultVID_${i}"  type="checkbox"></td>` +
-          "</tr>"
+    function reloadBridges() {
+      $.post(
+        "/api",
+        '{"service":"vlan","access":"get","command":"get bridges"}',
+        function (data, status) {
+          gBridges = data;
+          reloadVlanInterfaces();
+        }
       );
     }
 
     function reloadVlanInterfaces() {
       $.post(
         "/api",
-        '{"service":"vlan","access":"get","command":"get vlan interfaces"}',
+        '{"service":"vlan","access":"get","command":"vlan port settings"}',
         function (data, status) {
-          $("#if_vlan_mapping > tbody ").empty();
-
-          var tablehead = "";
-          iff = [];
-          iffVlan = [];
-
-          for (var i = 0; i < Order.length; i++) {
-            tablehead += "<td>" + SwitchPortNames[Order[i]] + "</td>";
+          while ($("#c_vlan")[0].childNodes.length > 0) {
+            $("#c_vlan")[0].removeChild($("#c_vlan")[0].childNodes[0]);
           }
 
-          data.forEach(function (i) {
-            iff.push(i["interface"]);
-            var dvid = parseInt(i.tags);
+          ports = getPortsSorted(Object.keys(data));
 
-            iffVlan.push(i["interface"]);
-            $("#sel_tags_" + i["interface"]).val("true");
-            $("#txt_dvid_" + i["interface"]).val(dvid.toString());
+          var ingress_row = document.createElement("tr");
+          ingress_row.className = "table_row_head";
+          ingress_cell = ingress_row.insertCell();
+          ingress_cell.colSpan = ports.length + 3;
+          ingress_cell.appendChild(document.createTextNode("Ingress"));
+          $("#c_vlan")[0].appendChild(ingress_row);
 
-            $("#discardTagged_" + i["interface"]).prop(
-              "checked",
-              i.discardtagged
-            );
-            $("#discardUntagged_" + i["interface"]).prop(
-              "checked",
-              i.discarduntagged
-            );
-            $("#forceDefaultVID_" + i["interface"]).prop(
-              "checked",
-              i.forcedefaultvid
-            );
-          });
+          /* header */
+          head_row = document.createElement("tr");
+          head_row.className = "table_row_head";
+          head_name = document.createElement("td");
+          head_name.colSpan = "2";
+          head_name.appendChild(document.createTextNode("Setting"));
+          head_row.appendChild(head_name);
 
-          $("#if_vlan_mapping  > tbody").append(
-            '<tr class="table_row_head"><td>VLAN ID</td>' + tablehead + "</tr>"
+          /* add ports */
+          for (key of ports) {
+            var td = document.createElement("td");
+            td.id = "lower_port_name_" + key;
+            td.appendChild(document.createTextNode(key));
+            head_row.appendChild(td);
+          }
+          var head_cell_action = head_row.insertCell();
+
+          $("#c_vlan")[0].appendChild(head_row);
+
+          /* default vid */
+          default_vid_row = document.createElement("tr");
+          default_vid_row.className = "table_row_content";
+          default_vid_td = document.createElement("td");
+          default_vid_td.colSpan = "2";
+          default_vid_td.appendChild(
+            document.createTextNode("Default Vlan ID")
           );
-          reloadVids();
-        }
-      );
-    }
+          default_vid_row.appendChild(default_vid_td);
+          /* add ports */
+          for (key of ports) {
+            value = data[key];
+            var td = document.createElement("td");
+            var inp = document.createElement("input");
+            inp.type = "number";
+            inp.min = "1";
+            inp.max = "4094";
+            inp.title = "1-4094";
+            inp.id = "def_vid_" + key;
+            inp.value = value.default_vlan_id;
+            if (window.userLevel !== 0) {
+              inp.disabled = true;
+            }
+            td.appendChild(inp);
+            default_vid_row.appendChild(td);
+          }
+          default_vid_row.insertCell();
+          $("#c_vlan")[0].appendChild(default_vid_row);
 
-    function addIffVlanMapRow(i) {
-      var toadd = "";
-      for (var j = 0; j < Order.length; j++) {
-        toadd +=
-          '<td><select id="sel_members_' +
-          i +
-          "_" +
-          (Order[j] + 1) +
-          '"><option value="not a member">-</option><option value="untagged">u</option><option value="tagged">t</option></select></td>';
-      }
+          /* Discard Tagged */
+          disc_tagged_row = document.createElement("tr");
+          disc_tagged_row.className = "table_row_content";
+          disc_tagged_td = document.createElement("td");
+          disc_tagged_td.colSpan = "2";
+          disc_tagged_td.appendChild(document.createTextNode("Discard Tagged"));
+          disc_tagged_row.appendChild(disc_tagged_td);
+          /* add ports */
+          for (key of ports) {
+            value = data[key];
+            var td = document.createElement("td");
+            var inp = document.createElement("input");
+            inp.type = "checkbox";
+            inp.id = "disc_tagged_" + key;
+            if (key.startsWith("Bond")) {
+              inp.disabled = true;
+              inp.checked = false;
+            } else {
+              inp.checked = value.discard_tagged;
+            }
+            if (window.userLevel !== 0) {
+              inp.disabled = true;
+            }
+            td.appendChild(inp);
+            disc_tagged_row.appendChild(td);
+          }
+          disc_tagged_row.insertCell();
+          $("#c_vlan")[0].appendChild(disc_tagged_row);
 
-      $("#if_vlan_mapping > tbody").append(
-        '<tr class="table_row_content"><td>' + i + "</td>" + toadd + "</tr>"
-      );
-    }
+          /* Discard Untagged */
+          disc_untagged_row = document.createElement("tr");
+          disc_untagged_row.className = "table_row_content";
+          disc_untagged_td = document.createElement("td");
+          disc_untagged_td.colSpan = "2";
+          disc_untagged_td.appendChild(
+            document.createTextNode("Discard Untagged")
+          );
+          disc_untagged_row.appendChild(disc_untagged_td);
+          /* add ports */
+          for (key of ports) {
+            value = data[key];
+            var td = document.createElement("td");
+            var inp = document.createElement("input");
+            inp.type = "checkbox";
+            inp.id = "disc_untagged_" + key;
+            if (key.startsWith("Bond")) {
+              inp.disabled = true;
+              inp.checked = false;
+            } else {
+              inp.checked = value.discard_untagged;
+            }
+            if (window.userLevel !== 0) {
+              inp.disabled = true;
+            }
+            td.appendChild(inp);
+            disc_untagged_row.appendChild(td);
+          }
+          disc_untagged_row.insertCell();
+          $("#c_vlan")[0].appendChild(disc_untagged_row);
 
-    function reloadVids() {
-      $.post(
-        "/api",
-        '{"service":"vlan","access":"get","command":"get vids"}',
-        function (data, status) {
-          $("#vlan_ids_table > tbody .table_row_content").remove();
-          $("#if_vlan_mapping > tbody .table_row_content").remove();
-          gVids = [];
-          data.sort(function (a, b) {
-            return a.vid - b.vid;
-          });
-          data.forEach(function (i) {
-            gVids.push(i["vid"]);
-            addIffVlanMapRow(i["vid"]);
+          /* Force Default VLAN ID  */
+          force_def_row = document.createElement("tr");
+          force_def_row.className = "table_row_content";
+          force_def_td = document.createElement("td");
+          force_def_td.colSpan = "2";
+          force_def_td.appendChild(
+            document.createTextNode("Force Default VLAN ID")
+          );
+          force_def_row.appendChild(force_def_td);
+          /* add ports */
+          for (key of ports) {
+            value = data[key];
+            var td = document.createElement("td");
+            var inp = document.createElement("input");
+            inp.type = "checkbox";
+            inp.id = "force_def_" + key;
+            if (key.startsWith("Bond")) {
+              inp.disabled = true;
+              inp.checked = false;
+            } else {
+              inp.checked = value.force_default_vlan_id;
+            }
+            if (window.userLevel !== 0) {
+              inp.disabled = true;
+            }
+            td.appendChild(inp);
+            force_def_row.appendChild(td);
+          }
+          force_def_row.insertCell();
+          $("#c_vlan")[0].appendChild(force_def_row);
 
-            var tab = $("#vlan_ids_table")[0];
-            var tr = tab.insertRow(-1);
+          var egress_row = document.createElement("tr");
+          egress_row.className = "table_row_head";
+          egress_cell = egress_row.insertCell();
+          egress_cell.colSpan = ports.length + 3;
+          egress_cell.appendChild(
+            document.createTextNode("Vlan Members and Egress Settings")
+          );
+          $("#c_vlan")[0].appendChild(egress_row);
 
-            tr.className = "table_row_content";
-            var t0 = tr.insertCell(0);
-            var t1 = tr.insertCell(1);
-            var t2 = tr.insertCell(2);
+          head_row = document.createElement("tr");
+          head_row.className = "table_row_head";
+          head_name = document.createElement("td");
+          head_name.colSpan = "2";
+          head_name.appendChild(document.createTextNode("Setting"));
+          head_row.appendChild(head_name);
 
-            t0.innerText = i["vid"];
-            t1.innerText = i["name"];
+          /* add ports */
+          for (key of ports) {
+            var td = document.createElement("td");
+            td.id = "lower_port_name_" + key;
+            td.appendChild(document.createTextNode(key));
+            head_row.appendChild(td);
+          }
+          var head_cell_action = head_row.insertCell();
+          head_cell_action.appendChild(document.createTextNode("Action"));
 
-            var bu = document.createElement("input");
-            bu.type = "button";
-            bu.id = "remove_vid_" + i["vid"];
-            bu.value = "remove";
-            bu.style.display = window.userLevel === 1 ? "none" : "block";
-            bu.onclick = function (e) {
+          $("#c_vlan")[0].appendChild(head_row);
+
+          /* All Vids */
+          for (var j = 0; j < gBridges.length; j++) {
+            var vlan_id_row = document.createElement("tr");
+            var vlan_id = gBridges[j].vlan_id;
+            vlan_id_row.className = "table_row_content";
+            vlan_id_row.appendChild(
+              document
+                .createElement("td")
+                .appendChild(document.createTextNode(vlan_id))
+            );
+            var vlan_id_name_td = document.createElement("td");
+            vlan_id_name_td.appendChild(
+              document.createTextNode(gBridges[j].name)
+            );
+            vlan_id_row.appendChild(vlan_id_name_td);
+            for (key of ports) {
+              value = data[key];
+              var td = document.createElement("td");
+              var sel = document.createElement("select");
+              sel.id = "vlan_sel_" + key + "_" + gBridges[j].vlan_id;
+              if (window.userLevel !== 0) {
+                sel.disabled = true;
+              }
+              var o1 = document.createElement("option");
+              var o2 = document.createElement("option");
+              var o3 = document.createElement("option");
+              o1.value = "untagged";
+              o1.text = "u";
+              o2.value = "tagged";
+              o2.text = "t";
+              o3.value = "-";
+              o3.text = "-";
+              sel.appendChild(o3);
+              sel.appendChild(o1);
+              sel.appendChild(o2);
+              if (vlan_id in value.vlan_map) {
+                sel.value = value.vlan_map[vlan_id];
+              } else {
+                sel.value = "-";
+              }
+              td.appendChild(sel);
+              vlan_id_row.appendChild(td);
+            }
+            var ac = vlan_id_row.insertCell();
+            var inp = document.createElement("input");
+            inp.type = "button";
+            inp.value = "remove vlan id " + gBridges[j].vlan_id;
+            inp.id = "remove_vid_" + gBridges[j].vlan_id;
+            inp.onclick = function (e) {
               var params = parseInt(e.target.id.substr(11));
               removeVid(params);
             };
-
-            t2.appendChild(bu);
-          });
-          getVidMembers();
+            ac.appendChild(inp);
+            $("#c_vlan")[0].appendChild(vlan_id_row);
+          }
         }
       );
     }
 
-    function getVidMembers() {
-      $.post(
-        "/api",
-        '{"service":"vlan","access":"get","command":"get vid members"}',
-        function (data, status) {
-          data.forEach(function (i) {
-            var id = i.vid;
-            for (var j = 0; j < i.members.length; j++) {
-              $(
-                "select[id=sel_members_" +
-                  id +
-                  "_" +
-                  i.members[j]["interface"] +
-                  "]"
-              ).val(i.members[j].egress);
-            }
-          });
+    function updateLowerPorts() {
+      ports = [];
+      fin = $("td[id^='lower_port_name_']");
+      result = {};
+      for (var i = 0; i < fin.length; i++) {
+        ports.push(fin[i].innerText);
+      }
+      // add
+      for (var i = 0; i < ports.length; i++) {
+        obj = {};
+
+        obj["default_vlan_id"] = parseInt($("#def_vid_" + ports[i]).val());
+        obj["discard_tagged"] = $("#disc_tagged_" + ports[i])[0].checked;
+        obj["discard_untagged"] = $("#disc_untagged_" + ports[i])[0].checked;
+        obj["force_default_vlan_id"] = $("#force_def_" + ports[i])[0].checked;
+
+        vlans = $("select[id^='vlan_sel_" + ports[i] + "_']");
+        vlan_map = {};
+
+        for (var j = 0; j < vlans.length; j++) {
+          if (vlans[j].value != "-") {
+            vlan_id = vlans[j].id.split("_")[3];
+            vlan_map[vlan_id] = vlans[j].value;
+          }
         }
-      );
+        obj["vlan_map"] = vlan_map;
+        result[ports[i]] = obj;
+      }
+      request = {
+        service: "vlan",
+        access: "set",
+        command: "update vlan port settings",
+        parameters: result,
+      };
+      $.post("/api", JSON.stringify(request), function (data, status) {
+        createOK(data);
+      });
     }
 
     function addVid() {
-      parms = [];
-      parms[0] = {};
-      parms[0].vid = parseInt($("#txt_vid_creation").val());
-      parms[0].name = $("#txt_name_creation").val();
+      parms = {};
+      parms.vlan_id = parseInt($("#txt_vid_creation").val());
+      parms.name = $("#txt_name_creation").val();
       $.post(
         "/api",
         JSON.stringify({
           service: "vlan",
           access: "set",
-          command: "add vids",
+          command: "add vlan id",
           parameters: parms,
         }),
         function (data, status) {
           createOK(data);
-          reloadVids();
+          reloadVLANSettings();
         }
       );
     }
@@ -253,90 +383,14 @@
     function removeVid(i) {
       $.post(
         "/api",
-        '{"service":"vlan","access":"set","command":"remove vids","parameters":[' +
+        '{"service":"vlan","access":"set","command":"remove vlan id","parameters":{"vlan_id": ' +
           i +
-          "]}",
+          "}}",
         function (data, status) {
           createOK(data);
-          reloadVids();
+          reloadVLANSettings();
         }
       );
-    }
-
-    function setVlanMembers() {
-      var obj = {
-        service: "vlan",
-        access: "set",
-        command: "set vid members",
-        parameters: [],
-      };
-
-      var sellen = 0;
-
-      for (var i = 0; i < gVids.length; i++) {
-        var vvid = { vid: gVids[i], members: [] };
-        var sels = $("select[id^=sel_members_" + gVids[i] + "_]");
-        sellen = sels.length;
-        for (var j = 0; j < sels.length; j++) {
-          var interf = Number(sels[j].id.split("_")[3]);
-          vvid.members.push({ interface: interf, egress: sels[j].value });
-        }
-        obj.parameters.push(vvid);
-      }
-
-      var warn = false;
-      for (var i = 1; i <= sellen; i++) {
-        var sels = $("select[id$=_" + i + "]");
-        var ut = false;
-        for (var j = 0; j < sels.length; j++) {
-          if (sels[j].value === "untagged") {
-            if (ut == false) ut = true;
-            else warn = true;
-          }
-        }
-      }
-
-      if (warn) {
-        if (confirm("multiple untagged vlans on one port. Continue?") == true)
-          warn = false;
-      }
-      if (!warn) {
-        $.post("/api", JSON.stringify(obj), function (data) {
-          createOK(data);
-          reloadVlanInterfaces();
-        });
-      }
-    }
-
-    function setVlanInterfaces() {
-      var inp = $("input[id^=txt_dvid_]");
-      var obj = {
-        service: "vlan",
-        access: "set",
-        command: "set vlan interfaces",
-        parameters: [],
-      };
-
-      for (var i = 0; i < inp.length; i++) {
-        var interf = Number(inp[i].id.split("_")[2]);
-        obj.parameters.push({
-          interface: interf,
-          tags: Number(inp[i].value),
-          discardtagged: $("input[id=discardTagged_" + interf + "]").is(
-            ":checked"
-          ),
-          discarduntagged: $("input[id=discardUntagged_" + interf + "]").is(
-            ":checked"
-          ),
-          forcedefaultvid: $("input[id=forceDefaultVID_" + interf + "]").is(
-            ":checked"
-          ),
-        });
-      }
-      $.post("/api", JSON.stringify(obj), function (data) {
-        createOK(data);
-        reloadVlanInterfaces();
-      });
     }
 
     $(document).ready(function () {
@@ -346,16 +400,12 @@
     });
 
     function setupDone() {
-      for (var i = 0; i < Order.length; i++) {
-        addInterfaceOpts(Order[i] + 1);
-      }
-
       getGlobalSettings();
 
       $("#AddVid").click(addVid);
-      $("#SetMembers").click(setVlanMembers);
-      $("#but_set_tags_all").click(setVlanInterfaces);
       $("#ChangeGlobalSetting").click(ChangeGlobalSetting);
+
+      $("#set_vlan_ports").click(updateLowerPorts);
     }
   </script>
   <body
@@ -388,8 +438,8 @@
               <input
                 id="global_setting"
                 type="checkbox"
-                class="input-admin-only"
                 disabled
+                class="input-admin-only"
               />
             </td>
           </tr>
@@ -398,33 +448,50 @@
           type="button"
           id="ChangeGlobalSetting"
           value="Set VLAN Status"
-          class="btn btn-admin-only"
+          class="btn-admin-only"
           style="display: none"
         />
-
-        <div id="v1" style="margin-top: 20px">
-          <a class="headline">Port VLAN Settings</a>
-          <table
-            class="table"
-            style="font-size: 80%; width: 100%; text-align: center"
-            id="vlan_table"
-          >
-            <tr class="table_row_head">
-              <td>Port</td>
-              <td>Default VLAN ID</td>
-              <td>Discard Tagged</td>
-              <td>Discard Untagged</td>
-              <td>Force Default VLAN ID</td>
-            </tr>
-          </table>
-          <input
-            type="button"
-            id="but_set_tags_all"
-            value="Set Port VLAN Settings"
-            class="btn btn-admin-only"
-            style="display: none"
-          /><br />
-        </div>
+      </div>
+      <div class="box2" style="width: calc(25% - 20px)">
+        <a class="headline">Add VLAN ID</a>
+        <table
+          class="table"
+          style="font-size: 80%; width: 100%; text-align: center"
+        >
+          <tr class="table_row_head">
+            <td>VLAN ID</td>
+            <td>Name</td>
+          </tr>
+          <tr class="table_row_content">
+            <td>
+              <input
+                id="txt_vid_creation"
+                min="1"
+                max="4094"
+                type="number"
+                title=" 1-4094"
+                style="width: 98%"
+                disabled
+                class="input-admin-only"
+              />
+            </td>
+            <td>
+              <input
+                type="text"
+                id="txt_name_creation"
+                disabled
+                class="input-admin-only"
+              />
+            </td>
+          </tr>
+        </table>
+        <input
+          type="button"
+          id="AddVid"
+          value="Add VLAN ID"
+          class="btn-admin-only"
+          style="display: none"
+        />
       </div>
       <div id="v2" style="visibility: collapse">
         <div class="box2" style="width: calc(50% - 20px)">
@@ -447,66 +514,29 @@
             type="button"
             id="SetMembers"
             value="Set Port VLAN Membership"
-            class="btn btn-admin-only"
+            class="btn-admin-only"
             style="display: none"
           />
         </div>
 
-        <div class="box2" style="width: calc(25% - 20px)">
-          <a class="headline">VLAN ID List</a>
-          <table
-            class="table"
-            style="font-size: 80%; width: 100%; text-align: center"
-            id="vlan_ids_table"
-          >
-            <tr class="table_row_head">
-              <td>VLAN ID</td>
-              <td>Name</td>
-              <td>action</td>
-            </tr>
-          </table>
-          <div style="margin-top: 20px">
-            <a class="headline">Add VLAN ID</a>
-            <table
-              class="table"
-              style="font-size: 80%; width: 100%; text-align: center"
-            >
-              <tr class="table_row_head">
-                <td>VLAN ID</td>
-                <td>Name</td>
-              </tr>
-              <tr class="table_row_content">
-                <td>
-                  <input
-                    id="txt_vid_creation"
-                    min="1"
-                    max="4094"
-                    type="number"
-                    title=" 1-4094"
-                    style="width: 98%"
-                    class="input-admin-only"
-                    disabled
-                  />
-                </td>
-                <td>
-                  <input
-                    type="text"
-                    id="txt_name_creation"
-                    class="input-admin-only"
-                    disabled
-                  />
-                </td>
-              </tr>
-            </table>
-            <input
-              type="button"
-              id="AddVid"
-              value="Add VLAN ID"
-              class="btn btn-admin-only"
-              style="display: none"
-            />
-          </div>
-        </div>
+        <div class="box2" style="width: calc(25% - 20px)"></div>
+      </div>
+      <div
+        class="box2"
+        style="width: calc(100% - 20px); visibility: hidden"
+        id="vlan_div"
+      >
+        <table
+          id="c_vlan"
+          style="font-size: 80%; width: 100%; text-align: center"
+        ></table>
+        <input
+          type="button"
+          id="set_vlan_ports"
+          value="Update Port Settings"
+          class="btn-admin-only"
+          style="display: none"
+        />
       </div>
     </div>
   </body>

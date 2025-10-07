@@ -63,27 +63,29 @@
     }
 
     $(document).ready(function () {
-      reloadLog();
-      autoRefreshFn({ fn: reloadLog });
-
-      $("#removebutton").click(function () {
-        if (confirm("This will remove the log! Are you sure?") == true) {
-          $.post(
-            "/api",
-            '{"service":"log","access":"set","command":"remove log"}',
-            function () {
-              reloadLog();
-            }
-          );
-        }
-      });
-
-      $("#reloadbutton").click(function () {
+      applyAdminRestrictions(function () {
         reloadLog();
-      });
+        autoRefreshFn({ fn: reloadLog });
 
-      $("#downloadbutton").click(function () {
-        downloadLog();
+        $("#removebutton").click(function () {
+          if (confirm("This will remove the log! Are you sure?") == true) {
+            $.post(
+              "/api",
+              '{"service":"log","access":"set","command":"remove log"}',
+              function () {
+                reloadLog();
+              }
+            );
+          }
+        });
+
+        $("#reloadbutton").click(function () {
+          reloadLog();
+        });
+
+        $("#downloadbutton").click(function () {
+          downloadLog();
+        });
       });
     });
 
@@ -216,7 +218,8 @@
             type="button"
             value="Clear Log"
             id="removebutton"
-            style="width: 98%"
+            style="width: 98%; display: none"
+            class="btn-admin-only"
           />
         </div>
       </div>

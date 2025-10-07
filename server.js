@@ -355,6 +355,9 @@ app.post("/api", async (req, res) => {
       case "mqtt":
         response = handleMqttAPI(access, command, parameters, req);
         break;
+      case "webserver":
+        response = handleWebserverAPI(access, command, parameters, req);
+        break;
       default:
         response = { error: "invalid command" };
     }
@@ -950,6 +953,45 @@ function handleMqttAPI(access, command, parameters, req) {
   return { error: "Unknown command" };
 }
 
+// Webserver API handler
+function handleWebserverAPI(access, command, parameters, req) {
+  switch (command) {
+    case "is default":
+      if (access === "get") {
+        return getCertificateInfo();
+      }
+      break;
+    case "public certificate":
+      if (access === "get") {
+        return getPublicCertificate();
+      }
+      break;
+    case "get config":
+      if (access === "get") {
+        return getWebserverConfig();
+      }
+      break;
+    case "set config":
+      if (access === "set" && parameters) {
+        return setWebserverConfig(parameters);
+      }
+      break;
+    case "upload":
+      if (access === "set" && parameters) {
+        return uploadTlsKeys(parameters);
+      }
+      break;
+    case "reset":
+      if (access === "set") {
+        return resetCertificates();
+      }
+      break;
+    default:
+      return { error: "Unknown command" };
+  }
+  return { error: "Unknown command" };
+}
+
 // Cookie helper functions
 function setCookie(res, name, value, options = {}) {
   const defaultOptions = {
@@ -1136,32 +1178,32 @@ function getBondsStatus() {
 }
 
 function getDhcpLeases() {
-  return {
-    static: [
-      {
-        ip: "192.168.1.10",
-        mac: "00:11:22:33:44:55",
-        time: "Permanent",
-      },
-      {
-        ip: "192.168.1.11",
-        mac: "00:11:22:33:44:56",
-        time: "Permanent",
-      },
-    ],
-    dynamic: [
-      {
-        ip: "192.168.1.100",
-        mac: "aa:bb:cc:dd:ee:ff",
-        time: "2h 30m",
-      },
-      {
-        ip: "192.168.1.101",
-        mac: "aa:bb:cc:dd:ee:01",
-        time: "1h 15m",
-      },
-    ],
-  };
+  return [
+    {
+      ip: "192.168.1.10",
+      type: 1, // MAC based
+      value: ["00:11:22:33:44:55"],
+      options: [],
+    },
+    {
+      ip: "192.168.1.11",
+      type: 0, // Port based
+      value: [1, 0], // VLAN ID 1, Port 0
+      options: [],
+    },
+    {
+      ip: "192.168.1.12",
+      type: 1, // MAC based
+      value: ["00:aa:bb:cc:dd:ee"],
+      options: [
+        {
+          code: 125,
+          type: 4,
+          value: ["http://192.168.1.1/files/files.tar", "config.tar"],
+        },
+      ],
+    },
+  ];
 }
 
 function getLogMessages() {
@@ -1247,10 +1289,11 @@ function getActiveLeases() {
 
 function getVids() {
   return [
-    { vid: 1, name: "Default" },
-    { vid: 10, name: "Management" },
-    { vid: 20, name: "Guest" },
-    { vid: 30, name: "IoT" },
+    { vid: 0, name: "Lan", type: "server" },
+    { vid: 1, name: "Default", type: "server" },
+    { vid: 10, name: "Management", type: "relay" },
+    { vid: 20, name: "Guest", type: "inserter" },
+    { vid: 30, name: "IoT", type: "off" },
   ];
 }
 
@@ -1327,6 +1370,7 @@ function getBridges() {
       wan: false,
       vlan_id: 0,
       vid: 1,
+      name: "Default",
       ip: "192.168.1.1",
       sm: "255.255.255.0",
       gw: "192.168.1.1",
@@ -1340,6 +1384,7 @@ function getBridges() {
       wan: true,
       vlan_id: 10,
       vid: 10,
+      name: "Management",
       ip: "192.168.10.1",
       sm: "255.255.255.0",
       gw: "192.168.10.1",
@@ -1353,6 +1398,7 @@ function getBridges() {
       wan: false,
       vlan_id: 20,
       vid: 20,
+      name: "Guest",
       ip: "192.168.20.1",
       sm: "255.255.255.0",
       gw: "192.168.20.1",
@@ -1366,21 +1412,47 @@ function getBridges() {
 }
 
 function getCurrentBridgeConfig() {
-  return {
-    bridges: getBridges(),
-    global_vlans: { enable: true },
-  };
+  return getBridges();
 }
 
 function getVlanPortSettings() {
   const portConfig = getPortConfiguration();
-  return portConfig.names.map((name, index) => ({
-    interface: index + 1,
-    name: name,
-    pvid: 1,
-    tagged: [],
-    untagged: [1],
-  }));
+  const result = {};
+
+  portConfig.names.forEach((name, index) => {
+    // Generate realistic VLAN port settings
+    const defaultVlanId = name.startsWith("G") ? 1 : 1; // Gigabit ports default to VLAN 1
+    const isBond = name.startsWith("Bond");
+
+    result[name] = {
+      default_vlan_id: defaultVlanId,
+      discard_tagged: isBond ? false : Math.random() > 0.7, // 30% chance
+      discard_untagged: isBond ? false : Math.random() > 0.8, // 20% chance
+      force_default_vlan_id: isBond ? false : Math.random() > 0.6, // 40% chance
+      vlan_map: generateVlanMap(name, defaultVlanId),
+    };
+  });
+
+  return result;
+}
+
+function generateVlanMap(portName, defaultVlanId) {
+  const vlanMap = {};
+  const bridges = getBridges();
+
+  // Add default VLAN as untagged
+  vlanMap[defaultVlanId] = "untagged";
+
+  // Add all VLAN IDs from bridges
+  bridges.forEach((bridge) => {
+    const vlanId = bridge.vlan_id;
+    if (vlanId !== defaultVlanId) {
+      // Randomly assign tagged/untagged status
+      vlanMap[vlanId] = Math.random() > 0.5 ? "tagged" : "untagged";
+    }
+  });
+
+  return vlanMap;
 }
 
 // STP helper functions
@@ -1535,143 +1607,52 @@ function setLldpInterfaces(parameters) {
 function getSubnets() {
   return [
     {
-      id: 1,
-      name: "Local Network",
-      network: "192.168.1.0",
-      netmask: "255.255.255.0",
-      role: "server",
-      oif: ["eth0", "192.168.1.1"],
-      type: "local",
-      operation: true,
-      description: "Main local network",
-      params: {
-        id: 1,
-        name: "Local Network Parameters",
-        netmask: "255.255.255.0",
-        gateway: "192.168.1.1",
-        dns0: "8.8.8.8",
-        dns1: "8.8.4.4",
-        domain: "local",
-        leasetime: 3600,
-        pool_start: "192.168.1.100",
-        pool_end: "192.168.1.200",
-      },
-      server0: "127.0.0.1",
-      leasesO82: {
-        active: [
-          {
-            id: 1,
-            port: 1,
-            name: "P1",
-            remoteid: "Port P1",
-            ip: "192.168.1.101",
-            cfgname: "Port1-Config",
-            state: "active",
-            expiry: "2024-01-01 12:00:00",
-          },
-          {
-            id: 2,
-            port: 2,
-            name: "P2",
-            remoteid: "Port P2",
-            ip: "192.168.1.102",
-            cfgname: "Port2-Config",
-            state: "active",
-            expiry: "2024-01-01 12:00:00",
-          },
-        ],
-        idle: [
-          {
-            id: 3,
-            port: 3,
-            name: "P3",
-            remoteid: "Port P3",
-            ip: "0.0.0.0",
-            cfgname: "",
-            state: "idle",
-            expiry: "N/A",
-          },
-        ],
-      },
-      leasesMAC: {
-        active: [
-          {
-            id: 1,
-            remoteid: "00:11:22:33:44:55",
-            ip: "192.168.1.150",
-            cfgname: "Server-Config",
-            state: "active",
-            expiry: "2024-01-01 12:00:00",
-          },
-        ],
-        idle: [],
-      },
-      leasesDYN: {
-        active: [
-          {
-            id: 1,
-            remoteid: "00:aa:bb:cc:dd:ee",
-            ip: "192.168.1.151",
-            state: "active",
-            expiry: "2024-01-01 11:30:00",
-          },
-          {
-            id: 2,
-            remoteid: "00:ff:ee:dd:cc:bb",
-            ip: "192.168.1.152",
-            state: "active",
-            expiry: "2024-01-01 11:45:00",
-          },
-        ],
-        idle: [],
-      },
+      ip: "192.168.1.0",
+      mask: "255.255.255.0",
+      leasetime: 3600,
+      pool_start: "192.168.1.100",
+      pool_end: "192.168.1.200",
+      options: [
+        {
+          code: 3,
+          type: 0,
+          value: ["192.168.1.1"],
+        },
+        {
+          code: 6,
+          type: 0,
+          value: ["8.8.8.8", "8.8.4.4"],
+        },
+        {
+          code: 15,
+          type: 2,
+          value: ["local"],
+        },
+      ],
     },
     {
-      id: 2,
-      name: "Remote Network",
-      network: "192.168.10.0",
-      netmask: "255.255.255.0",
-      role: "relay",
-      oif: ["eth1", "192.168.10.1"],
-      type: "remote",
-      operation: true,
-      description: "Remote network relay",
-      params: {
-        id: 2,
-        name: "Remote Network Parameters",
-        netmask: "255.255.255.0",
-        gateway: "192.168.10.1",
-        dns0: "8.8.8.8",
-        dns1: "8.8.4.4",
-        domain: "remote.local",
-        leasetime: 7200,
-        pool_start: "192.168.10.100",
-        pool_end: "192.168.10.200",
-      },
-      server0: "192.168.10.10",
-      leasesO82: {
-        active: [
-          {
-            id: 1,
-            port: 1,
-            name: "P1",
-            remoteid: "Remote-Port-1",
-            ip: "192.168.10.101",
-            cfgname: "Remote-Port1-Config",
-            state: "active",
-            expiry: "2024-01-01 12:00:00",
-          },
-        ],
-        idle: [],
-      },
-      leasesMAC: {
-        active: [],
-        idle: [],
-      },
-      leasesDYN: {
-        active: [],
-        idle: [],
-      },
+      ip: "192.168.10.0",
+      mask: "255.255.255.0",
+      leasetime: 7200,
+      pool_start: "192.168.10.100",
+      pool_end: "192.168.10.200",
+      options: [
+        {
+          code: 3,
+          type: 0,
+          value: ["192.168.10.1"],
+        },
+        {
+          code: 6,
+          type: 0,
+          value: ["8.8.8.8"],
+        },
+        {
+          code: 15,
+          type: 2,
+          value: ["remote.local"],
+        },
+      ],
     },
   ];
 }
@@ -2438,7 +2419,7 @@ function setMqttConfig(parameters) {
       name: parameters.name || "roqstar-client-001",
       username: parameters.username || "",
       password: parameters.password || "",
-      tls: parameters.tls || false,
+      webserver: parameters.webserver || false,
       ca_cert: parameters.ca_cert || "",
       verify: parameters.verify || false,
       qos: parameters.qos || 1,
@@ -2447,6 +2428,65 @@ function setMqttConfig(parameters) {
       update_topic: parameters.update_topic || "roqstar/update",
     },
     updated: new Date().toISOString(),
+  };
+}
+
+// Webserver helper functions
+function getCertificateInfo() {
+  return {
+    isDefault: true,
+  };
+}
+
+function getPublicCertificate() {
+  const certContent = `-----BEGIN CERTIFICATE-----
+MIIDXTCCAkWgAwIBAgIJAKZZ5Z5Z5Z5ZMA0GCSqGSIb3DQEBCwUAMEUxCzAJBgNV
+BAYTAkFVMRMwEQYDVQQIDApTb21lLVN0YXRlMSEwHwYDVQQKDBhJbnRlcm5ldCBX
+aWRnaXRzIFB0eSBMdGQwHhcNMjQwMTAxMDAwMDAwWhcNMjUwMTAxMDAwMDAwWjBF
+MQswCQYDVQQGEwJBVTETMBEGA1UECAwKU29tZS1TdGF0ZTEhMB8GA1UECgwYSW50
+ZXJuZXQgV2lkZ2l0cyBQdHkgTHRkMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIB
+CgKCAQEA0Z5Z5Z5Z5Z5Z5Z5Z5Z5Z5Z5Z5Z5Z5Z5Z5Z5Z5Z5Z5Z5Z5Z5Z5Z5Z5Z5Z
+5Z5Z5Z5Z5Z5Z5Z5Z5Z5Z5Z5Z5Z5Z5Z5Z5Z5Z5Z5Z5Z5Z5Z5Z5Z5Z5Z5Z5Z5Z5Z5Z
+-----END CERTIFICATE-----`;
+
+  return {
+    pubKey: [certContent],
+  };
+}
+
+function getWebserverConfig() {
+  return {
+    http: true,
+  };
+}
+
+function setWebserverConfig(parameters) {
+  if (!parameters) {
+    return { error: "Invalid parameters" };
+  }
+
+  return {
+    success: true,
+    msg: "Webserver configuration updated successfully",
+    http: parameters.http !== undefined ? parameters.http : true,
+  };
+}
+
+function uploadTlsKeys(parameters) {
+  if (!parameters || !parameters.privKey || !parameters.pubKey) {
+    return { error: "Both private and public keys are required" };
+  }
+
+  return {
+    success: true,
+    msg: "TLS certificates uploaded successfully",
+  };
+}
+
+function resetCertificates() {
+  return {
+    success: true,
+    msg: "Certificates reset to factory defaults",
   };
 }
 
