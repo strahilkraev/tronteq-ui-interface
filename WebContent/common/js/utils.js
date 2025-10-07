@@ -97,6 +97,7 @@ function applyAdminRestrictions(callback) {
 
 $(document).ajaxError(function (event, request, settings) {
   var obj = JSON.parse(request.responseText);
+
   // Handle 401 - No active Session
   if (request.status === 401 || obj.error === "No active Session") {
     window.top.location.href = "login.html";
@@ -104,7 +105,7 @@ $(document).ajaxError(function (event, request, settings) {
   }
   // Handle 403 - invalid rights
   if (request.status === 403 || obj.msg === "invalid rights") {
-    window.top.location.href = "login.html";
+    ffunc('"You do not have permission to access this page"');
     return;
   }
   // Handle 400 - Invalid command/Command failed
@@ -129,7 +130,6 @@ function requireLogin() {
       found = true;
     }
   }
-  console.log("===== ~ utils.js:181 ~ requireLogin ~ found:", found);
 
   if (!found)
     window.top.location.href =

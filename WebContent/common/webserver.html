@@ -1,0 +1,289 @@
+<meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1" />
+<html>
+  <head>
+    <link rel="stylesheet" type="text/css" href="basic_layout.css" />
+    <style type="text/css"></style>
+  </head>
+  <script type="text/javascript" src="js/jquery-3.7.1.min.js"></script>
+  <script type="text/javascript" src="basic_jscript.js"></script>
+  <script type="text/javascript" src="js/utils.js"></script>
+  <script type="text/javascript">
+    var privKeyContent = null;
+    var pubKeyContent = null;
+
+    function uploadTLSKeys() {
+      if (privKeyContent == null) {
+        return;
+      }
+      if (pubKeyContent == null) {
+        return;
+      }
+      obj = {
+        service: "webserver",
+        access: "set",
+        command: "upload",
+        parameters: {
+          privKey: privKeyContent,
+          pubKey: pubKeyContent,
+        },
+      };
+      privKeyContent = null;
+      pubKeyContent = null;
+      $.post("/api", JSON.stringify(obj), function (data, status) {});
+    }
+
+    function UpdateCertState(data, status) {
+      //if(data[""])
+      //alert(data);
+      if (data["isDefault"] == true) {
+        $("#default_cert")[0].textContent = "Factory Certificate";
+      } else {
+        $("#default_cert")[0].textContent = "User Certificate";
+      }
+    }
+
+    function downloadPublicCert(data, status) {
+      //var json = JSON.stringify(data, null, 4);
+      //alert(data["pubKey"])
+      key = [];
+      for (var i = 0; i < data["pubKey"].length; i++)
+        key.push(data["pubKey"][i]);
+
+      blob = new Blob(key, { type: "octet/stream" });
+      if (navigator.msSaveOrOpenBlob) {
+        navigator.msSaveOrOpenBlob(blob, "cert.pem");
+        return;
+      }
+      var a = document.createElement("a");
+      document.body.appendChild(a);
+      a.style = "display: none";
+      url = window.URL.createObjectURL(blob);
+      a.href = url;
+      a.download = "cert.pem";
+      a.click();
+      window.URL.revokeObjectURL(url);
+    }
+
+    function getConfig(data, status) {
+      $("#cb_http")[0].checked = data["http"];
+    }
+
+    $(document).ready(function () {
+      applyAdminRestrictions(function () {
+        $("#refresh").click(function () {
+          $.post(
+            "/api",
+            '{"service":"webserver","access":"get","command":"is default","parameters":{}}',
+            UpdateCertState
+          );
+        });
+        $("#download").click(function () {
+          $.post(
+            "/api",
+            '{"service":"webserver","access":"get","command":"public certificate","parameters":{}}',
+            downloadPublicCert
+          );
+        });
+
+        $.post(
+          "/api",
+          '{"service":"webserver","access":"get","command":"get config","parameters":{}}',
+          getConfig
+        );
+
+        $("#set_http").click(function () {
+          obj = {
+            service: "webserver",
+            access: "set",
+            command: "set config",
+            parameters: {},
+          };
+          obj["parameters"]["http"] = $("#cb_http")[0].checked;
+          $.post("/api", JSON.stringify(obj), function (data) {
+            $.post(
+              "/api",
+              '{"service":"webserver","access":"get","command":"get config","parameters":{}}',
+              getConfig
+            );
+          });
+        });
+
+        $("#uploadKeys").click(function () {
+          var privKey = $("#privKeyFile")[0].files[0];
+          if (privKey === undefined) {
+            alert("No private key selected");
+            return;
+          }
+          var pubKey = $("#pubKeyFile")[0].files[0];
+          if (pubKey === undefined) {
+            alert("No public key selected");
+            return;
+          }
+          privKeyContent = null;
+          pubKeyContent = null;
+
+          var privreader = new FileReader();
+          privreader.readAsText(privKey);
+          privreader.onloadend = function (e) {
+            if (privreader.error !== null) {
+              alert("error load private key");
+              return;
+            }
+            privKeyContent = privreader.result;
+            uploadTLSKeys();
+          };
+
+          var pubreader = new FileReader();
+          pubreader.readAsText(pubKey);
+          pubreader.onloadend = function (e) {
+            if (pubreader.error !== null) {
+              alert("error load public key");
+              return;
+            }
+            pubKeyContent = pubreader.result;
+            uploadTLSKeys();
+          };
+        });
+        $("#remove").click(function () {
+          $.post(
+            "/api",
+            '{"service":"webserver","access":"set","command":"reset","parameters":{}}',
+            function (data, status) {
+              // no response
+            }
+          );
+        });
+        $.post(
+          "/api",
+          '{"service":"webserver","access":"get","command":"is default","parameters":{}}',
+          UpdateCertState
+        );
+      });
+    });
+  </script>
+  <body
+    style="
+      height: 100%;
+      width: 100%;
+      float: left;
+      margin: 0px;
+      font-family: Verdana;
+      overflow: hidden;
+      position: absolute;
+    "
+  >
+    <div id="content" style="height: 100%; overflow: auto; width: 100%">
+      <h2 style="margin-left: 10px">Maintain &gt; Webserver</h2>
+      <div class="box2" style="width: calc(50% - 20px)">
+        <a class="headline">Webserver Settings </a>
+        <table
+          class="table"
+          style="font-size: 80%; width: 100%; text-align: center"
+          id="config_files_table"
+        >
+          <tr class="table_row_head" id="general_data_table_row_3">
+            <td>Parameter</td>
+            <td>Setting</td>
+          </tr>
+          <tr class="table_row_content">
+            <td>http active</td>
+            <td>
+              <input
+                id="cb_http"
+                value="refresh"
+                type="checkbox"
+                disabled
+                class="input-admin-only"
+              />
+            </td>
+          </tr>
+        </table>
+        <input
+          class="button"
+          id="set_http"
+          value="Set Webserver Settings"
+          type="button"
+          style="display: none"
+          class="btn-admin-only"
+        />
+      </div>
+      <div class="box2" style="width: calc(50% - 20px)">
+        <a class="headline">Certificates </a>
+        <table
+          class="table"
+          style="font-size: 80%; width: 100%; text-align: center"
+          id="config_files_table"
+        >
+          <tr class="table_row_head" id="general_data_table_row_3">
+            <td>Description</td>
+            <td>File</td>
+          </tr>
+          <tr class="table_row_content">
+            <td>Used Certificate</td>
+            <td>
+              <div>
+                <div id="default_cert" style="float: left"></div>
+                <input
+                  class="button"
+                  id="refresh"
+                  value="refresh"
+                  type="button"
+                  style="float: right; display: none"
+                  class="btn-admin-only"
+                />
+              </div>
+            </td>
+          </tr>
+          <tr class="table_row_content">
+            <td>Private Key</td>
+            <td>
+              <input
+                type="file"
+                id="privKeyFile"
+                style="width: 100%"
+                disabled
+                class="input-admin-only"
+              />
+            </td>
+          </tr>
+          <tr class="table_row_content">
+            <td>Public Certificate Chain</td>
+            <td>
+              <input
+                type="file"
+                id="pubKeyFile"
+                style="width: 100%"
+                disabled
+                class="input-admin-only"
+              />
+            </td>
+          </tr>
+        </table>
+        <input
+          class="button"
+          id="uploadKeys"
+          value="Upload &amp; Change Certificates"
+          type="button"
+          style="width: 100%; display: none"
+          class="btn-admin-only"
+        />
+        <input
+          class="button"
+          id="remove"
+          value="Remove User Certificates"
+          type="button"
+          style="width: 100%; display: none"
+          class="btn-admin-only"
+        />
+        <input
+          class="button"
+          id="download"
+          value="Download Public Certificate Chain"
+          type="button"
+          style="width: 100%; display: none"
+          class="btn-admin-only"
+        />
+      </div>
+    </div>
+  </body>
+</html>
