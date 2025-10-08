@@ -78,10 +78,14 @@
     }
 
     function createtable() {
-      var tab = document.getElementById("interface_table");
+      var tbody = document.getElementById("interface_table_body");
+
+      // Clear existing tbody content
+      tbody.innerHTML = "";
+
       for (var i = 0; i < PoEPorts; i++) {
         var j = i + 1;
-        var tr = tab.insertRow(j);
+        var tr = tbody.insertRow(-1);
         tr.id = "row" + j;
         var t0 = tr.insertCell(0);
         var t1 = tr.insertCell(1);
@@ -258,20 +262,23 @@
           style="font-size: 80%; text-align: center; width: 100%"
           id="interface_table"
         >
-          <tr class="table_row_head">
-            <td>Port</td>
-            <td>PD Name</td>
-            <td>PoE Mode</td>
-            <td>Priority</td>
-            <td>PoE Status</td>
-            <td>PD Class</td>
-            <td>Limit Class</td>
-            <td>Power Limit</td>
-            <td>Power allocated</td>
-            <td>Power Usage (W)</td>
-            <td>Voltage (V)</td>
-            <td>Current (mA)</td>
-          </tr>
+          <thead>
+            <tr class="table_row_head">
+              <td>Port</td>
+              <td>PD Name</td>
+              <td>PoE Mode</td>
+              <td>Priority</td>
+              <td>PoE Status</td>
+              <td>PD Class</td>
+              <td>Limit Class</td>
+              <td>Power Limit</td>
+              <td>Power allocated</td>
+              <td>Power Usage (W)</td>
+              <td>Voltage (V)</td>
+              <td>Current (mA)</td>
+            </tr>
+          </thead>
+          <tbody id="interface_table_body"></tbody>
         </table>
       </div>
       <br />

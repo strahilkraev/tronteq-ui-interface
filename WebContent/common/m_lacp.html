@@ -19,11 +19,14 @@
         "/api",
         '{"service":"vlan","access":"get","command":"get bonds status"}',
         function (data, status) {
-          var table = $("#bond_table")[0];
+          var tbody = $("#bond_table_body")[0];
+
+          // Clear existing tbody content
+          tbody.innerHTML = "";
 
           for (key of Object.keys(data)) {
             first = true;
-            row = table.insertRow(-1);
+            row = tbody.insertRow(-1);
             row.className = "table_row_content";
             cell_bond = row.insertCell(-1);
             cell_bond.rowSpan = Math.max(
@@ -41,7 +44,7 @@
 
             for (bond_port of Object.keys(data[key].lower_interfaces)) {
               if (!first) {
-                row = table.insertRow(-1);
+                row = tbody.insertRow(-1);
                 row.className = "table_row_content";
               } else {
                 first = false;
@@ -86,12 +89,15 @@
               style="font-size: 80%; text-align: center; width: 100%"
               id="bond_table"
             >
-              <tr class="table_row_head">
-                <td>Bond</td>
-                <td>Bond Status</td>
-                <td>Port</td>
-                <td>Port Status</td>
-              </tr>
+              <thead>
+                <tr class="table_row_head">
+                  <td>Bond</td>
+                  <td>Bond Status</td>
+                  <td>Port</td>
+                  <td>Port Status</td>
+                </tr>
+              </thead>
+              <tbody id="bond_table_body"></tbody>
             </table>
           </div>
         </div>

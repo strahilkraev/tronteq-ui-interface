@@ -19,14 +19,16 @@
         "/api",
         '{"service":"dhcp","access":"get","command":"get active leases"}',
         function (data, status) {
-          var tab = $("#lease_table")[0];
-          while (tab.rows.length > 1) tab.rows[1].remove();
+          var tbody = $("#lease_table_body")[0];
+
+          // Clear existing tbody content
+          tbody.innerHTML = "";
 
           var hasLeases = false;
 
           data["static"].forEach(function (lease) {
             hasLeases = true;
-            var tr = tab.insertRow(-1);
+            var tr = tbody.insertRow(-1);
             tr.className = "table_row_content";
 
             var t0 = tr.insertCell(0);
@@ -41,7 +43,7 @@
           });
           data["dynamic"].forEach(function (lease) {
             hasLeases = true;
-            var tr = tab.insertRow(-1);
+            var tr = tbody.insertRow(-1);
             tr.className = "table_row_content";
 
             var t0 = tr.insertCell(0);
@@ -57,7 +59,7 @@
 
           // Show message if no leases
           if (!hasLeases) {
-            var tr = tab.insertRow(-1);
+            var tr = tbody.insertRow(-1);
             tr.className = "table_row_content";
             tr.style.textAlign = "center";
 
@@ -93,12 +95,15 @@
               style="font-size: 80%; text-align: center; width: 100%"
               id="lease_table"
             >
-              <tr class="table_row_head">
-                <td>IP Address</td>
-                <td>MAC Address</td>
-                <td>Type</td>
-                <td>Leasetime &#040;s&#041;</td>
-              </tr>
+              <thead>
+                <tr class="table_row_head">
+                  <td>IP Address</td>
+                  <td>MAC Address</td>
+                  <td>Type</td>
+                  <td>Leasetime &#040;s&#041;</td>
+                </tr>
+              </thead>
+              <tbody id="lease_table_body"></tbody>
             </table>
           </div>
         </div>

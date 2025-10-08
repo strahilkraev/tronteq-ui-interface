@@ -85,6 +85,12 @@ function applyAdminRestrictions(callback) {
       menuSections.forEach(function (section) {
         section.style.display = "block";
       });
+
+      // Show all only-admin elements
+      var onlyAdminElements = document.querySelectorAll(".only-admin");
+      onlyAdminElements.forEach(function (element) {
+        element.style.display = "block";
+      });
     }
 
     // Call the callback function if provided

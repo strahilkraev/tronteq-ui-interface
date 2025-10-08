@@ -15,15 +15,17 @@
     }
 
     function getResults(data, status) {
-      //$("#tb").empty();
-      var tab = $("#traffic_table")[0];
+      var tbody = $("#traffic_table_body")[0];
+
+      // Clear existing tbody content
+      tbody.innerHTML = "";
+
       for (var k = 0; k < Order.length; k++) {
         for (var l = 0; l < data.length; l++) {
           var i = data[l];
           if (i["interface"] != Order[k] + 1) continue;
 
-          //var tr = tab.insertRow(i["interface"] + 1);
-          var tr = tab.insertRow(-1);
+          var tr = tbody.insertRow(-1);
           tr.className = "table_row_content";
           var t0 = tr.insertCell(0);
           var t1 = tr.insertCell(1);
@@ -65,7 +67,16 @@
     }
   </script>
   <body
-    style="height:100%;width:100%;float:left;margin: 0px; font-family: Verdana;height 100%; overflow: hidden; position: absolute;"
+    style="
+      height: 100%;
+      width: 100%;
+      float: left;
+      margin: 0px;
+      font-family: Verdana;
+      height: 100%;
+      overflow: hidden;
+      position: absolute;
+    "
   >
     <div id="content" style="height: 100%; overflow: auto; width: 100%">
       <h2 style="margin-left: 10px">Status &gt; Traffic</h2>
@@ -76,24 +87,27 @@
             style="font-size: 80%; text-align: center; width: 100%"
             id="traffic_table"
           >
-            <tr class="table_row_head">
-              <td colspan="1" rowspan="2">Port</td>
-              <td colspan="5">Incoming</td>
-              <td colspan="5">Outgoing</td>
-            </tr>
+            <thead>
+              <tr class="table_row_head">
+                <td colspan="1" rowspan="2">Port</td>
+                <td colspan="5">Incoming</td>
+                <td colspan="5">Outgoing</td>
+              </tr>
 
-            <tr class="table_row_head">
-              <td>Octets</td>
-              <td>Unicast Packets</td>
-              <td>Non-Unicast Packets</td>
-              <td>Discards</td>
-              <td>Errors</td>
-              <td>Octets</td>
-              <td>Unicast Packets</td>
-              <td>Non-Unicast Packets</td>
-              <td>Discards</td>
-              <td>Errors</td>
-            </tr>
+              <tr class="table_row_head">
+                <td>Octets</td>
+                <td>Unicast Packets</td>
+                <td>Non-Unicast Packets</td>
+                <td>Discards</td>
+                <td>Errors</td>
+                <td>Octets</td>
+                <td>Unicast Packets</td>
+                <td>Non-Unicast Packets</td>
+                <td>Discards</td>
+                <td>Errors</td>
+              </tr>
+            </thead>
+            <tbody id="traffic_table_body"></tbody>
           </table>
         </div>
       </div>

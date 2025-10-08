@@ -12,7 +12,7 @@
     $(document).ready(function () {
       applyAdminRestrictions(function () {
         setupPortInfo(setupDone);
-        autoRefreshFn({ fn: setupDone });
+        autoRefreshFn({ fn: getInterfacesFn });
       });
     });
 
@@ -53,7 +53,7 @@
     }
 
     function addInterfaceOpts(i) {
-      $("#interface_table > tbody:last-child").append(
+      $("#interface_table_body").append(
         '<tr class="table_row_content"><td>' +
           SwitchPortNames[i - 1] +
           "</td>" +
@@ -145,23 +145,26 @@
               style="font-size: 80%; text-align: center; width: 100%"
               id="interface_table"
             >
-              <tr class="table_row_head">
-                <td colspan="2">Port</td>
-                <td colspan="3">Status</td>
-                <td colspan="4">Configuration</td>
-                <td rowspan="2">MACs</td>
-              </tr>
-              <tr class="table_row_head">
-                <td>Port</td>
-                <td>Name</td>
-                <td>Link</td>
-                <td>Speed</td>
-                <td>Duplex</td>
-                <td>Link</td>
-                <td>Auto Negotiation</td>
-                <td>Speed</td>
-                <td>Duplex</td>
-              </tr>
+              <thead>
+                <tr class="table_row_head">
+                  <td colspan="2">Port</td>
+                  <td colspan="3">Status</td>
+                  <td colspan="4">Configuration</td>
+                  <td rowspan="2">MACs</td>
+                </tr>
+                <tr class="table_row_head">
+                  <td>Port</td>
+                  <td>Name</td>
+                  <td>Link</td>
+                  <td>Speed</td>
+                  <td>Duplex</td>
+                  <td>Link</td>
+                  <td>Auto Negotiation</td>
+                  <td>Speed</td>
+                  <td>Duplex</td>
+                </tr>
+              </thead>
+              <tbody id="interface_table_body"></tbody>
             </table>
           </div>
         </div>
